@@ -4,7 +4,7 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   server: {
-    port: 3000, // força o Vite a usar 3000
+  port: 5173, // use Vite default (5173)
     strictPort: true, // se 3000 estiver ocupada, ele vai falhar em vez de escolher outra
     host: true,
     proxy: {

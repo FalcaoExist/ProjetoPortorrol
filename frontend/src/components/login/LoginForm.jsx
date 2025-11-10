@@ -7,15 +7,17 @@ export default function LoginForm({
   onEmailChange,
   password,
   onPasswordChange,
-  loading
+  loading,
+  errors, // 1. Receba o objeto de erros completo
 }) {
   return (
     <form
+      noValidate // Desabilita a validação HTML padrão
       onSubmit={onSubmit}
       className="flex flex-col items-center justify-center w-full"
     >
       <img src={logo} alt="logo" className="mb-6 w-32 h-auto" />
-      
+
       <div className="flex flex-col justify-center w-full mb-4">
         <label
           htmlFor="email"
@@ -27,13 +29,22 @@ export default function LoginForm({
           type="email"
           name="email"
           id="email"
-          className="h-10 md:h-12 border-2 border-gray-300 rounded-lg px-4 py-2 text-sm md:text-base font-poppins focus:outline-none focus:border-primary transition-colors"
+          // 2. Adiciona classe de erro condicionalmente
+          className={`h-10 md:h-12 border-2 rounded-lg px-4 py-2 text-sm md:text-base font-poppins focus:outline-none focus:border-primary transition-colors ${
+            errors?.email ? "border-red-500" : "border-gray-300"
+          }`}
           value={email}
           onChange={onEmailChange}
           disabled={loading}
           required
           autoComplete="email"
         />
+        {/* 3. Exibe a mensagem de erro específica para o email */}
+        {errors?.email && (
+          <p className="mt-1 text-sm text-red-600 font-poppins text-center">
+            {errors.email}
+          </p>
+        )}
       </div>
 
       <div className="flex flex-col justify-center w-full mb-6">
@@ -47,13 +58,22 @@ export default function LoginForm({
           type="password"
           name="password"
           id="password"
-          className="h-10 md:h-12 border-2 border-gray-300 rounded-lg px-4 py-2 text-sm md:text-base font-poppins focus:outline-none focus:border-primary transition-colors"
+          // 2. Adiciona classe de erro condicionalmente
+          className={`h-10 md:h-12 border-2 rounded-lg px-4 py-2 text-sm md:text-base font-poppins focus:outline-none focus:border-primary transition-colors ${
+            errors?.password ? "border-red-500" : "border-gray-300"
+          }`}
           value={password}
           onChange={onPasswordChange}
           disabled={loading}
           required
           autoComplete="current-password"
         />
+        {/* 3. Exibe a mensagem de erro específica para a senha */}
+        {errors?.password && (
+          <p className="mt-1 text-sm text-red-600 font-poppins text-center">
+            {errors.password}
+          </p>
+        )}
       </div>
 
       <div className="flex justify-center w-full">

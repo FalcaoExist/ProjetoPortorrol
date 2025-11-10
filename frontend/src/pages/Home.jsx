@@ -11,7 +11,7 @@ export default function Home() {
   });
 
   useEffect(() => {
-    fetch('/api/')
+    fetch('/')
       .then((res) => {
         if (!res.ok) {
           throw new Error('Erro ao conectar: ' + res.status);

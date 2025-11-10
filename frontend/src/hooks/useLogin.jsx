@@ -1,4 +1,7 @@
 import { useState, useCallback } from "react";
+// 1. Importe sua função de validação
+// (Caminho corrigido para './' assumindo que o validador está na mesma pasta 'hooks')
+import { validateLogin } from "../services/validators/loginValidator.js";  
 
 export default function useLogin() {
   const [email, setEmail] = useState("");
@@ -17,7 +20,21 @@ export default function useLogin() {
   const submit = useCallback(
     async (e, navigate) => {
       e?.preventDefault?.();
-      setErrors({});
+      setErrors({}); // Limpa erros antigos
+
+      // 2. Execute a validação do front-end PRIMEIRO
+      const { isValid, errors: validationErrors } = validateLogin({
+        email,
+        password,
+      });
+
+      // 3. Se não for válido, defina os erros e pare a execução
+      if (!isValid) {
+        setErrors(validationErrors);
+        return; // Não continua para o fetch
+      }
+
+      // 4. Se for válido, prossiga com o login
       setLoading(true);
 
       try {
@@ -28,45 +45,38 @@ export default function useLogin() {
           body: JSON.stringify({ email, password }),
         });
 
-        // Verifica se a resposta tem conteúdo antes de fazer parse
         let data;
         const contentType = res.headers.get("content-type");
-        
+
         if (contentType && contentType.includes("application/json")) {
           const text = await res.text();
           data = text ? JSON.parse(text) : {};
         } else {
-          // Se não for JSON, trata como erro
           clearForm();
           setErrors({ form: "Erro no servidor. Resposta inválida." });
           return;
         }
 
-        // Tratamento de erros específicos
         if (!res.ok) {
-          // Limpa os campos após erro
           clearForm();
-          
           if (res.status === 403) {
-            // Usuário desativado
-            setErrors({ 
-              form: data.detail || "Este usuário está desativado. Contate o administrador." 
+            setErrors({
+              form:
+                data.detail ||
+                "Este usuário está desativado. Contate o administrador.",
             });
           } else if (res.status === 401) {
-            // Credenciais inválidas
-            setErrors({ 
-              form: data.detail || "E-mail ou senha inválidos" 
+            setErrors({
+              form: data.detail || "E-mail ou senha inválidos",
             });
           } else {
-            // Outros erros
-            setErrors({ 
-              form: data.detail || "Erro ao realizar login. Tente novamente." 
+            setErrors({
+              form: data.detail || "Erro ao realizar login. Tente novamente.",
             });
           }
           return;
         }
 
-        // Login bem-sucedido
         if (data.success && data.user) {
           localStorage.setItem("user", JSON.stringify(data.user));
           navigate("/home");
@@ -77,12 +87,13 @@ export default function useLogin() {
       } catch (err) {
         clearForm();
         console.error("Erro no login:", err);
-        
-        // Mensagem mais específica baseada no erro
+
         if (err.name === "SyntaxError") {
           setErrors({ form: "Erro no servidor. Resposta inválida." });
         } else if (err.message.includes("fetch")) {
-          setErrors({ form: "Erro ao conectar com o servidor. Verifique se o backend está rodando." });
+          setErrors({
+            form: "Erro ao conectar com o servidor. Verifique se o backend está rodando.",
+          });
         } else {
           setErrors({ form: "Erro ao conectar com o servidor" });
         }
@@ -90,7 +101,7 @@ export default function useLogin() {
         setLoading(false);
       }
     },
-    [email, password]
+    [email, password] // 'navigate' é passado como argumento, não precisa estar aqui
   );
 
   return {

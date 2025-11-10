@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
-import logo from "../assets/logo.png";
-import iby from "../assets/iby.png";
+import iby from "../assets/logoIby_maior.png";
 
 export default function Home() {
   const [isBouncing, setIsBouncing] = useState(true);
@@ -11,20 +10,26 @@ export default function Home() {
   });
 
   useEffect(() => {
-    fetch('/')
+    fetch("/")
       .then((res) => {
         if (!res.ok) {
-          throw new Error('Erro ao conectar: ' + res.status);
+          throw new Error("Erro ao conectar: " + res.status);
         }
         return res.text();
       })
       .then(() => {
-        setApiStatus({ loading: false, message: '✅ Front e Back estão integrados!' });
-        
+        setApiStatus({
+          loading: false,
+          message: "✅ Front e Back estão integrados!",
+        });
       })
       .catch((err) => {
-        console.error('Fetch error connecting to backend:', err);
-        setApiStatus({ loading: false, message: '❌ Não conseguiu conectar ao backend: ' + err.message });
+        console.error("Fetch error connecting to backend:", err);
+        setApiStatus({
+          loading: false,
+          message:
+            "❌ Não conseguiu conectar ao backend: " + err.message,
+        });
       });
   }, []);
 
@@ -38,18 +43,24 @@ export default function Home() {
   }, []);
 
   return (
-  <div className="flex flex-col items-center justify-center h-screen gap-6 text-center">
-      <div className="flex items-center justify-center gap-4">
-        <img
-          src={logo}
-          alt="Logo"
-          className={`w-60 h-60 ${isBouncing ? "animate-bounce" : ""}`}
-        />
-        <img src={iby} alt="IBy" className="h-48" />
-      </div>
+    <div className="flex flex-col items-center justify-center h-screen gap-6 text-center">
+      <img
+        src={iby}
+        alt="Logo IBy"
+        className={`w-56 sm:w-64 h-auto ${
+          isBouncing ? "animate-bounce" : ""
+        }`}
+      />
+
       <h1 className="text-2xl font-bold text-gray-800">
-        {isTimerFinished ? apiStatus.message : "Verificando conexão..."}
+        Seja bem-vindo!
       </h1>
+
+      <p className="text-lg font-bold text-gray-800">
+        {isTimerFinished
+          ? apiStatus.message
+          : "Verificando conexão..."}
+      </p>
     </div>
   );
 }

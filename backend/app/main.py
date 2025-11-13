@@ -1,10 +1,10 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, EmailStr
-from app.core.repositories import JsonUserRepository
-from app.core.hashers import BcryptHasher
-from app.core.services import AuthService
 
+from app.core.hashers import BcryptHasher
+from app.core.repositories import JsonUserRepository
+from app.core.services import AuthService
 
 app = FastAPI(title="IBy Login API (Em SOLID)")
 

@@ -1,5 +1,6 @@
 from fastapi import HTTPException, status
-from .interfaces import IUserRepository, IPasswordHasher
+
+from .interfaces import IPasswordHasher, IUserRepository
 
 
 class AuthService:

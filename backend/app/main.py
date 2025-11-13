@@ -1,10 +1,12 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, EmailStr
-from app.core.repositories import JsonUserRepository
-from app.core.hashers import BcryptHasher
-from app.core.services import AuthService
 
+from app.core.hashers import BcryptHasher
+from app.core.repositories_supabase import SupabaseUserRepository
+
+#from app.core.repositories import JsonUserRepository
+from app.core.services import AuthService
 
 app = FastAPI(title="IBy Login API (Em SOLID)")
 
@@ -29,7 +31,8 @@ class LoginResponse(BaseModel):
 
 
 # injeção de dependências
-user_repo = JsonUserRepository()
+user_repo = SupabaseUserRepository()
+#user_repo = JsonUserRepository()
 hasher = BcryptHasher()
 auth_service = AuthService(user_repo, hasher)
 
@@ -46,13 +49,13 @@ def login(data: LoginRequest):
             "email": user["email"],
             "role": user["role"],
         },
-        "message": "Login realizado com sucesso (via JSON)",
+        "message": "Login realizado com sucesso!",
     }
 
 
 @app.get("/")
 def root():
-    return {"message": "Backend rodando com banco de dados JSON!", "status": "ok"}
+    return {"message": "Backend rodando com banco de dados Supabase!", "status": "ok"}
 
 
 @app.get("/health")

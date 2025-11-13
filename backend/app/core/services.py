@@ -1,5 +1,6 @@
 from fastapi import HTTPException, status
-from .interfaces import IUserRepository, IPasswordHasher
+
+from .interfaces import IPasswordHasher, IUserRepository
 
 
 class AuthService:
@@ -15,7 +16,7 @@ class AuthService:
         if not user:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="E-mail ou senha inválidos.")
 
-        if user.get("status") != "ativo":
+        if user.get("status") != True:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Usuário desativado.")
 
         if not self.hasher.verify(password, user["password"]):

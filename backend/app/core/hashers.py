@@ -1,5 +1,7 @@
 import bcrypt
+
 from .interfaces import IPasswordHasher
+
 
 class BcryptHasher(IPasswordHasher):
     def verify(self, plain_password: str, hashed_password: str) -> bool:

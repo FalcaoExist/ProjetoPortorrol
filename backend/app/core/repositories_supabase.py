@@ -24,10 +24,17 @@ class SupabaseUserRepository(IUserRepository):
                 "id": user["user_id"],
                 "name": user["name"],
                 "email": user["email"],
-                "password": user["password_hash"],  # ou o nome da coluna real da senha
+                "password": user["password_hash"],  
                 "role": user["role"],
                 "status": user["is_active"]
             }
 
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Erro ao acessar Supabase: {e}")
+            # log interno opcional (não é enviado ao cliente)
+            print(f"[ERRO SUPABASE] {e}")
+
+            # mensagem genérica enviada ao cliente
+            raise HTTPException(
+                status_code=500,
+                detail="Ocorreu um erro inesperado. Tente novamente."
+            )

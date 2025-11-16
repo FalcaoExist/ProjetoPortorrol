@@ -37,6 +37,7 @@ export default function Navbar({
                     </React.Fragment>
 
                 ))}
+                <Link to="/logout" className="text-sm tracking-widest self-start font-poppins mt-2 ml-8 block">Sair</Link>
             </nav>
         </aside>
     );

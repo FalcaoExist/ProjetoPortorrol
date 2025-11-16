@@ -10,9 +10,10 @@ export const defaultSections = [
     ],
   },
   {
-    title: "Outros",
+    title: "Gerenciar",
     items: [
-      { to: "/settings", label: "Configurações", icon: BsChatDotsFill },
+      { to: "/list_users", label: "Comprador", icon: BsChatDotsFill },
+      { to: "/list_suppliers", label: "Fornecedores", icon: BsFileEarmarkText },
       { to: "/records", label: "Registros", icon: BsFileEarmarkText },
     ],
   },

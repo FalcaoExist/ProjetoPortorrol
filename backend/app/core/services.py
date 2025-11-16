@@ -16,6 +16,7 @@ class UserCreateRequest(BaseModel):
 # 1. AuthService (Lógica de Autenticação)
 # ================================================================
 class AuthService:
+    """
     Serviço responsável pela lógica de negócio de AUTENTICAÇÃO.
     """
 

@@ -1,14 +1,14 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, EmailStr, field_validator
-from app.core.repositories import JsonUserRepository
-from app.core.hashers import BcryptHasher
-from app.core.services import AuthService
-import uuid
 from typing import List, Optional
 
+from app.core.dependencies import get_auth_service, get_user_service
 
-app = FastAPI(title="IBy Login API (Em SOLID)")
+# Importa os SERVIÇOS (apenas para type hinting) e o modelo de request
+from app.core.services import AuthService, UserService, UserCreateRequest
+
+app = FastAPI(title="IBy Login API (SOLID e Uniformizado)")
 
 app.add_middleware(
     CORSMiddleware,
@@ -20,235 +20,110 @@ app.add_middleware(
 
 
 class LoginRequest(BaseModel):
+    """Define o que o cliente deve ENVIAR para /login."""
     email: EmailStr
     password: str
 
-
 class LoginResponse(BaseModel):
+    """Define o que a API RETORNA em /login."""
     success: bool
-    user: dict
+    user: dict # O serviço retorna um dict já formatado
     message: str
-
-# Criar novo usuario com campo obrigatório  
-class UserCreateRequest(BaseModel):
-    name: str
-    email: EmailStr     
-    password: str
-    role: str
-    supplier: List[str]
-
-    
-    @field_validator('name', 'password', 'role')
-    def validate_not_empty(cls, v, field):
-        if not v or not v.strip():
-            raise ValueError(f'{field.name} não pode estar vazio')
-        return v.strip()
-
-    @field_validator('supplier')
-    def validate_supplier(cls, v):
-        if not v or len(v) == 0:
-            raise ValueError('Deve haver ao menos um fornecedor associado')
-        return [f.strip() for f in v if f.strip()]  
+ 
+# O 'UserCreateRequest' é importado do 'services.py'
+# Define o que o cliente deve ENVIAR para /users.
     
 class UserResponse(BaseModel):
-    id: str
+    """Define o formato de um usuário completo RETORNADO pela API."""
+    user_id: str # UNIFORMIZADO
     name: str
     email: str
     role: str
     supplier: List[str]
-    active: bool
-    
+    is_active: bool # UNIFORMIZADO
+
 class UserCreateResponse(BaseModel):
+    """Define o que a API RETORNA em /users."""
     success: bool
-    user: UserResponse
+    user: UserResponse # Usa o modelo de usuário acima
     message: str        
     
-    #Listagem de usuario
 class UserListItem(BaseModel):
-    id: str
+    """Define o formato de um item na lista de usuários."""
+    user_id: str # UNIFORMIZADO
     name: str
     email: str
     role: str
-    active: bool
+    is_active: bool # UNIFORMIZADO
 
-    
 class UserListResponse(BaseModel):
+    """Define o que a API RETORNA em /users e /users/all."""
     success: bool
-    users: List[UserListItem]
+    users: List[UserListItem] # Uma lista do modelo acima
     total: int
     
-# injeção de dependências
-user_repo = JsonUserRepository()
-hasher = BcryptHasher()
-auth_service = AuthService(user_repo, hasher)
+# --- Endpoints da API  ---
 
-#endpoint de autenticação
 @app.post("/login", response_model=LoginResponse)
-def login(data: LoginRequest):
-    user = auth_service.check_credentials(data.email, data.password)
+def login(
+    data: LoginRequest,
+    # Pede ao FastAPI: "Execute 'get_auth_service' e me dê o resultado."
+    auth_service: AuthService = Depends(get_auth_service)
+):
+    """Endpoint para autenticar um usuário."""
+    # 1. Delega a lógica de negócio para o serviço
+    user_dict = auth_service.check_credentials(data.email, data.password)
 
+    # 2. Formata a resposta (o 'user_dict' já vem seguro, sem hash)
     return {
         "success": True,
-        "user": {
-            "id": user["id"],
-            "name": user["name"],
-            "email": user["email"],
-            "role": user["role"],
-        },
-        "message": "Login realizado com sucesso (via JSON)",
+        "user": user_dict, # O serviço já formatou isso
+        "message": "Login realizado com sucesso (via Supabase)",
     }
 
+@app.post("/users", response_model=UserCreateResponse, status_code=201)
+def create_user(
+    data: UserCreateRequest, # 'data' é validado pelo Pydantic
+    # Pede ao FastAPI: "Execute 'get_user_service' e me dê o resultado."
+    user_service: UserService = Depends(get_user_service)
+):
+    """Endpoint para criar um novo usuário."""
+    # 1. Delega a lógica (validar, hashear, salvar) para o serviço
+    created_user = user_service.create_new_user(data)
+    
+    # 2. Formata a resposta (o 'created_user' já vem seguro)
+    return {
+        "success": True,
+        "user": created_user, # O Pydantic valida se 'created_user' bate com 'UserResponse'
+        "message": "Usuário cadastrado com sucesso!"
+    }   
+
+@app.get("/users", response_model=UserListResponse)
+def list_users(
+    name: Optional[str] = None, 
+    email: Optional[str] = None,
+    user_service: UserService = Depends(get_user_service)
+):
+    """Endpoint para listar e filtrar usuários."""
+    # Delega toda a lógica (buscar, filtrar, formatar, remover hash)
+    return user_service.get_formatted_users(name, email)
+
+@app.get("/users/all", response_model=UserListResponse)
+def get_all_users(
+    user_service: UserService = Depends(get_user_service)
+):
+    """Endpoint para listar TODOS os usuários (reutiliza a lógica)."""
+    # Reutiliza o mesmo método de serviço (Princípio DRY)
+    return user_service.get_formatted_users()
+
+# --- Endpoints de Status ---
 
 @app.get("/")
 def root():
-    return {"message": "Backend rodando com banco de dados JSON!", "status": "ok"}
-
+    """Endpoint raiz para verificação de status."""
+    return {"message": "Backend rodando com Supabase! (SOLID)", "status": "ok"}
 
 @app.get("/health")
 def health():
+    """Endpoint de 'health check'."""
     return {"status": "healthy"}
-
-@app.post("/users", response_model=UserCreateResponse, status_code=201)
-def create_user(data: UserCreateRequest):
-    # Validar e-mail duplicado
-    try:
-        existing_users = user_repo.get_all_users()
-        email_lower = data.email.lower()
-        
-        for user in existing_users:
-            if user.get("email", "").lower() == email_lower:
-                raise HTTPException(
-                    status_code=400,
-                    detail="E-mail já cadastrado no sistema."
-                )
-    except AttributeError:
-        pass
-    
-    # Criar usuário com status ativo por padrão
-    user_id = str(uuid.uuid4())
-    password_hash = hasher.hash(data.password)    
-    new_user = {
-        "id": user_id,
-        "name": data.name,
-        "email": data.email.lower(),
-        "password": password_hash,
-        "role": data.role,
-        "supplier": data.supplier,
-        "active": True  
-    }
-    
-    # Salvar no repositório
-    try:
-        user_repo.save_user(new_user)  # ou user_repo.save_user(new_user)
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Erro ao salvar usuário: {str(e)}"
-    )
-    
-    return {
-        "success": True,
-        "user": {
-            "id": user_id,
-            "name": data.name,
-            "email": data.email.lower(),
-            "role": data.role,
-            "supplier": data.supplier,
-            "active": True
-        },
-        "message": "Usuário cadastrado com sucesso!"
-    }   
-@app.get("/users", response_model=UserListResponse)
-def list_users(name: Optional[str] = None, email: Optional[str] = None):
-    
-    try:
-        all_users = user_repo.get_all_users()        
-        filtered_users = all_users
-        
-        # Filtro por nome 
-        if name:
-            name_lower = name.lower()
-            filtered_users = [
-                u for u in filtered_users 
-                if name_lower in u.get("name", "").lower()
-            ]
-        
-        # Filtro por e-mail
-        if email:
-            email_lower = email.lower()
-            filtered_users = [
-                u for u in filtered_users 
-                if email_lower in u.get("email", "").lower()
-            ]
-        
-        # Ordenar alfabeticamente por nome
-        sorted_users = sorted(
-            filtered_users, 
-            key=lambda u: u.get("name", "").lower()
-        )
-        
-        # Formatar colunas 
-        users_list = [
-            {
-                "id": u.get("id"),
-                "name": u.get("name"),
-                "email": u.get("email"),
-                "role": u.get("role"),
-                "active": u.get("active", True)
-                }
-            for u in sorted_users
-        ]
-        
-        return {
-            "success": True,
-            "users": users_list,
-            "total": len(users_list) 
-        }
-        
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Erro ao buscar usuários: {str(e)}"
-        )
-@app.get("/users/all", response_model=UserListResponse)
-def get_all_users():
-    """
-    Endpoint para listar TODOS os usuários sem filtros
-    
-    Retorna todos os usuários cadastrados (ativos e inativos)
-    ordenados alfabeticamente por nome.
-    """
-    
-    try:
-        # Buscar todos os usuários do banco de dados
-        all_users = user_repo.get_all_users()
-        
-        # Ordenar alfabeticamente por nome
-        sorted_users = sorted(
-            all_users, 
-            key=lambda u: u.get("name", "").lower()
-        )
-        
-        # Formatar resposta
-        users_list = [
-            {
-                "id": u.get("id"),
-                "name": u.get("name"),
-                "email": u.get("email"),
-                "role": u.get("role"),
-                "active": u.get("active", True)
-            }
-            for u in sorted_users
-        ]
-        
-        return {
-            "success": True,
-            "users": users_list,
-            "total": len(users_list)
-        }
-        
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Erro ao buscar usuários: {str(e)}"
-        )

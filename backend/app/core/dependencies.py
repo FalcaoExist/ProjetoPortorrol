@@ -2,11 +2,12 @@ from fastapi import Depends
 from app.core.interfaces import IUserRepository, IPasswordHasher
 
 # Importa as implementações
-from app.core.repositories_supabase import SupabaseUserRepository
+from app.repositories.repositories_supabase import SupabaseUserRepository
 from app.core.hashers import BcryptHasher
 
 # Importa os Serviços que precisam das dependências
-from app.core.services import AuthService, UserService
+from app.services.auth_service import AuthService
+from app.services.user_service import UserService
 
 # --- Provedores de Implementação (DIP) ---
 # Esta seção "ensina" ao FastAPI como resolver as Interfaces.

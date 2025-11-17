@@ -1,9 +1,11 @@
-from fastapi import Depends
-from app.core.interfaces import IUserRepository, IPasswordHasher
+#from fastapi import Depends
+from fastapi import Depends, Header, HTTPException, status
+
+from app.core.hashers import BcryptHasher
+from app.core.interfaces import IPasswordHasher, IUserRepository
 
 # Importa as implementações
 from app.repositories.repositories_supabase import SupabaseUserRepository
-from app.core.hashers import BcryptHasher
 
 # Importa os Serviços que precisam das dependências
 from app.services.auth_service import AuthService
@@ -56,3 +58,17 @@ def get_user_service(
     Provedor que constrói e retorna uma instância do UserService.
     """
     return UserService(repo, hasher)
+
+def get_current_user(
+    x_user_id: str = Header(..., alias="X-User-Id"),
+    repo: IUserRepository = Depends(get_user_repository)
+):
+    """
+    Dependência simples para recuperar o usuário que está fazendo a requisição.
+    O cliente (frontend ou chamadas internas) deve enviar o header:
+        X-User-Id: <user_id>
+    """
+    user = repo.get_user_by_id(x_user_id)
+    if not user:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Usuário não autenticado.")
+    return user

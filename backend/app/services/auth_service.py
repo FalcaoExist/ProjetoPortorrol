@@ -1,6 +1,9 @@
+from typing import Any, Dict
+
 from fastapi import HTTPException, status
+
 from app.core.interfaces import IPasswordHasher, IUserRepository
-from typing import Dict, Any
+
 
 class AuthService:
 

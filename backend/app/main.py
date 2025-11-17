@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 # Importa o roteador principal da sua aplicação
-from app.api.router import router as api_router 
+from app.api.router import router as api_router
 
 app = FastAPI(title="IBy Backend API", version="1.0.0")
 

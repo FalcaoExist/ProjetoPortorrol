@@ -1,8 +1,12 @@
-from fastapi import HTTPException, status
-from app.core.interfaces import IPasswordHasher, IUserRepository
-from .service_models import UserCreateRequest, UserUpdateRequest
 import uuid
-from typing import List, Dict, Any, Optional
+from typing import Any, Dict, Optional
+
+from fastapi import HTTPException, status
+
+from app.core.interfaces import IPasswordHasher, IUserRepository
+
+from .service_models import UserCreateRequest, UserUpdateRequest
+
 
 class UserService:
     
@@ -125,3 +129,62 @@ class UserService:
         # Retorna o estado final e completo do utilizador,
         # que agora inclui a lista de suppliers.
         return self.get_user_by_id(user_id)
+    
+    def deactivate_user(self, target_user_id: str, performed_by_user: Dict[str, Any]) -> Dict[str, Any]:
+        # autorização: apenas gestor pode desativar
+        if performed_by_user.get("role") != "gestor":
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Ação permitida apenas para gestores.")
+
+        target = self.user_repo.get_user_by_id(target_user_id)
+        if not target:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuário alvo não encontrado.")
+
+        if target.get("role") != "comprador":
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Somente usuários com role 'comprador' podem ser desativados.")
+
+        # se já estiver desativado, apenas devolve o estado
+        if not target.get("is_active", False):
+            return self.get_user_by_id(target_user_id)
+
+        # atualiza campo is_active
+        self.user_repo.update_user(target_user_id, {"is_active": False})
+
+        # registra log de auditoria (não falha o fluxo se o insert falhar)
+        try:
+            self.user_repo.insert_audit_log(
+                performed_by=str(performed_by_user.get("user_id") or performed_by_user.get("id")),
+                action="deactivate_user",
+                entity="users",
+                entity_id=target_user_id,
+                extra={"target_role": target.get("role")}
+            )
+        except Exception:
+            pass
+
+        return self.get_user_by_id(target_user_id)
+    
+    def activate_user(self, target_user_id: str, performed_by_user: Dict[str, Any]) -> Dict[str, Any]:
+        if performed_by_user.get("role") != "gestor":
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Ação permitida apenas para gestores.")
+
+        target = self.user_repo.get_user_by_id(target_user_id)
+        if not target:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuário alvo não encontrado.")
+
+        if target.get("is_active", False):
+            return self.get_user_by_id(target_user_id)
+
+        self.user_repo.update_user(target_user_id, {"is_active": True})
+
+        try:
+            self.user_repo.insert_audit_log(
+                performed_by=str(performed_by_user.get("user_id") or performed_by_user.get("id")),
+                action="activate_user",
+                entity="users",
+                entity_id=target_user_id,
+                extra={"target_role": target.get("role")}
+            )
+        except Exception:
+            pass
+
+        return self.get_user_by_id(target_user_id)

@@ -1,6 +1,6 @@
-from pydantic import BaseModel, EmailStr
-from typing import List, Optional
+from typing import List
 
+from pydantic import BaseModel, EmailStr
 
 
 class UserResponse(BaseModel):

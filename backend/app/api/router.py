@@ -1,21 +1,25 @@
+from typing import Optional
+
 from fastapi import APIRouter, Depends
-from typing import List, Optional
 
 # Importa dependências
-from app.core.dependencies import get_auth_service, get_user_service
+from app.core.dependencies import get_auth_service, get_current_user, get_user_service
 
 # Importa serviços
 from app.services.auth_service import AuthService
-from app.services.user_service import UserService
 
 # Importa modelos de request dos serviços
 from app.services.service_models import UserCreateRequest, UserUpdateRequest
+from app.services.user_service import UserService
 
 # Importa modelos de response da API (schemas)
 from .schemas import (
-    LoginRequest, LoginResponse,
-    UserCreateResponse, UserListResponse,
-    UserGetResponse, UserUpdateResponse
+    LoginRequest,
+    LoginResponse,
+    UserCreateResponse,
+    UserGetResponse,
+    UserListResponse,
+    UserUpdateResponse,
 )
 
 # aqui cria o router
@@ -84,3 +88,25 @@ def update_user(
         "user": updated_user,
         "message": "Usuário atualizado com sucesso!"
     }
+
+@router.put("/users/{user_id}/deactivate", response_model=UserGetResponse)
+def deactivate_user(
+    user_id: str,
+    user_service: UserService = Depends(get_user_service),
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Endpoint para o gestor desativar um comprador.
+    Requer header X-User-Id com o id do gestor que está executando a ação.
+    """
+    updated = user_service.deactivate_user(user_id, current_user)
+    return {"success": True, "user": updated}
+
+@router.put("/users/{user_id}/activate", response_model=UserGetResponse)
+def activate_user(
+    user_id: str,
+    user_service: UserService = Depends(get_user_service),
+    current_user: dict = Depends(get_current_user)
+):
+    updated = user_service.activate_user(user_id, current_user)
+    return {"success": True, "user": updated}

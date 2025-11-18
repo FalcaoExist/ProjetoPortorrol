@@ -2,7 +2,6 @@ import bcrypt
 
 from .interfaces import IPasswordHasher
 
-
 class BcryptHasher(IPasswordHasher):
     def hash(self, password: str) -> str:
 

@@ -22,6 +22,10 @@ class AuthService:
 
         if not self.hasher.verify(password, user["password_hash"]):
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="E-mail ou senha inválidos.")
+<<<<<<< HEAD:backend/app/services/auth_service.py
         
         user.pop("password_hash", None)
+=======
+
+>>>>>>> list_supplier:backend/app/core/services.py
         return user

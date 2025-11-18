@@ -1,4 +1,5 @@
 import React from "react";
+import InputField from "../common/InputField";
 
 export default function AddBuyerModal({ isOpen, onClose }) {
   if (!isOpen) return null;
@@ -9,37 +10,30 @@ export default function AddBuyerModal({ isOpen, onClose }) {
         <h2 className="text-xl font-semibold text-gray-700 mb-6">Cadastrar Comprador</h2>
 
         <form className="space-y-4">
-          <div className="flex flex-col gap-1">
-            <label className="text-sm text-gray-600">Nome</label>
-            <input
-              type="text"
-              className="border border-gray-300 rounded-xl p-2 focus:outline-none focus:ring-2 focus:ring-gray-400"
-            />
-          </div>
-
-          <div className="flex flex-col gap-1">
-            <label className="text-sm text-gray-600">Email</label>
-            <input
-              type="email"
-              className="border border-gray-300 rounded-xl p-2 focus:outline-none focus:ring-2 focus:ring-gray-400"
-            />
-          </div>
-
-          <div className="flex flex-col gap-1">
-            <label className="text-sm text-gray-600">Fornecedor</label>
-            <input
-              type="text"
-              className="border border-gray-300 rounded-xl p-2 focus:outline-none focus:ring-2 focus:ring-gray-400"
-            />
-          </div>
-
-          <div className="flex flex-col gap-1">
-            <label className="text-sm text-gray-600">Senha</label>
-            <input
-              type="password"
-              className="border border-gray-300 rounded-xl p-2 focus:outline-none focus:ring-2 focus:ring-gray-400"
-            />
-          </div>
+          <InputField
+            label="Nome"
+            type="text"
+            name="nome"
+            placeholder="Digite o nome completo"
+          />
+          <InputField
+            label="Email"
+            type="email"
+            name="email"
+            placeholder="exemplo@email.com"
+          />
+          <InputField
+            label="Fornecedor"
+            type="text"
+            name="fornecedor"
+            placeholder="Nome do fornecedor"
+          />
+          <InputField
+            label="Senha"
+            type="password"
+            name="senha"
+            placeholder="Digite uma senha forte"
+          />
 
           <div className="flex justify-end gap-3 mt-6">
             <button

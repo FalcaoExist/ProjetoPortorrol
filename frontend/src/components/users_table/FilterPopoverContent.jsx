@@ -1,5 +1,4 @@
 import { FiX } from "react-icons/fi";
-import { useClickOutside } from "../../hooks/useClickOutside";
 
 // Campo genérico para filtros de texto.
 function TextFilterControl({ value, placeholder, onChange }) {
@@ -38,15 +37,11 @@ const CONTROL_MAP = {
     select: SelectFilterControl,
 };
 
-export default function FilterDropdown({ column, value, onChange, onClose }) {
-    const dropdownRef = useClickOutside(onClose);
+export default function FilterPopoverContent({ column, value, onChange, onClose }) {
     const ControlComponent = CONTROL_MAP[column.filterType] ?? TextFilterControl;
 
     return (
-        <div
-            ref={dropdownRef}
-            className="absolute left-0 top-full z-10 mt-2 w-56 rounded-lg border border-[#e5e7eb] bg-white shadow-[0_10px_30px_rgba(15,23,42,0.1)]"
-        >
+        <div className="w-56 rounded-lg border border-[#e5e7eb] bg-white shadow-[0_10px_30px_rgba(15,23,42,0.1)]">
             <div className="flex items-center justify-between px-3 pt-3">
                 <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
                     Filtrar {column.label}
@@ -69,7 +64,10 @@ export default function FilterDropdown({ column, value, onChange, onClose }) {
                 />
                 <button
                     type="button"
-                    onClick={() => onChange("")}
+                    onClick={() => {
+                        onChange(""); // Clear the filter
+                        onClose();    // And close the popover
+                    }}
                     className="mt-2 w-full rounded border border-transparent bg-gray-100 py-1.5 text-xs font-medium uppercase tracking-wide text-gray-600 transition-colors hover:bg-gray-200"
                 >
                     Limpar filtro

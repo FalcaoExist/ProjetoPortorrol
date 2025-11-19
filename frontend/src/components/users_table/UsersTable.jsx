@@ -1,360 +1,199 @@
-import { useMemo, useState, useEffect } from "react";
-import { TbEdit } from "react-icons/tb";
-import { MdBlockFlipped } from "react-icons/md";
-import { FiX, FiChevronDown, FiCheck } from "react-icons/fi";
-import FilterDropdown from "./FilterDropdown";
+import React, { useMemo, useState, useEffect, useCallback } from "react";
+import { GridActionsCellItem, GridRowModes } from "@mui/x-data-grid";
+import { Box, Popover } from "@mui/material";
+import { FiX, FiChevronDown, FiCheck, FiEdit, FiTrash2 } from "react-icons/fi";
+import FilterPopoverContent from "./FilterPopoverContent";
+import { useRowEditing } from "../../hooks/useRowEditing";
+import { BaseDataGrid } from "../common/BaseDataGrid";
+
+// CustomFilterHeader component remains the same as it's specific to this table
+const CustomFilterHeader = React.memo(({
+  columnId,
+  label,
+  activeColumnId,
+  anchorEl,
+  handleHeaderClick,
+  handleClose,
+  filterType,
+  placeholder,
+  options,
+  filters,
+  handleFilterChange,
+}) => {
+  const open = activeColumnId === columnId;
+  return (
+    <>
+      <button
+        type="button"
+        onClick={(event) => handleHeaderClick(event, columnId)}
+        style={{
+          display: 'flex', alignItems: 'center', gap: '8px', paddingTop: '8px', paddingBottom: '8px',
+          border: 'none', background: 'none', cursor: 'pointer', color: 'inherit',
+          transition: 'color 150ms ease-in-out', width: '100%', textAlign: 'left', fontFamily: 'Poppins'
+        }}
+      >
+        <span>{label}</span>
+        <FiChevronDown size={14} style={{ transform: open ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 150ms ease-in-out" }} />
+      </button>
+      <Popover
+        open={open}
+        anchorEl={anchorEl}
+        onClose={handleClose}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+      >
+        <FilterPopoverContent
+            column={{ id: columnId, label, filterType, placeholder, options }}
+            value={filters[columnId]}
+            onChange={(value) => handleFilterChange(columnId, value)}
+            onClose={handleClose}
+        />
+      </Popover>
+    </>
+  );
+});
 
 export default function UsersTable({ users = [] }) {
-    // local copy dos usuários para permitir edição/remover no frontend
-    const [rows, setRows] = useState([
-        {
-            id: 1,
-            name: "Maria Silva",
-            email: "maria.silva@empresa.com",
-            supplier: "Timken",
-            status: "Ativo",
-            editing: false,
-        }
-    ]);
+  const [rows, setRows] = useState([]);
+  
+  // Using the custom hook for editing logic
+  const { rowModesModel, setRowModesModel, handleEditClick, handleSaveClick, handleCancelClick } = useRowEditing();
 
-    // Sincroniza se o prop users mudar (opcional — útil durante desenvolvimento)
-    // useEffect(() => {
-    //     setRows(users.map((u) => ({ ...u, editing: false })));
-    // }, [users]);
+  useEffect(() => {
+    const mappedUsers = users.map(u => ({ ...u, active: u.status }));
+    setRows(mappedUsers);
+  }, [users]);
 
-    // filtros do topo
-    const [filters, setFilters] = useState({
-        name: "",
-        email: "",
-        supplier: "",
-        active: ""
+  // State for filters (specific to this component)
+  const [filters, setFilters] = useState({ name: "", email: "", supplier: "", active: "" });
+  const [popoverState, setPopoverState] = useState({ anchorEl: null, columnId: null });
+
+  const handleHeaderClick = useCallback((event, columnId) => {
+    setPopoverState({ anchorEl: event.currentTarget, columnId });
+  }, []);
+
+  const handlePopoverClose = useCallback(() => {
+    setPopoverState({ anchorEl: null, columnId: null });
+  }, []);
+
+  const supplierOptions = useMemo(() => {
+    const uniqueSuppliers = Array.from(new Set(users.map((u) => u.supplier).filter(Boolean)));
+    return ["", ...uniqueSuppliers];
+  }, [users]);
+
+  const filteredRows = useMemo(() => {
+    return rows.filter((row) => {
+        const matchesName = !filters.name || row.name?.toLowerCase().includes(filters.name.toLowerCase());
+        const matchesEmail = !filters.email || row.email?.toLowerCase().includes(filters.email.toLowerCase());
+        const matchesSupplier = !filters.supplier || row.supplier === filters.supplier;
+        const matchesActive = !filters.active || row.active === filters.active;
+        return matchesName && matchesEmail && matchesSupplier && matchesActive;
     });
-    const [activeColumn, setActiveColumn] = useState(null);
+  }, [rows, filters]);
 
-    // supplierOptions hardcoded (opção B escolhida)
-    const supplierOptions = useMemo(() => {
-        return ["Timken", "SKF", "Gerdau", "Vogel", "Gates"];
-    }, []);
+  const handleFilterChange = useCallback((columnId, value) => {
+    setFilters((previous) => ({ ...previous, [columnId]: value }));
+  }, []);
 
-    // statusOptions extraídas dos dados (mantive porque o dropdown de filtro usa)
-    const statusOptions = useMemo(() => {
-        return Array.from(new Set(users.map((row) => row.active).filter(Boolean)));
-    }, [users]);
+  // --- Component-specific handlers that use the hook's logic ---
+  const handleDeleteClick = useCallback((id) => () => {
+    const rowToDelete = rows.find(r => r.id === id);
+    if (!rowToDelete) return;
+    const confirmed = window.confirm(`Remover usuário "${rowToDelete.name}"?`);
+    if (confirmed) {
+      setRows((prevRows) => prevRows.filter((row) => row.id !== id));
+    }
+  }, [rows]);
 
-    // Aplicar filtros em memória
-    const filteredRows = useMemo(() => {
-        return rows.filter((row) => {
-            const matchesName = !filters.name
-                || row.name?.toLowerCase().includes(filters.name.toLowerCase());
-
-            const matchesEmail = !filters.email
-                || row.email?.toLowerCase().includes(filters.email.toLowerCase());
-
-            const matchesSupplier = !filters.supplier
-                || row.supplier === filters.supplier;
-
-            const matchesActive = !filters.active
-                || row.active === filters.active;
-
-            return matchesName && matchesEmail && matchesSupplier && matchesActive;
-        });
-    }, [rows, filters]);
-
-    const handleFilterChange = (columnId, value) => {
-        setFilters((previous) => ({ ...previous, [columnId]: value }));
-    };
-
-    const toggleDropdown = (columnId) => {
-        setActiveColumn((previous) => (previous === columnId ? null : columnId));
-    };
-
-    const closeDropdown = () => setActiveColumn(null);
-
-    // --- edição inline ---
-    const handleEdit = (id) => {
-        setRows(rows.map(r => r.id === id ? { ...r, editing: true, _backup: { ...r } } : r));
-    };
-
-    const handleCancel = (id) => {
-        setRows(rows.map(r => {
-            if (r.id !== id) return r;
-            // restore backup (se existir)
-            if (r._backup) {
-                const restored = { ...r._backup, editing: false };
-                delete restored._backup;
-                return restored;
-            }
-            return { ...r, editing: false };
-        }));
-    };
-
-    const handleSave = (id) => {
-        setRows(rows.map(r => r.id === id ? { ...r, editing: false, _backup: undefined } : r));
-        // aqui você pode disparar integração com backend futuramente
-    };
-
-    const handleDelete = (id) => {
-        const row = rows.find(r => r.id === id);
-        if (!row) return;
-        const confirmed = window.confirm(`Remover usuário "${row.name}"?`);
-        if (!confirmed) return;
-        setRows(rows.filter(r => r.id !== id));
-    };
-
-    const handleChange = (id, field, value) => {
-        setRows(rows.map(r => r.id === id ? { ...r, [field]: value } : r));
-    };
-
-    return (
-        <div className="max-h-80 min-h-56 w-full overflow-y-auto">
-            <table className="w-full border-collapse">
-                <thead className="bg-white">
-                    <tr>
-                        {/* Analista de compras */}
-                        <th className="sticky top-0 z-10 bg-white font-poppins font-normal text-start border-b-black">
-                            <button
-                                type="button"
-                                onClick={() => toggleDropdown("name")}
-                                className="flex w-full items-center gap-2 py-2 text-left text-[#111827] transition-colors hover:text-[#0ea5e9] border-b"
-                            >
-                                <span>Analista de compras</span>
-                                <FiChevronDown
-                                    size={14}
-                                    className={`transition-transform ${ activeColumn === "name" ? "rotate-180" : "" }`}
-                                />
-                            </button>
-                            {activeColumn === "name" && (
-                                <FilterDropdown
-                                    column={{
-                                        id: "name",
-                                        label: "Analista de compras",
-                                        filterType: "text",
-                                        placeholder: "Digite um nome",
-                                    }}
-                                    value={filters.name}
-                                    onChange={(value) => handleFilterChange("name", value)}
-                                    onClose={closeDropdown}
-                                />
-                            )}
-                        </th>
-
-                        {/* Email */}
-                        <th className="sticky top-0 z-10 bg-white font-poppins font-normal text-start">
-                            <button
-                                type="button"
-                                onClick={() => toggleDropdown("email")}
-                                className="flex w-full items-center gap-2 py-2 text-left text-[#111827] transition-colors hover:text-[#0ea5e9] border-b"
-                            >
-                                <span>email</span>
-                                <FiChevronDown
-                                    size={14}
-                                    className={`transition-transform ${ activeColumn === "email" ? "rotate-180" : "" }`}
-                                />
-                            </button>
-                            {activeColumn === "email" && (
-                                <FilterDropdown
-                                    column={{
-                                        id: "email",
-                                        label: "email",
-                                        filterType: "text",
-                                        placeholder: "Buscar por email",
-                                    }}
-                                    value={filters.email}
-                                    onChange={(value) => handleFilterChange("email", value)}
-                                    onClose={closeDropdown}
-                                />
-                            )}
-                        </th>
-
-                        {/* Fornecedor */}
-                        <th className="sticky top-0 z-10 bg-white font-poppins font-normal text-start">
-                            <button
-                                type="button"
-                                onClick={() => toggleDropdown("supplier")}
-                                className="flex w-full items-center gap-2 py-2 text-left text-[#111827] transition-colors hover:text-[#0ea5e9] border-b"
-                            >
-                                <span>Fornecedor</span>
-                                <FiChevronDown
-                                    size={14}
-                                    className={`transition-transform ${ activeColumn === "supplier" ? "rotate-180" : "" }`}
-                                />
-                            </button>
-                            {activeColumn === "supplier" && (
-                                <FilterDropdown
-                                    column={{
-                                        id: "supplier",
-                                        label: "Fornecedor",
-                                        filterType: "select",
-                                        placeholder: "Selecione o fornecedor",
-                                        options: supplierOptions,
-                                    }}
-                                    value={filters.supplier}
-                                    onChange={(value) => handleFilterChange("supplier", value)}
-                                    onClose={closeDropdown}
-                                />
-                            )}
-                        </th>
-
-                        {/* Ativo */}
-                        <th className="sticky top-0 z-10 bg-white font-poppins font-normal text-start">
-                            <button
-                                type="button"
-                                onClick={() => toggleDropdown("active")}
-                                className="flex w-full items-center gap-2 py-2 text-left text-[#111827] transition-colors hover:text-[#0ea5e9] border-b"
-                            >
-                                <span>Status</span>
-                                <FiChevronDown
-                                    size={14}
-                                    className={`transition-transform ${ activeColumn === "active" ? "rotate-180" : "" }`}
-                                />
-                            </button>
-                            {activeColumn === "active" && (
-                                <FilterDropdown
-                                    column={{
-                                        id: "active",
-                                        label: "Status",
-                                        filterType: "select",
-                                        placeholder: "Selecione o status",
-                                        options: statusOptions,
-                                    }}
-                                    value={filters.active}
-                                    onChange={(value) => handleFilterChange("active", value)}
-                                    onClose={closeDropdown}
-                                />
-                            )}
-                        </th>
-
-                        <th className="sticky top-0 z-10 bg-white" />
-                    </tr>
-                </thead>
-
-                <tbody>
-                    {filteredRows.length === 0 && (
-                        <tr>
-                            <td
-                                className="py-6 text-center text-sm text-gray-400"
-                                colSpan={5}
-                            >
-                                Nenhum registro encontrado com os filtros atuais.
-                            </td>
-                        </tr>
-                    )}
-
-                    {filteredRows.map((row) => (
-                        <tr key={row.id} className="border-b hover:bg-gray-50">
-                            {/* Nome */}
-                            <td className="text-sm font-poppins text-start text-[#111827] p-3">
-                                {row.editing ? (
-                                    <input
-                                        type="text"
-                                        value={row.name}
-                                        onChange={(e) => handleChange(row.id, "name", e.target.value)}
-                                        className="w-full border rounded px-2 py-1 text-sm"
-                                    />
-                                ) : (
-                                    row.name
-                                )}
-                            </td>
-
-                            {/* Email */}
-                            <td className="text-sm font-poppins text-start text-[#111827] p-3">
-                                {row.editing ? (
-                                    <input
-                                        type="email"
-                                        value={row.email}
-                                        onChange={(e) => handleChange(row.id, "email", e.target.value)}
-                                        className="w-full border rounded px-2 py-1 text-sm"
-                                    />
-                                ) : (
-                                    row.email
-                                )}
-                            </td>
-
-                            {/* Fornecedor */}
-                            <td className="text-sm font-poppins text-start text-[#111827] p-3">
-                                {row.editing ? (
-                                    <select
-                                        value={row.supplier || ""}
-                                        onChange={(e) => handleChange(row.id, "supplier", e.target.value)}
-                                        className="w-full border rounded px-2 py-1 text-sm"
-                                    >
-                                        <option value="">-- selecione --</option>
-                                        {supplierOptions.map((s) => (
-                                            <option key={s} value={s}>{s}</option>
-                                        ))}
-                                    </select>
-                                ) : (
-                                    row.supplier
-                                )}
-                            </td>
-
-                            {/* Status */}
-                            <td className="text-sm font-poppins text-start text-[#111827] p-3">
-                                {row.editing ? (
-                                    <select
-                                        value={row.active || ""}
-                                        onChange={(e) => handleChange(row.id, "active", e.target.value)}
-                                        className="w-full border rounded px-2 py-1 text-sm"
-                                    >
-                                        <option value="">-- selecione --</option>
-                                        <option value="Ativo">Ativo</option>
-                                        <option value="Inativo">Inativo</option>
-                                    </select>
-                                ) : (
-                                    row.active
-                                )}
-                            </td>
-
-                            {/* Ações */}
-                            <td className="p-3">
-                                <div className="flex flex-row gap-2 text-[#111827]">
-                                    {row.editing ? (
-                                        <>
-                                            <button
-                                                type="button"
-                                                onClick={() => handleSave(row.id)}
-                                                className="p-1 text-[#10b981] hover:opacity-80"
-                                                title="Salvar"
-                                            >
-                                                <FiCheck size={18} />
-                                            </button>
-
-                                            <button
-                                                type="button"
-                                                onClick={() => handleCancel(row.id)}
-                                                className="p-1 text-[#ef4444] hover:opacity-80"
-                                                title="Cancelar"
-                                            >
-                                                <FiX size={18} />
-                                            </button>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <button
-                                                type="button"
-                                                onClick={() => handleEdit(row.id)}
-                                                className="p-1 text-[#111827] hover:text-[#0ea5e9]"
-                                                title="Editar"
-                                            >
-                                                <TbEdit size={20} />
-                                            </button>
-
-                                            <button
-                                                type="button"
-                                                onClick={() => handleDelete(row.id)}
-                                                className="p-1 text-[#111827] hover:text-[#ef4444]"
-                                                title="Excluir"
-                                            >
-                                                <FiX size={20} />
-                                            </button>
-                                        </>
-                                    )}
-                                </div>
-                            </td>
-                        </tr>
-                    ))}
-                </tbody>
-            </table>
-        </div>
+  const processRowUpdate = useCallback((newRow) => {
+    setRows((prevRows) =>
+      prevRows.map((row) => (row.id === newRow.id ? newRow : row))
     );
+    return newRow;
+  }, []);
+  
+  const onProcessRowUpdateError = useCallback((error) => {
+    console.error("Error updating row:", error);
+  }, []);
+
+  const columns = useMemo(
+    () => [
+      {
+        field: "name", headerName: "Analista de compras", width: 200, editable: true,
+        renderHeader: (params) => (
+          <CustomFilterHeader
+            columnId="name" label="Analista de compras" activeColumnId={popoverState.columnId}
+            anchorEl={popoverState.anchorEl} handleHeaderClick={handleHeaderClick}
+            handleClose={handlePopoverClose} filterType="text" placeholder="Digite um nome"
+            filters={filters} handleFilterChange={handleFilterChange}
+          />
+        ),
+      },
+      {
+        field: "email", headerName: "Email", width: 250, editable: true,
+        renderHeader: (params) => (
+          <CustomFilterHeader
+            columnId="email" label="email" activeColumnId={popoverState.columnId}
+            anchorEl={popoverState.anchorEl} handleHeaderClick={handleHeaderClick}
+            handleClose={handlePopoverClose} filterType="text" placeholder="Buscar por email"
+            filters={filters} handleFilterChange={handleFilterChange}
+          />
+        ),
+      },
+      {
+        field: "supplier", headerName: "Fornecedor", width: 150, editable: true,
+        type: "singleSelect", valueOptions: supplierOptions.filter(Boolean),
+        renderHeader: (params) => (
+          <CustomFilterHeader
+            columnId="supplier" label="Fornecedor" activeColumnId={popoverState.columnId}
+            anchorEl={popoverState.anchorEl} handleHeaderClick={handleHeaderClick}
+            handleClose={handlePopoverClose} filterType="select" placeholder="Selecione o fornecedor"
+            options={supplierOptions.filter(Boolean)} filters={filters} handleFilterChange={handleFilterChange}
+          />
+        ),
+      },
+      {
+        field: "active", headerName: "Status", width: 120, editable: true,
+        type: "singleSelect", valueOptions: ["Ativo", "Inativo"],
+        renderHeader: (params) => (
+          <CustomFilterHeader
+            columnId="active" label="Status" activeColumnId={popoverState.columnId}
+            anchorEl={popoverState.anchorEl} handleHeaderClick={handleHeaderClick}
+            handleClose={handlePopoverClose} filterType="select" placeholder="Selecione o status"
+            options={["Ativo", "Inativo"]} filters={filters} handleFilterChange={handleFilterChange}
+          />
+        ),
+      },
+      {
+        field: "actions", type: "actions", headerName: "Ações", width: 100, cellClassName: "actions",
+        getActions: ({ id }) => {
+          const isInEditMode = rowModesModel[id]?.mode === GridRowModes.Edit;
+          if (isInEditMode) {
+            return [
+              <GridActionsCellItem icon={<FiCheck />} label="Salvar" onClick={handleSaveClick(id)} />,
+              <GridActionsCellItem icon={<FiX />} label="Cancelar" onClick={handleCancelClick(id)} color="inherit" />,
+            ];
+          }
+          return [
+            <GridActionsCellItem icon={<FiEdit />} label="Editar" onClick={handleEditClick(id)} color="inherit" />,
+            <GridActionsCellItem icon={<FiTrash2 />} label="Excluir" onClick={handleDeleteClick(id)} color="inherit" />,
+          ];
+        },
+      },
+    ],
+    [rowModesModel, filters, popoverState, supplierOptions, handleFilterChange, handleHeaderClick, handlePopoverClose, handleEditClick, handleSaveClick, handleDeleteClick, handleCancelClick]
+  );
+
+  return (
+    <BaseDataGrid
+      rows={filteredRows}
+      columns={columns}
+      editMode="row"
+      rowModesModel={rowModesModel}
+      onRowModesModelChange={setRowModesModel}
+      processRowUpdate={processRowUpdate}
+      onProcessRowUpdateError={onProcessRowUpdateError}
+      // sx prop is now in BaseDataGrid, so we use the default header style
+    />
+  );
 }

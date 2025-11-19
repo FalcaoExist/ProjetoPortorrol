@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { BsPersonCircle } from "react-icons/bs";
 import { Link } from "react-router-dom";
-export default function({user_name}){
+export default function UserButton({user_name}){
   const [isOpen, setIsOpen] = useState(false);
 
   const toggleDropdown = () => {

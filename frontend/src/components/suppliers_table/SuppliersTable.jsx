@@ -1,206 +1,143 @@
-import { useState } from "react";
+import React, { useState, useMemo, useCallback } from "react";
+import { GridActionsCellItem, GridRowModes } from "@mui/x-data-grid";
+import { Box } from "@mui/material";
+import { FiCheck, FiX, FiEdit, FiTrash2 } from "react-icons/fi";
+import { useRowEditing } from "../../hooks/useRowEditing";
+import { BaseDataGrid } from "../common/BaseDataGrid";
+
+const initialRows = [
+    { id: 1, name: "Timken", start: new Date("2025-12-01"), end: new Date("2026-01-01"), budget: 60000, leadtime: 15 },
+    { id: 2, name: "NSK", start: new Date("2025-12-01"), end: new Date("2026-01-01"), budget: 30000, leadtime: 9 },
+    { id: 3, name: "FRM", start: new Date("2025-12-01"), end: new Date("2026-01-01"), budget: 30000, leadtime: 9 },
+    { id: 4, name: "BGL", start: new Date("2025-12-01"), end: new Date("2026-01-01"), budget: 10000, leadtime: 7 },
+    { id: 5, name: "IKO", start: new Date("2025-12-01"), end: new Date("2026-01-01"), budget: 45000, leadtime: 20 },
+    { id: 6, name: "SAV", start: new Date("2025-12-01"), end: new Date("2026-01-01"), budget: 45000, leadtime: 20 },
+];
 
 export default function SuppliersTable() {
-    const [suppliers, setSuppliers] = useState([
-        { id: 1, name: "Timken", start: "2025-12-01", end: "2026-01-01", budget: 60000, leadtime: 15, editing: false },
-        { id: 2, name: "NSK", start: "2025-12-01", end: "2026-01-01", budget: 30000, leadtime: 9, editing: false },
-        { id: 3, name: "FRM", start: "2025-12-01", end: "2026-01-01", budget: 30000, leadtime: 9, editing: false },
-        { id: 4, name: "BGL", start: "2025-12-01", end: "2026-01-01", budget: 10000, leadtime: 7, editing: false },
-        { id: 5, name: "IKO", start: "2025-12-01", end: "2026-01-01", budget: 45000, leadtime: 20, editing: false },
-        { id: 6, name: "SAV", start: "2025-12-01", end: "2026-01-01", budget: 45000, leadtime: 20, editing: false },
-    ]);
-
-    const [newId, setNewId] = useState(7);
+    const [rows, setRows] = useState(initialRows);
+    const [nextId, setNextId] = useState(Math.max(...initialRows.map(r => r.id)) + 1);
+    
+    // Using the custom hook for editing logic
+    const {
+        rowModesModel,
+        setRowModesModel,
+        handleEditClick,
+        handleSaveClick,
+        handleCancelClick: genericHandleCancelClick, // Rename to avoid conflict
+        setEditMode,
+    } = useRowEditing();
 
     const handleAdd = () => {
-        setSuppliers([
-            ...suppliers,
-            {
-                id: newId,
-                name: "",
-                start: "",
-                end: "",
-                budget: "",
-                leadtime: "",
-                editing: true,
-                isNew: true
-            }
+        const id = nextId;
+        setNextId(prev => prev + 1);
+        setRows((oldRows) => [
+            ...oldRows,
+            { id, name: "", start: new Date(), end: new Date(), budget: 0, leadtime: 0, isNew: true },
         ]);
-        setNewId(newId + 1);
+        setEditMode(id); // Use the hook's function to set the new row to edit mode
     };
 
-    const handleEdit = (id) => {
-        setSuppliers(suppliers.map(s =>
-            s.id === id ? { ...s, editing: true } : s
-        ));
+    const handleDeleteClick = (id) => () => {
+        // Confirmation logic stays within the component
+        setRows(rows.filter((row) => row.id !== id));
     };
 
-    const handleSave = (id) => {
-        setSuppliers(suppliers.map(s =>
-            s.id === id ? { ...s, editing: false, isNew: false } : s
-        ));
-    };
-
-    const handleDelete = (id) => {
-        setSuppliers(suppliers.filter(s => s.id !== id));
-    };
-
-    const handleCancel = (id) => {
-        const supplier = suppliers.find(s => s.id === id);
-        if (supplier.isNew) {
-            handleDelete(id);
-            return;
+    const handleCancelClick = (id) => () => {
+        genericHandleCancelClick(id)(); // Call the hook's cancel handler
+        const editedRow = rows.find((row) => row.id === id);
+        if (editedRow?.isNew) {
+            setRows(rows.filter((row) => row.id !== id));
         }
-
-        setSuppliers(suppliers.map(s =>
-            s.id === id ? { ...s, editing: false } : s
-        ));
+    };
+    
+    const processRowUpdate = (newRow) => {
+        const updatedRow = { ...newRow, isNew: false };
+        setRows(rows.map((row) => (row.id === newRow.id ? updatedRow : row)));
+        return updatedRow;
     };
 
-    const handleChange = (id, field, value) => {
-        setSuppliers(suppliers.map(s =>
-            s.id === id ? { ...s, [field]: value } : s
-        ));
-    };
+    const columns = useMemo(() => [
+        {
+            field: "name",
+            headerName: "Fornecedor",
+            width: 180,
+            editable: true,
+            isCellEditable: (params) => params.row.isNew,
+        },
+        {
+            field: "start",
+            headerName: "Início",
+            type: "date",
+            width: 150,
+            editable: true,
+            valueFormatter: (value) => value ? new Date(value).toLocaleDateString("pt-BR") : '',
+        },
+        {
+            field: "end",
+            headerName: "Fim",
+            type: "date",
+            width: 150,
+            editable: true,
+            valueFormatter: (value) => value ? new Date(value).toLocaleDateString("pt-BR") : '',
+        },
+        {
+            field: "budget",
+            headerName: "Orçamento (R$)",
+            type: "number",
+            width: 180,
+            editable: true,
+            valueFormatter: (value) => value ? value.toLocaleString("pt-BR", { style: 'currency', currency: 'BRL' }) : '',
+        },
+        {
+            field: "leadtime",
+            headerName: "Leadtime",
+            type: "number",
+            width: 120,
+            editable: true,
+            valueFormatter: (value) => (value != null ? `${value} dias` : ''),
+        },
+        {
+            field: "actions",
+            type: "actions",
+            headerName: "Ações",
+            width: 100,
+            cellClassName: "actions",
+            getActions: ({ id }) => {
+                const isInEditMode = rowModesModel[id]?.mode === GridRowModes.Edit;
+
+                if (isInEditMode) {
+                    return [
+                        <GridActionsCellItem icon={<FiCheck />} label="Salvar" onClick={handleSaveClick(id)} color="primary" />,
+                        <GridActionsCellItem icon={<FiX />} label="Cancelar" onClick={handleCancelClick(id)} color="inherit" />,
+                    ];
+                }
+
+                return [
+                    <GridActionsCellItem icon={<FiEdit />} label="Editar" onClick={handleEditClick(id)} color="inherit" />,
+                    <GridActionsCellItem icon={<FiTrash2 />} label="Excluir" onClick={handleDeleteClick(id)} color="inherit" />,
+                ];
+            },
+        },
+    ], [rowModesModel, rows, handleEditClick, handleSaveClick, handleDeleteClick, handleCancelClick]);
 
     return (
-        <div className="overflow-x-auto mt-4 rounded-lg shadow-md">
-            <table className="min-w-full bg-white rounded-lg overflow-hidden">
-                <thead className="bg-gray-100 text-left text-gray-600 font-poppins">
-                    <tr>
-                        <th className="p-4">Fornecedor</th>
-                        <th className="p-4">Início</th>
-                        <th className="p-4">Fim</th>
-                        <th className="p-4">Orçamento (R$)</th>
-                        <th className="p-4">Leadtime</th>
-                        <th className="p-4 text-center">Ações</th>
-                    </tr>
-                </thead>
-
-                <tbody className="text-gray-700">
-                    {suppliers.map(s => (
-                        <tr key={s.id} className="border-b hover:bg-gray-50">
-                            
-                            {/* Nome (não editável) */}
-                            <td className="p-4">
-                                {s.isNew ? (
-                                    <input
-                                        type="text"
-                                        className="border p-1 rounded"
-                                        placeholder="Fornecedor"
-                                        value={s.name}
-                                        onChange={e => handleChange(s.id, "name", e.target.value)}
-                                    />
-                                ) : (
-                                    s.name
-                                )}
-                            </td>
-
-                            {/* Início */}
-                            <td className="p-4">
-                                {s.editing ? (
-                                    <input
-                                        type="date"
-                                        className="border p-1 rounded"
-                                        value={s.start}
-                                        onChange={e => handleChange(s.id, "start", e.target.value)}
-                                    />
-                                ) : (
-                                    new Date(s.start).toLocaleDateString("pt-BR")
-                                )}
-                            </td>
-
-                            {/* Fim */}
-                            <td className="p-4">
-                                {s.editing ? (
-                                    <input
-                                        type="date"
-                                        className="border p-1 rounded"
-                                        value={s.end}
-                                        onChange={e => handleChange(s.id, "end", e.target.value)}
-                                    />
-                                ) : (
-                                    new Date(s.end).toLocaleDateString("pt-BR")
-                                )}
-                            </td>
-
-                            {/* Orçamento */}
-                            <td className="p-4">
-                                {s.editing ? (
-                                    <input
-                                        type="number"
-                                        className="border p-1 rounded w-24"
-                                        value={s.budget}
-                                        onChange={e => handleChange(s.id, "budget", e.target.value)}
-                                    />
-                                ) : (
-                                    s.budget.toLocaleString("pt-BR")
-                                )}
-                            </td>
-
-                            {/* Leadtime */}
-                            <td className="p-4">
-                                {s.editing ? (
-                                    <input
-                                        type="number"
-                                        className="border p-1 rounded w-20"
-                                        value={s.leadtime}
-                                        onChange={e => handleChange(s.id, "leadtime", e.target.value)}
-                                    />
-                                ) : (
-                                    `${s.leadtime} dias`
-                                )}
-                            </td>
-
-                            {/* Ações */}
-                            <td className="p-4 flex items-center justify-center gap-4">
-
-                                {s.editing ? (
-                                    <>
-                                        {/* Salvar */}
-                                        <button onClick={() => handleSave(s.id)}>
-                                            <svg width="18" height="18" stroke="black" strokeWidth="2" fill="none" viewBox="0 0 24 24">
-                                                <path d="M5 13l4 4L19 7" />
-                                            </svg>
-                                        </button>
-
-                                        {/* Cancelar */}
-                                        <button onClick={() => handleCancel(s.id)}>
-                                            <svg width="18" height="18" stroke="black" strokeWidth="2" fill="none" viewBox="0 0 24 24">
-                                                <path d="M4 4 L16 16 M16 4 L4 16" />
-                                            </svg>
-                                        </button>
-                                    </>
-                                ) : (
-                                    <>
-                                        {/* Editar */}
-                                        <button onClick={() => handleEdit(s.id)}>
-                                            <svg width="18" height="18" fill="none" stroke="black" strokeWidth="1.6" viewBox="0 0 24 24">
-                                                <path d="M12 20h9" />
-                                                <path d="M16.5 3.5l4 4L7 21H3v-4L16.5 3.5z" />
-                                            </svg>
-                                        </button>
-
-                                        {/* Excluir */}
-                                        <button onClick={() => handleDelete(s.id)}>
-                                            <svg width="18" height="18" fill="none" stroke="black" strokeWidth="2" viewBox="0 0 24 24">
-                                                <path d="M4 4 L16 16 M16 4 L4 16" />
-                                            </svg>
-                                        </button>
-                                    </>
-                                )}
-                            </td>
-                        </tr>
-                    ))}
-                </tbody>
-            </table>
-
+        <Box sx={{ width: '100%', mt: 2 }}>
+            <BaseDataGrid
+                rows={rows}
+                columns={columns}
+                editMode="row"
+                rowModesModel={rowModesModel}
+                onRowModesModelChange={setRowModesModel}
+                processRowUpdate={processRowUpdate}
+                headerStyle="alternative" // Use the alternative header style
+            />
             <button
                 onClick={handleAdd}
                 className="bg-[#5A44B0] hover:bg-white text-white hover:text-black shadow-lg font-poppins uppercase text-sm p-2 rounded-md mt-6"
             >
                 Adicionar Fornecedor
             </button>
-        </div>
+        </Box>
     );
 }

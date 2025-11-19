@@ -8,6 +8,23 @@ import AddBuyerModal from "../components/add_buyer_modal/AddBuyerModal.jsx";
 export default function ListUsers(){
     const [openModal, setOpenModal] = useState(false);
 
+    const sampleUsers = [
+      {
+        id: 1,
+        name: "Ana Beatriz",
+        email: "ana.beatriz@example.com",
+        supplier: "Timken",
+        status: "Ativo",
+      },
+      {
+        id: 2,
+        name: "Carlos Alberto",
+        email: "carlos.alberto@example.com",
+        supplier: "SKF",
+        status: "Inativo",
+      },
+    ];
+
     return (
         <div className="grid min-h-screen grid-cols-[16rem_minmax(0,1fr)]">
             <Navbar />
@@ -18,7 +35,7 @@ export default function ListUsers(){
                     <Header pageTitle={"Configurações"} userName={"Dionatas"} />
                     <UserProfileSummary role="Gestor" userName={"Dionatas Terres"} userEmail={"dionatas.terres@portorrol.com"}/>
                     <section className="xl:pr-48 pl-20 md:px-20">
-                        <UsersTable users={[]}/>
+                        <UsersTable users={sampleUsers}/>
                         <button
                             onClick={() => setOpenModal(true)}
                             className="bg-[#5A44B0] hover:bg-white text-white hover:text-black shadow-lg font-poppins uppercase text-sm p-2 rounded-md mt-6"

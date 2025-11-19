@@ -1,11 +1,10 @@
-import { useState } from "react";
 import Header from "../components/header/Header";
 import Navbar from "../components/nav_bar/NavBar";
 import UserProfileSummary from "../components/user_profile_summary/UserProfileSumary";
 import SuppliersTable from "../components/suppliers_table/SuppliersTable";
 
 export default function ListSuppliers() {
-    const [openModal, setOpenModal] = useState(false);
+    // const [openModal, setOpenModal] = useState(false);
 
     return (
         <div className="grid min-h-screen grid-cols-[16rem_minmax(0,1fr)]">

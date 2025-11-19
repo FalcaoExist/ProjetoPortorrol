@@ -66,6 +66,9 @@ export default function SuppliersTable() {
             flex: 1,
             editable: true,
             isCellEditable: (params) => params.row.isNew,
+            headerAlign: "center",
+            align: "center",
+            justify:"center",
         },
         {
             field: "start",
@@ -75,6 +78,9 @@ export default function SuppliersTable() {
             flex: 0.8,
             editable: true,
             valueFormatter: (value) => value ? new Date(value).toLocaleDateString("pt-BR") : '',
+            headerAlign: "center",
+            align: "center",
+            justify:"center",
         },
         {
             field: "end",
@@ -84,6 +90,9 @@ export default function SuppliersTable() {
             flex: 0.8,
             editable: true,
             valueFormatter: (value) => value ? new Date(value).toLocaleDateString("pt-BR") : '',
+            headerAlign: "center",
+            align: "center",
+            justify:"center",
         },
         {
             field: "budget",
@@ -93,6 +102,9 @@ export default function SuppliersTable() {
             flex: 1,
             editable: true,
             valueFormatter: (value) => value ? value.toLocaleString("pt-BR", { style: 'currency', currency: 'BRL' }) : '',
+            headerAlign: "center",
+            align: "center",
+            justify:"center",
         },
         {
             field: "leadtime",
@@ -102,6 +114,9 @@ export default function SuppliersTable() {
             flex: 0.6,
             editable: true,
             valueFormatter: (value) => (value != null ? `${value} dias` : ''),
+            headerAlign: "center",
+            align: "center",
+            justify:"center",
         },
         {
             field: "actions",
@@ -109,6 +124,9 @@ export default function SuppliersTable() {
             headerName: "Ações",
             width: isCompactLayout ? 92 : 110,
             cellClassName: "actions",
+            headerAlign: "center",
+            align: "center",
+            justify:"center",
             getActions: ({ id }) => {
                 const isInEditMode = rowModesModel[id]?.mode === GridRowModes.Edit;
 
@@ -128,7 +146,7 @@ export default function SuppliersTable() {
     ], [rowModesModel, rows, handleEditClick, handleSaveClick, handleDeleteClick, handleCancelClick, isCompactLayout]);
 
     return (
-        <Box sx={{ width: '100%', mt: 2 }}>
+        <Box sx={{ width: '100%' }}>
             <BaseDataGrid
                 rows={rows}
                 columns={columns}

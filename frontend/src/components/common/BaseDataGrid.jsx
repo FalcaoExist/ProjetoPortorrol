@@ -26,16 +26,21 @@ export const BaseDataGrid = ({ headerStyle = 'default', ...props }) => {
             '& .MuiDataGrid-columnHeaders': {
                 fontFamily: 'Poppins',
                 fontWeight: 'normal',
+                borderBottom: "1px solid #e5e7eb",
                 ...headerStylesConfig[headerStyle]
             },
             // Oculta as colunas de preenchimento automáticas que aparecem em branco no fim da tabela
             '& .MuiDataGrid-columnHeader--filler': {
                 display: 'none',
             },
+            '& .MuiDataGrid-columnHeaderTitle':{
+                color: "black",
+                fontWeight: 'normal',
+
+            },
             '& .MuiDataGrid-cell': {
                 fontFamily: 'Poppins',
                 color: 'rgb(55 65 81)',
-                padding: '12px',
                 borderBottom: '1px solid #e5e7eb', 
             },
             '& .MuiDataGrid-cell--filler': {

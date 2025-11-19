@@ -92,6 +92,9 @@ export default function UsersTable({ users = [] }) {
         minWidth: isCompactLayout ? 160 : 200,
         flex: 1,
         editable: true,
+        headerAlign: "center",
+        align: "center",
+        justify:"center",
         renderHeader: () => (
           <CustomFilterHeader
             columnId="name"
@@ -114,6 +117,9 @@ export default function UsersTable({ users = [] }) {
         minWidth: isCompactLayout ? 200 : 250,
         flex: 1.2,
         editable: true,
+        headerAlign: "center",
+        align: "center",
+        justify:"center",
         renderHeader: () => (
           <CustomFilterHeader
             columnId="email"
@@ -137,6 +143,9 @@ export default function UsersTable({ users = [] }) {
         flex: 0.7,
         editable: true,
         type: "singleSelect",
+        headerAlign: "center",
+        align: "center",
+        justify:"center",
         valueOptions: supplierOptions,
         renderHeader: () => (
           <CustomFilterHeader
@@ -162,6 +171,9 @@ export default function UsersTable({ users = [] }) {
         flex: 0.5,
         editable: true,
         type: "singleSelect",
+        headerAlign: "center",
+        align: "center",
+        justify:"center",
         valueOptions: STATUS_OPTIONS,
         renderHeader: () => (
           <CustomFilterHeader
@@ -184,6 +196,9 @@ export default function UsersTable({ users = [] }) {
         field: "actions",
         type: "actions",
         headerName: "Ações",
+        headerAlign: "center",
+        align: "center",
+        justify:"center",
         width: isCompactLayout ? 96 : 120,
         cellClassName: "actions",
         getActions: ({ id }) => {

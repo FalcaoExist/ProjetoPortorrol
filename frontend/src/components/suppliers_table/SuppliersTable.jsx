@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useCallback } from "react";
 import { GridActionsCellItem, GridRowModes } from "@mui/x-data-grid";
-import { Box } from "@mui/material";
+import { Box, useMediaQuery } from "@mui/material";
 import { FiCheck, FiX, FiEdit, FiTrash2 } from "react-icons/fi";
 import { useRowEditing } from "../../hooks/useRowEditing";
 import { BaseDataGrid } from "../common/BaseDataGrid";
@@ -17,6 +17,7 @@ const initialRows = [
 export default function SuppliersTable() {
     const [rows, setRows] = useState(initialRows);
     const [nextId, setNextId] = useState(Math.max(...initialRows.map(r => r.id)) + 1);
+    const isCompactLayout = useMediaQuery("(max-width:1279px)");
     
     // Using the custom hook for editing logic
     const {
@@ -61,7 +62,8 @@ export default function SuppliersTable() {
         {
             field: "name",
             headerName: "Fornecedor",
-            width: 180,
+            minWidth: isCompactLayout ? 130 : 160,
+            flex: 1,
             editable: true,
             isCellEditable: (params) => params.row.isNew,
         },
@@ -69,7 +71,8 @@ export default function SuppliersTable() {
             field: "start",
             headerName: "Início",
             type: "date",
-            width: 150,
+            minWidth: isCompactLayout ? 130 : 150,
+            flex: 0.8,
             editable: true,
             valueFormatter: (value) => value ? new Date(value).toLocaleDateString("pt-BR") : '',
         },
@@ -77,7 +80,8 @@ export default function SuppliersTable() {
             field: "end",
             headerName: "Fim",
             type: "date",
-            width: 150,
+            minWidth: isCompactLayout ? 130 : 150,
+            flex: 0.8,
             editable: true,
             valueFormatter: (value) => value ? new Date(value).toLocaleDateString("pt-BR") : '',
         },
@@ -85,7 +89,8 @@ export default function SuppliersTable() {
             field: "budget",
             headerName: "Orçamento (R$)",
             type: "number",
-            width: 180,
+            minWidth: isCompactLayout ? 150 : 200,
+            flex: 1,
             editable: true,
             valueFormatter: (value) => value ? value.toLocaleString("pt-BR", { style: 'currency', currency: 'BRL' }) : '',
         },
@@ -93,7 +98,8 @@ export default function SuppliersTable() {
             field: "leadtime",
             headerName: "Leadtime",
             type: "number",
-            width: 120,
+            minWidth: isCompactLayout ? 110 : 140,
+            flex: 0.6,
             editable: true,
             valueFormatter: (value) => (value != null ? `${value} dias` : ''),
         },
@@ -101,7 +107,7 @@ export default function SuppliersTable() {
             field: "actions",
             type: "actions",
             headerName: "Ações",
-            width: 100,
+            width: isCompactLayout ? 92 : 110,
             cellClassName: "actions",
             getActions: ({ id }) => {
                 const isInEditMode = rowModesModel[id]?.mode === GridRowModes.Edit;
@@ -119,7 +125,7 @@ export default function SuppliersTable() {
                 ];
             },
         },
-    ], [rowModesModel, rows, handleEditClick, handleSaveClick, handleDeleteClick, handleCancelClick]);
+    ], [rowModesModel, rows, handleEditClick, handleSaveClick, handleDeleteClick, handleCancelClick, isCompactLayout]);
 
     return (
         <Box sx={{ width: '100%', mt: 2 }}>

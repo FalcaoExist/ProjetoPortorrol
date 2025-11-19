@@ -1,5 +1,6 @@
 import { useMemo, useState, useEffect, useCallback } from "react";
 import { GridActionsCellItem, GridRowModes } from "@mui/x-data-grid";
+import { useMediaQuery } from "@mui/material";
 import { FiCheck, FiEdit, FiTrash2, FiX } from "react-icons/fi";
 import { useRowEditing } from "../../hooks/useRowEditing";
 import { useEntityFilters } from "../../hooks/useEntityFilters";
@@ -32,6 +33,7 @@ const FILTER_CONFIG = {
 
 export default function UsersTable({ users = [] }) {
   const [rows, setRows] = useState([]);
+  const isCompactLayout = useMediaQuery("(max-width:1279px)");
   // Edição, visualização, cancelamento
   const { rowModesModel, setRowModesModel, handleEditClick, handleSaveClick, handleCancelClick } = useRowEditing();
   // Abrir e fechar de filtro nas colunas
@@ -87,7 +89,7 @@ export default function UsersTable({ users = [] }) {
       {
         field: "name",
         headerName: "Analista de compras",
-        minWidth: 200,
+        minWidth: isCompactLayout ? 160 : 200,
         flex: 1,
         editable: true,
         renderHeader: () => (
@@ -109,7 +111,7 @@ export default function UsersTable({ users = [] }) {
       {
         field: "email",
         headerName: "Email",
-        minWidth: 250,
+        minWidth: isCompactLayout ? 200 : 250,
         flex: 1.2,
         editable: true,
         renderHeader: () => (
@@ -131,7 +133,7 @@ export default function UsersTable({ users = [] }) {
       {
         field: "supplier",
         headerName: "Fornecedor",
-        minWidth: 150,
+        minWidth: isCompactLayout ? 120 : 150,
         flex: 0.7,
         editable: true,
         type: "singleSelect",
@@ -156,7 +158,7 @@ export default function UsersTable({ users = [] }) {
       {
         field: "active",
         headerName: "Status",
-        minWidth: 120,
+        minWidth: isCompactLayout ? 110 : 120,
         flex: 0.5,
         editable: true,
         type: "singleSelect",
@@ -182,7 +184,7 @@ export default function UsersTable({ users = [] }) {
         field: "actions",
         type: "actions",
         headerName: "Ações",
-        width: 120,
+        width: isCompactLayout ? 96 : 120,
         cellClassName: "actions",
         getActions: ({ id }) => {
           const isInEditMode = rowModesModel[id]?.mode === GridRowModes.Edit;
@@ -212,6 +214,7 @@ export default function UsersTable({ users = [] }) {
       closePopover,
       rowModesModel,
       supplierOptions,
+      isCompactLayout,
     ]
   );
 

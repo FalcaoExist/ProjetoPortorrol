@@ -1,171 +1,189 @@
-import React, { useMemo, useState, useEffect, useCallback } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
 import { GridActionsCellItem, GridRowModes } from "@mui/x-data-grid";
-import { Box, Popover } from "@mui/material";
-import { FiX, FiChevronDown, FiCheck, FiEdit, FiTrash2 } from "react-icons/fi";
-import FilterPopoverContent from "./FilterPopoverContent";
+import { FiCheck, FiEdit, FiTrash2, FiX } from "react-icons/fi";
 import { useRowEditing } from "../../hooks/useRowEditing";
+import { useEntityFilters } from "../../hooks/useEntityFilters";
+import { useColumnPopover } from "../../hooks/useColumnPopover";
 import { BaseDataGrid } from "../common/BaseDataGrid";
+import CustomFilterHeader from "./CustomFilterHeader";
 
-// CustomFilterHeader component remains the same as it's specific to this table
-const CustomFilterHeader = React.memo(({
-  columnId,
-  label,
-  activeColumnId,
-  anchorEl,
-  handleHeaderClick,
-  handleClose,
-  filterType,
-  placeholder,
-  options,
-  filters,
-  handleFilterChange,
-}) => {
-  const open = activeColumnId === columnId;
-  return (
-    <>
-      <button
-        type="button"
-        onClick={(event) => handleHeaderClick(event, columnId)}
-        style={{
-          display: 'flex', alignItems: 'center', gap: '8px', paddingTop: '8px', paddingBottom: '8px',
-          border: 'none', background: 'none', cursor: 'pointer', color: 'inherit',
-          transition: 'color 150ms ease-in-out', width: '100%', textAlign: 'left', fontFamily: 'Poppins'
-        }}
-      >
-        <span>{label}</span>
-        <FiChevronDown size={14} style={{ transform: open ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 150ms ease-in-out" }} />
-      </button>
-      <Popover
-        open={open}
-        anchorEl={anchorEl}
-        onClose={handleClose}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-        transformOrigin={{ vertical: 'top', horizontal: 'left' }}
-      >
-        <FilterPopoverContent
-            column={{ id: columnId, label, filterType, placeholder, options }}
-            value={filters[columnId]}
-            onChange={(value) => handleFilterChange(columnId, value)}
-            onClose={handleClose}
-        />
-      </Popover>
-    </>
-  );
-});
+// Lista de status suportados pelo seletor de status da tabela
+const STATUS_OPTIONS = ["Ativo", "Inativo"];
+
+// Regras que definem como cada filtro deve ser aplicado sobre as linhas
+const FILTER_CONFIG = {
+  name: {
+    shouldApply: (value = "") => value.trim().length > 0,
+    predicate: (row, value) => row.name?.toLowerCase().includes(value.toLowerCase()),
+  },
+  email: {
+    shouldApply: (value = "") => value.trim().length > 0,
+    predicate: (row, value) => row.email?.toLowerCase().includes(value.toLowerCase()),
+  },
+  supplier: {
+    shouldApply: (value) => Boolean(value),
+    predicate: (row, value) => row.supplier === value,
+  },
+  active: {
+    shouldApply: (value) => Boolean(value),
+    predicate: (row, value) => row.active === value,
+  },
+};
 
 export default function UsersTable({ users = [] }) {
   const [rows, setRows] = useState([]);
-  
-  // Using the custom hook for editing logic
+  // Edição, visualização, cancelamento
   const { rowModesModel, setRowModesModel, handleEditClick, handleSaveClick, handleCancelClick } = useRowEditing();
+  // Abrir e fechar de filtro nas colunas
+  const { anchorEl, activeColumnId, openPopover, closePopover } = useColumnPopover();
+  // Gerenciar filtros aplicados à tabela
+  const { filters, handleFilterChange, applyFilters } = useEntityFilters({ config: FILTER_CONFIG });
 
   useEffect(() => {
-    const mappedUsers = users.map(u => ({ ...u, active: u.status }));
-    setRows(mappedUsers);
+    // Normaliza os dados recebidos
+    const normalizedUsers = users.map((user) => ({
+      ...user,
+      active: user.active ?? user.status ?? "Ativo",
+    }));
+    setRows(normalizedUsers);
   }, [users]);
 
-  // State for filters (specific to this component)
-  const [filters, setFilters] = useState({ name: "", email: "", supplier: "", active: "" });
-  const [popoverState, setPopoverState] = useState({ anchorEl: null, columnId: null });
-
-  const handleHeaderClick = useCallback((event, columnId) => {
-    setPopoverState({ anchorEl: event.currentTarget, columnId });
-  }, []);
-
-  const handlePopoverClose = useCallback(() => {
-    setPopoverState({ anchorEl: null, columnId: null });
-  }, []);
-
+  // Gera dinamicamente as opções únicas do campo fornecedor para o filtro/select
   const supplierOptions = useMemo(() => {
-    const uniqueSuppliers = Array.from(new Set(users.map((u) => u.supplier).filter(Boolean)));
-    return ["", ...uniqueSuppliers];
-  }, [users]);
-
-  const filteredRows = useMemo(() => {
-    return rows.filter((row) => {
-        const matchesName = !filters.name || row.name?.toLowerCase().includes(filters.name.toLowerCase());
-        const matchesEmail = !filters.email || row.email?.toLowerCase().includes(filters.email.toLowerCase());
-        const matchesSupplier = !filters.supplier || row.supplier === filters.supplier;
-        const matchesActive = !filters.active || row.active === filters.active;
-        return matchesName && matchesEmail && matchesSupplier && matchesActive;
-    });
-  }, [rows, filters]);
-
-  const handleFilterChange = useCallback((columnId, value) => {
-    setFilters((previous) => ({ ...previous, [columnId]: value }));
-  }, []);
-
-  // --- Component-specific handlers that use the hook's logic ---
-  const handleDeleteClick = useCallback((id) => () => {
-    const rowToDelete = rows.find(r => r.id === id);
-    if (!rowToDelete) return;
-    const confirmed = window.confirm(`Remover usuário "${rowToDelete.name}"?`);
-    if (confirmed) {
-      setRows((prevRows) => prevRows.filter((row) => row.id !== id));
-    }
+    return Array.from(new Set(rows.map((row) => row.supplier).filter(Boolean)));
   }, [rows]);
 
+  // Aplica os filtros ativos sobre as linhas antes de exibir na grade
+  const filteredRows = useMemo(() => applyFilters(rows), [applyFilters, rows]);
+
+  const handleDeleteClick = useCallback(
+    (id) => () => {
+      const rowToDelete = rows.find((row) => row.id === id);
+      if (!rowToDelete) {
+        return;
+      }
+
+      const confirmed = window.confirm(`Remover usuário "${rowToDelete.name}"?`);
+      if (confirmed) {
+        setRows((previousRows) => previousRows.filter((row) => row.id !== id));
+      }
+    },
+    [rows]
+  );
+
+  // Atualiza a linha editada na coleção local após salvar
   const processRowUpdate = useCallback((newRow) => {
-    setRows((prevRows) =>
-      prevRows.map((row) => (row.id === newRow.id ? newRow : row))
-    );
+    setRows((previousRows) => previousRows.map((row) => (row.id === newRow.id ? newRow : row)));
     return newRow;
   }, []);
-  
+
   const onProcessRowUpdateError = useCallback((error) => {
     console.error("Error updating row:", error);
   }, []);
 
   const columns = useMemo(
     () => [
+      // Coluna com o nome do analista e filtro de texto
       {
-        field: "name", headerName: "Analista de compras", width: 200, editable: true,
-        renderHeader: (params) => (
+        field: "name",
+        headerName: "Analista de compras",
+        minWidth: 200,
+        flex: 1,
+        editable: true,
+        renderHeader: () => (
           <CustomFilterHeader
-            columnId="name" label="Analista de compras" activeColumnId={popoverState.columnId}
-            anchorEl={popoverState.anchorEl} handleHeaderClick={handleHeaderClick}
-            handleClose={handlePopoverClose} filterType="text" placeholder="Digite um nome"
-            filters={filters} handleFilterChange={handleFilterChange}
+            columnId="name"
+            label="Analista de compras"
+            activeColumnId={activeColumnId}
+            anchorEl={anchorEl}
+            onOpen={openPopover}
+            onClose={closePopover}
+            filterType="text"
+            placeholder="Digite um nome"
+            filters={filters}
+            onFilterChange={handleFilterChange}
           />
         ),
       },
+      // Coluna de email com filtragem por texto
       {
-        field: "email", headerName: "Email", width: 250, editable: true,
-        renderHeader: (params) => (
+        field: "email",
+        headerName: "Email",
+        minWidth: 250,
+        flex: 1.2,
+        editable: true,
+        renderHeader: () => (
           <CustomFilterHeader
-            columnId="email" label="email" activeColumnId={popoverState.columnId}
-            anchorEl={popoverState.anchorEl} handleHeaderClick={handleHeaderClick}
-            handleClose={handlePopoverClose} filterType="text" placeholder="Buscar por email"
-            filters={filters} handleFilterChange={handleFilterChange}
+            columnId="email"
+            label="Email"
+            activeColumnId={activeColumnId}
+            anchorEl={anchorEl}
+            onOpen={openPopover}
+            onClose={closePopover}
+            filterType="text"
+            placeholder="Buscar por email"
+            filters={filters}
+            onFilterChange={handleFilterChange}
           />
         ),
       },
+      // Coluna de fornecedor com seletor de opções dinâmicas
       {
-        field: "supplier", headerName: "Fornecedor", width: 150, editable: true,
-        type: "singleSelect", valueOptions: supplierOptions.filter(Boolean),
-        renderHeader: (params) => (
+        field: "supplier",
+        headerName: "Fornecedor",
+        minWidth: 150,
+        flex: 0.7,
+        editable: true,
+        type: "singleSelect",
+        valueOptions: supplierOptions,
+        renderHeader: () => (
           <CustomFilterHeader
-            columnId="supplier" label="Fornecedor" activeColumnId={popoverState.columnId}
-            anchorEl={popoverState.anchorEl} handleHeaderClick={handleHeaderClick}
-            handleClose={handlePopoverClose} filterType="select" placeholder="Selecione o fornecedor"
-            options={supplierOptions.filter(Boolean)} filters={filters} handleFilterChange={handleFilterChange}
+            columnId="supplier"
+            label="Fornecedor"
+            activeColumnId={activeColumnId}
+            anchorEl={anchorEl}
+            onOpen={openPopover}
+            onClose={closePopover}
+            filterType="select"
+            placeholder="Selecione o fornecedor"
+            options={supplierOptions}
+            filters={filters}
+            onFilterChange={handleFilterChange}
           />
         ),
       },
+      // Coluna de status com seletor baseado em STATUS_OPTIONS
       {
-        field: "active", headerName: "Status", width: 120, editable: true,
-        type: "singleSelect", valueOptions: ["Ativo", "Inativo"],
-        renderHeader: (params) => (
+        field: "active",
+        headerName: "Status",
+        minWidth: 120,
+        flex: 0.5,
+        editable: true,
+        type: "singleSelect",
+        valueOptions: STATUS_OPTIONS,
+        renderHeader: () => (
           <CustomFilterHeader
-            columnId="active" label="Status" activeColumnId={popoverState.columnId}
-            anchorEl={popoverState.anchorEl} handleHeaderClick={handleHeaderClick}
-            handleClose={handlePopoverClose} filterType="select" placeholder="Selecione o status"
-            options={["Ativo", "Inativo"]} filters={filters} handleFilterChange={handleFilterChange}
+            columnId="active"
+            label="Status"
+            activeColumnId={activeColumnId}
+            anchorEl={anchorEl}
+            onOpen={openPopover}
+            onClose={closePopover}
+            filterType="select"
+            placeholder="Selecione o status"
+            options={STATUS_OPTIONS}
+            filters={filters}
+            onFilterChange={handleFilterChange}
           />
         ),
       },
+      // Coluna de ações que alterna entre botões de edição e confirmação
       {
-        field: "actions", type: "actions", headerName: "Ações", width: 100, cellClassName: "actions",
+        field: "actions",
+        type: "actions",
+        headerName: "Ações",
+        width: 120,
+        cellClassName: "actions",
         getActions: ({ id }) => {
           const isInEditMode = rowModesModel[id]?.mode === GridRowModes.Edit;
           if (isInEditMode) {
@@ -181,7 +199,20 @@ export default function UsersTable({ users = [] }) {
         },
       },
     ],
-    [rowModesModel, filters, popoverState, supplierOptions, handleFilterChange, handleHeaderClick, handlePopoverClose, handleEditClick, handleSaveClick, handleDeleteClick, handleCancelClick]
+    [
+      anchorEl,
+      activeColumnId,
+      filters,
+      handleFilterChange,
+      handleEditClick,
+      handleSaveClick,
+      handleDeleteClick,
+      handleCancelClick,
+      openPopover,
+      closePopover,
+      rowModesModel,
+      supplierOptions,
+    ]
   );
 
   return (
@@ -193,7 +224,6 @@ export default function UsersTable({ users = [] }) {
       onRowModesModelChange={setRowModesModel}
       processRowUpdate={processRowUpdate}
       onProcessRowUpdateError={onProcessRowUpdateError}
-      // sx prop is now in BaseDataGrid, so we use the default header style
     />
   );
 }

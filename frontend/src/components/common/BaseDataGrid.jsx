@@ -14,7 +14,7 @@ const headerStylesConfig = {
     }
 };
 
-// This component encapsulates the common styling and structure
+// Encaspulamento de estilos e arquitetura
 export const BaseDataGrid = ({ headerStyle = 'default', ...props }) => {
     return (
         <Box sx={{
@@ -28,11 +28,18 @@ export const BaseDataGrid = ({ headerStyle = 'default', ...props }) => {
                 fontWeight: 'normal',
                 ...headerStylesConfig[headerStyle]
             },
+            // Oculta as colunas de preenchimento automáticas que aparecem em branco no fim da tabela
+            '& .MuiDataGrid-columnHeader--filler': {
+                display: 'none',
+            },
             '& .MuiDataGrid-cell': {
                 fontFamily: 'Poppins',
                 color: 'rgb(55 65 81)',
                 padding: '12px',
-                borderBottom: '1px solid #e5e7eb', // Explicitly set border for consistency
+                borderBottom: '1px solid #e5e7eb', 
+            },
+            '& .MuiDataGrid-cell--filler': {
+                display: 'none',
             },
             '& .MuiDataGrid-row:hover': {
                 backgroundColor: '#f9fafb',
@@ -63,7 +70,7 @@ export const BaseDataGrid = ({ headerStyle = 'default', ...props }) => {
                     toolbarColumns: 'Colunas',
                     footerRowSelected: () => '',
                 }}
-                {...props} // Pass all other props down
+                {...props} 
             />
         </Box>
     );

@@ -14,7 +14,7 @@ const DEFAULT_USERS = [
     },
 ];
 
-export default function Registros({ users = DEFAULT_USERS }) {
+export default function Records({ users = DEFAULT_USERS }) {
     // Caso alguma página redirecione para essa com algum usuário já selecionado
     // Aqui está selecionado o primeiro para placeholder
     const [selectedUser, setSelectedUser] = useState(() => users[1] ?? null);

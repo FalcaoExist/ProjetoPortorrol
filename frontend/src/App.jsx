@@ -4,6 +4,7 @@ import Login from "./pages/Login";
 import Home from "./pages/Home";
 import ListUsers from "./pages/ListUsers";
 import ListSuppliers from "./pages/ListSuppliers";
+import Registros from "./pages/Registros";
 
 function TesteBackend() {
   return (
@@ -22,6 +23,7 @@ export default function App() {
         <Route path="/home" element={<Home />} />
         <Route path="/list_users" element={<ListUsers />} />
         <Route path="/list_suppliers" element={<ListSuppliers />} />
+        <Route path="/records" element={<Registros />} />
       </Routes>
     </BrowserRouter>
   );

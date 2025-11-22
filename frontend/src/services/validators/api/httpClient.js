@@ -1,52 +1,51 @@
 // src/services/validators/api/httpClient.js
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
 
-async function request(path, options = {}) {
-  const p = path.startsWith("/") ? path : `/${path}`;
-  const url = `${API_BASE}${p}`;
+// A URL base deve ser vazia ou '/api' para usar o proxy do Vite (definido no vite.config.js)
+// Não use 'http://localhost:3000' ou 'http://localhost:8000' aqui
+const BASE_URL = ""; 
+
+async function request(endpoint, options = {}) {
+  // Garante que o endpoint comece com /api se ainda não tiver
+  const url = endpoint.startsWith("/api") ? endpoint : `/api${endpoint}`;
+
+  const config = {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  };
+
   try {
-    console.debug("[httpClient] fetch ->", url, options.method || "GET");
-    const res = await fetch(url, {
-      headers: { "Content-Type": "application/json" },
-      ...options,
-    });
+    const response = await fetch(`${BASE_URL}${url}`, config);
 
-    if (!res.ok) {
-      const text = await res.text().catch(() => null);
-      let body = null;
-      try { body = text ? JSON.parse(text) : null; } catch (_) { body = text; }
-      const err = new Error(`HTTP ${res.status} ${res.statusText}`);
-      err.status = res.status;
-      err.body = body;
-      throw err;
+    // Tenta fazer o parse do JSON
+    let data;
+    try {
+        data = await response.json();
+    } catch (e) {
+        // Se não for JSON, retorna null ou o texto
+        data = null;
     }
 
-    const contentType = res.headers.get("content-type") || "";
-    if (contentType.includes("application/json")) {
-      return await res.json();
+    if (!response.ok) {
+      throw {
+        status: response.status,
+        message: data?.detail || data?.message || "Erro na requisição",
+        body: data
+      };
     }
-    return null;
-  } catch (err) {
-    console.error("[httpClient] erro ao chamar API:", err);
-    throw err;
+
+    return data;
+  } catch (error) {
+    console.error(`[httpClient] Erro em ${url}:`, error);
+    throw error;
   }
 }
 
-export async function get(path) {
-  return request(path, { method: "GET" });
-}
-export async function post(path, body) {
-  return request(path, { method: "POST", body: JSON.stringify(body) });
-}
-export async function put(path, body) {
-  return request(path, { method: "PUT", body: JSON.stringify(body) });
-}
-export async function del(path) {
-  return request(path, { method: "DELETE" });
-}
-
-// named export do objeto
-export const httpClient = { get, post, put, del };
-
-// default export compatível
-export default { get, post, put, del };
+export default {
+  get: (url) => request(url, { method: "GET" }),
+  post: (url, body) => request(url, { method: "POST", body: JSON.stringify(body) }),
+  put: (url, body) => request(url, { method: "PUT", body: JSON.stringify(body) }),
+  delete: (url) => request(url, { method: "DELETE" }),
+};

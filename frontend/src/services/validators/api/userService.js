@@ -1,27 +1,27 @@
-import  httpClient  from "./httpClient";
+import httpClient from "./httpClient";
 
-export const userService = {
-  async getAll() {
-    const response = await httpClient.get("/users/all");
-    return response.users || [];
-  },
+// --- IMPORTANTE: A palavra 'export' é obrigatória aqui ---
+export async function getUsers(filters = {}) {
+  const params = new URLSearchParams();
+  
+  if (filters.name) params.append("name", filters.name);
+  if (filters.email) params.append("email", filters.email);
 
-  async create(userData) {
-    return await httpClient.post("/users", userData);
-  },
+  // Constrói a query string
+  const queryString = params.toString();
+  const endpoint = queryString ? `/users?${queryString}` : "/users";
 
-  async update(id, userData) {
-    return await httpClient.put(`/users/${id}`, userData);
-  },
-
-  async deactivate(id) {
-    // Simulação de envio do ID do gestor logado via Header (conforme seu backend exige)
-    const storedUser = JSON.parse(localStorage.getItem("user"));
-    const currentUserId = storedUser?.user_id || storedUser?.id;
+  try {
+    // O httpClient adiciona o prefixo /api automaticamente
+    const response = await httpClient.get(endpoint);
     
-    return await httpClient.request(`/users/${id}/deactivate`, {
-        method: 'PUT',
-        headers: { "X-User-Id": currentUserId }
-    });
+    // Garante que retornamos um array, mesmo se a API falhar
+    if (response && response.users) {
+        return response.users;
+    }
+    return [];
+  } catch (error) {
+    console.error("Erro no serviço getUsers:", error);
+    return [];
   }
-};
+}

@@ -4,19 +4,23 @@ import PropTypes from "prop-types";
 import { FiCheckCircle, FiAlertCircle } from "react-icons/fi";
 import InputField from "../common/InputField";
 
+// Validador simples de e-mail
 const isValidEmail = (email) =>
   /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
-function AddBuyerModal({
+export default function AddBuyerModal({
   isOpen = false,
   onClose = () => {},
   // onSave deve retornar { success: true } ou { success: false, code?: "...", message?: "..." }
   onSave = async () => ({ success: true }),
   // onCheckEmail (opcional): deve retornar { exists: true } ou { exists: false }
-  onCheckEmail = async () => ({ exists: false })
+  onCheckEmail = async () => ({ exists: false }),
+  // Opcional: lista de fornecedores disponíveis para seleção — array de strings ou objetos { id, name }
+  suppliersOptions = [], // e.g. ["Timken","ABC"] ou [{id:"1",name:"Timken"}]
 }) {
-  const initialFormState = { nome: "", email: "", fornecedor: "", senha: "" };
+  const initialFormState = { nome: "", email: "", senha: "" };
   const [formData, setFormData] = useState(initialFormState);
+  const [selectedSuppliers, setSelectedSuppliers] = useState([]); // array de strings (nomes ou ids)
   const [loading, setLoading] = useState(false);
   const [checkingEmail, setCheckingEmail] = useState(false);
   const [emailExists, setEmailExists] = useState(false);
@@ -27,6 +31,7 @@ function AddBuyerModal({
       setStatus({ type: "", message: "" });
       setFormData(initialFormState);
       setEmailExists(false);
+      setSelectedSuppliers([]);
     }
   }, [isOpen]);
 
@@ -41,6 +46,26 @@ function AddBuyerModal({
     if (name === "email") {
       setEmailExists(false);
     }
+  };
+
+  // Quando suppliersOptions estiver disponível, usamos select multiple.
+  // Se não, permitimos digitar fornecedores separados por vírgula em um InputField de texto.
+
+  const handleSuppliersSelect = (e) => {
+    // <select multiple> retorna selectedOptions
+    const options = Array.from(e.target.selectedOptions || []);
+    const vals = options.map((o) => o.value);
+    setSelectedSuppliers(vals);
+  };
+
+  const handleSuppliersFreeText = (e) => {
+    // Usuário digita "Timken, ABC" -> transformamos em array
+    const raw = e.target.value;
+    const arr = raw
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    setSelectedSuppliers(arr);
   };
 
   // Verificação ao perder foco do campo de e-mail (opcional)
@@ -79,7 +104,7 @@ function AddBuyerModal({
     if (!formData.nome.trim()) errors.push("Nome");
     if (!formData.email.trim()) errors.push("E-mail");
     else if (!isValidEmail(formData.email)) errors.push("E-mail válido (ex: joao@empresa.com)");
-    if (!formData.fornecedor.trim()) errors.push("Fornecedor");
+    if (selectedSuppliers.length === 0) errors.push("Fornecedor (pelo menos 1)");
     if (!formData.senha.trim()) errors.push("Senha");
     if (errors.length) {
       setStatus({ type: "error", message: `Preencha: ${errors.join(", ")}.` });
@@ -100,8 +125,22 @@ function AddBuyerModal({
     setLoading(true);
     setStatus({ type: "", message: "" });
 
+    // Prepara payload: envia supplier como array
+    const payload = {
+      nome: formData.nome,
+      email: formData.email,
+      senha: formData.senha,
+      // backend espera `supplier` (lista). Ajuste chaves conforme seu mapping real:
+      supplier: selectedSuppliers,
+    };
+
     try {
-      const result = await onSave(formData);
+      const result = await onSave({
+        nome: payload.nome,
+        email: payload.email,
+        senha: payload.senha,
+        fornecedor: payload.supplier, // mantém compatibilidade com código existente (se onSave esperar fornecedor)
+      });
 
       if (result && result.success) {
         setStatus({ type: "success", message: "Usuário cadastrado com sucesso!" });
@@ -173,16 +212,45 @@ function AddBuyerModal({
             required
             disabled={loading || checkingEmail}
           />
-          <InputField
-            label="Fornecedor Associado"
-            type="text"
-            name="fornecedor"
-            value={formData.fornecedor}
-            onChange={handleChange}
-            placeholder="Ex: Timken"
-            required
-            disabled={loading}
-          />
+
+          {/* Se houver opções de fornecedores, usamos select multiple */}
+          {Array.isArray(suppliersOptions) && suppliersOptions.length > 0 ? (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Fornecedor(s)</label>
+              <select
+                multiple
+                value={selectedSuppliers}
+                onChange={handleSuppliersSelect}
+                disabled={loading}
+                className="w-full border rounded p-2"
+              >
+                {suppliersOptions.map((opt) =>
+                  typeof opt === "string" ? (
+                    <option key={opt} value={opt}>
+                      {opt}
+                    </option>
+                  ) : (
+                    <option key={opt.id} value={opt.id}>
+                      {opt.name}
+                    </option>
+                  )
+                )}
+              </select>
+              <p className="text-xs text-gray-500 mt-1">Segure Ctrl/Cmd para selecionar múltiplos.</p>
+            </div>
+          ) : (
+            // fallback: input free-text com vírgulas
+            <InputField
+              label="Fornecedor(s) (separe por vírgula)"
+              type="text"
+              name="fornecedor_free"
+              value={selectedSuppliers.join(", ")}
+              onChange={handleSuppliersFreeText}
+              placeholder="Ex: Timken, ABC"
+              disabled={loading}
+            />
+          )}
+
           <InputField
             label="Senha de Acesso"
             type="password"
@@ -224,5 +292,6 @@ AddBuyerModal.propTypes = {
   isOpen: PropTypes.bool,
   onClose: PropTypes.func,
   onSave: PropTypes.func,
-  onCheckEmail: PropTypes.func
+  onCheckEmail: PropTypes.func,
+  suppliersOptions: PropTypes.array,
 };

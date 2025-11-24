@@ -4,10 +4,15 @@ import logoIby_maior from "../../assets/logoIby_maior.png";
 import { Link } from "react-router-dom";
 import { defaultSections as defaultSectionsConfig } from "./navConfig";
 
+import { useAuth } from "../../context/authContext";
+
 export default function Navbar({
     sections = defaultSectionsConfig,
     logoSrc = logoIby_maior,
 } = {}) {
+    
+    const { logout } = useAuth();
+
     return (
         <aside className={`sticky top-0 h-screen w-64 bg-[#F1F2F7] border-r shadow-sm p-4 flex flex-col self-start`}>
             <img src={logoSrc} alt="logo" className="w-50 mb-4" />
@@ -37,7 +42,15 @@ export default function Navbar({
                     </React.Fragment>
 
                 ))}
-                <Link to="/logout" className="text-sm tracking-widest self-start font-poppins mt-2 ml-8 block">Sair</Link>
+
+                {/* 3. mudar o link por um botao */}
+                {/*  button para executar a ação sem mudar de yrl antes da hora */}
+                <button 
+                    onClick={logout} 
+                    className="text-sm tracking-widest self-start font-poppins mt-2 ml-8 block text-left hover:text-red-600 transition-colors"
+                >
+                    Sair
+                </button>
             </nav>
         </aside>
     );

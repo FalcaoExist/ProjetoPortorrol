@@ -2,15 +2,21 @@ import { useMemo, useState, useEffect, useCallback } from "react";
 import { GridActionsCellItem, GridRowModes } from "@mui/x-data-grid";
 import { useMediaQuery } from "@mui/material";
 import { FiCheck, FiEdit, FiTrash2, FiX } from "react-icons/fi";
+
+// Hooks Customizados
 import { useRowEditing } from "../../hooks/useRowEditing";
 import { useEntityFilters } from "../../hooks/useEntityFilters";
 import { useColumnPopover } from "../../hooks/useColumnPopover";
+
+// Componentes da UI
 import { BaseDataGrid } from "../common/BaseDataGrid";
 import CustomFilterHeader from "./CustomFilterHeader";
 
+// Opções para os Selects de Edição
 const STATUS_OPTIONS = ["Ativo", "Inativo"];
 const ROLE_OPTIONS = ["gestor", "comprador"];
 
+// Configuração dos Filtros
 const FILTER_CONFIG = {
   name: {
     shouldApply: (value = "") => value.trim().length > 0,
@@ -41,19 +47,41 @@ const FILTER_CONFIG = {
   },
 };
 
-export default function UsersTable({ users = [] }) {
+export default function UsersTable({ users = [], onDelete, onUpdate }) {
+  // Estado local das linhas
   const [rows, setRows] = useState([]);
+  
+  // Detecção de layout responsivo
   const isCompactLayout = useMediaQuery("(max-width:1279px)");
   
-  const { rowModesModel, setRowModesModel, handleEditClick, handleSaveClick, handleCancelClick } = useRowEditing();
-  const { anchorEl, activeColumnId, openPopover, closePopover } = useColumnPopover();
-  const { filters, handleFilterChange, applyFilters } = useEntityFilters({ config: FILTER_CONFIG });
+  // Hooks de lógica da tabela
+  const { 
+    rowModesModel, 
+    setRowModesModel, 
+    handleEditClick, 
+    handleSaveClick, 
+    handleCancelClick 
+  } = useRowEditing();
 
+  const { 
+    anchorEl, 
+    activeColumnId, 
+    openPopover, 
+    closePopover 
+  } = useColumnPopover();
+
+  const { 
+    filters, 
+    handleFilterChange, 
+    applyFilters 
+  } = useEntityFilters({ config: FILTER_CONFIG });
+
+  // Normalização dos dados vindos do Backend
   useEffect(() => {
-    // Mapeia os dados brutos do backend para o formato da tabela
     const normalizedUsers = users.map((user) => ({
       ...user,
-      // Adiciona campo 'status' derivado de 'is_active' para facilitar o filtro visual
+      // Cria o campo visual 'status' baseado no booleano 'is_active'
+      // Isso é necessário para o usuário ver "Ativo" ao invés de "true"
       status: user.is_active ? "Ativo" : "Inativo"
     }));
     setRows(normalizedUsers);
@@ -65,13 +93,75 @@ export default function UsersTable({ users = [] }) {
     return Array.from(new Set(allSuppliers.filter(Boolean)));
   }, [rows]);
 
+ 
   const filteredRows = useMemo(() => applyFilters(rows), [applyFilters, rows]);
 
-  const processRowUpdate = useCallback((newRow) => newRow, []);
-  const handleDeleteClick = useCallback((id) => () => { 
-      console.log("Solicitado delete para ID:", id); 
+  const processRowUpdate = useCallback(async (newRow) => {
+      console.log("Iniciando atualização da linha:", newRow);
+
+
+      const isActiveBoolean = newRow.status === "Ativo";
+
+      let updatedSuppliers = newRow.supplier;
+      
+      if (typeof updatedSuppliers === 'string') {
+          updatedSuppliers = updatedSuppliers.split(',').map(s => s.trim()).filter(Boolean);
+      }
+      
+      // Garante que seja sempre um array
+      if (!Array.isArray(updatedSuppliers)) {
+          updatedSuppliers = [];
+      }
+
+      // 3. Montar o objeto limpo para enviar à API
+      const apiData = {
+          name: newRow.name,
+          email: newRow.email,
+          role: newRow.role,
+          is_active: isActiveBoolean,
+          supplier: updatedSuppliers
+      };
+
+    
+      if (onUpdate) {
+          try {
+            
+              await onUpdate(newRow.user_id, apiData);
+          } catch (error) {
+           
+              throw error;
+          }
+      }
+
+  
+      const finalRow = { 
+          ...newRow, 
+          is_active: isActiveBoolean, 
+          supplier: updatedSuppliers 
+      };
+      
+      return finalRow;
+
+  }, [onUpdate]);
+
+
+  const onProcessRowUpdateError = useCallback((error) => {
+      console.error("Erro no processRowUpdate:", error);
+     
   }, []);
 
+
+ 
+  const handleDeleteClick = useCallback((id) => () => { 
+      if (onDelete) {
+          console.log("Solicitando exclusão para o ID:", id);
+          onDelete(id); 
+      } else {
+          console.warn("Função onDelete não fornecida.");
+      }
+  }, [onDelete]);
+
+ 
   const columns = useMemo(
     () => [
       {
@@ -116,7 +206,6 @@ export default function UsersTable({ users = [] }) {
           />
         ),
       },
-      // --- COLUNA PERFIL ---
       {
         field: "role",
         headerName: "Perfil",
@@ -148,6 +237,7 @@ export default function UsersTable({ users = [] }) {
         flex: 0.7,
         editable: true,
         valueGetter: (value, row) => {
+             // Exibe array como string para leitura
              if (Array.isArray(row.supplier)) return row.supplier.join(", ");
              return row.supplier || "";
         },
@@ -198,35 +288,68 @@ export default function UsersTable({ users = [] }) {
         width: isCompactLayout ? 96 : 120,
         getActions: ({ id }) => {
             const isInEditMode = rowModesModel[id]?.mode === GridRowModes.Edit;
+            
             if (isInEditMode) {
                 return [
-                    <GridActionsCellItem icon={<FiCheck />} label="Salvar" onClick={handleSaveClick(id)} />,
-                    <GridActionsCellItem icon={<FiX />} label="Cancelar" onClick={handleCancelClick(id)} color="inherit" />,
+                    <GridActionsCellItem 
+                        icon={<FiCheck />} 
+                        label="Salvar" 
+                        onClick={handleSaveClick(id)} 
+                    />,
+                    <GridActionsCellItem 
+                        icon={<FiX />} 
+                        label="Cancelar" 
+                        onClick={handleCancelClick(id)} 
+                        color="inherit" 
+                    />,
                 ];
             }
+            
             return [
-                <GridActionsCellItem icon={<FiEdit />} label="Editar" onClick={handleEditClick(id)} color="inherit" />,
-                <GridActionsCellItem icon={<FiTrash2 />} label="Excluir" onClick={handleDeleteClick(id)} color="inherit" />,
+                <GridActionsCellItem 
+                    icon={<FiEdit />} 
+                    label="Editar" 
+                    onClick={handleEditClick(id)} 
+                    color="inherit" 
+                />,
+                <GridActionsCellItem 
+                    icon={<FiTrash2 />} 
+                    label="Excluir" 
+                    onClick={handleDeleteClick(id)} 
+                    color="inherit" 
+                />,
             ];
         },
       },
     ],
-    [anchorEl, activeColumnId, filters, handleFilterChange, supplierOptions, isCompactLayout, rowModesModel]
+    [
+        anchorEl, 
+        activeColumnId, 
+        filters, 
+        handleFilterChange, 
+        supplierOptions, 
+        isCompactLayout, 
+        rowModesModel, 
+        handleDeleteClick 
+    ]
   );
 
-return (
+  return (
     <BaseDataGrid
       rows={filteredRows}
       columns={columns}
       
-      // --- A CORREÇÃO É ESTA LINHA ABAIXO ---
-      // Ensina o DataGrid a usar 'user_id' em vez de procurar por 'id'
+     
       getRowId={(row) => row.user_id} 
+      
       
       editMode="row"
       rowModesModel={rowModesModel}
       onRowModesModelChange={setRowModesModel}
+      
+   
       processRowUpdate={processRowUpdate}
+      onProcessRowUpdateError={onProcessRowUpdateError}
     />
   );
 }

@@ -130,6 +130,7 @@ class UserService:
         # que agora inclui a lista de suppliers.
         return self.get_user_by_id(user_id)
     
+    '''
     def deactivate_user(self, target_user_id: str, performed_by_user: Dict[str, Any]) -> Dict[str, Any]:
         # autorização: apenas gestor pode desativar
         if performed_by_user.get("role") != "gestor":
@@ -188,3 +189,18 @@ class UserService:
             pass
 
         return self.get_user_by_id(target_user_id)
+    
+    '''
+  
+    def delete_user_permanently(self, user_id: str):
+        
+        user = self.user_repo.get_user_by_id(user_id)
+        if not user:
+             raise HTTPException(status_code=404, detail="Usuário não encontrado.")
+
+        try:
+        
+            self.user_repo.delete_user(user_id) 
+            return True
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Erro ao excluir: {str(e)}")

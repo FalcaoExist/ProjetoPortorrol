@@ -2,16 +2,21 @@ import { useMemo, useState, useEffect, useCallback } from "react";
 import { GridActionsCellItem, GridRowModes } from "@mui/x-data-grid";
 import { useMediaQuery } from "@mui/material";
 import { FiCheck, FiEdit, FiTrash2, FiX } from "react-icons/fi";
+
+// Hooks Customizados
 import { useRowEditing } from "../../hooks/useRowEditing";
 import { useEntityFilters } from "../../hooks/useEntityFilters";
 import { useColumnPopover } from "../../hooks/useColumnPopover";
+
+// Componentes da UI
 import { BaseDataGrid } from "../common/BaseDataGrid";
 import CustomFilterHeader from "./CustomFilterHeader";
 
-// Lista de status suportados pelo seletor de status da tabela
+// Opções para os Selects de Edição
 const STATUS_OPTIONS = ["Ativo", "Inativo"];
+const ROLE_OPTIONS = ["gestor", "comprador"];
 
-// Regras que definem como cada filtro deve ser aplicado sobre as linhas
+// Configuração dos Filtros
 const FILTER_CONFIG = {
   name: {
     shouldApply: (value = "") => value.trim().length > 0,
@@ -21,80 +26,150 @@ const FILTER_CONFIG = {
     shouldApply: (value = "") => value.trim().length > 0,
     predicate: (row, value) => row.email?.toLowerCase().includes(value.toLowerCase()),
   },
+  role: {
+    shouldApply: (value) => Boolean(value),
+    predicate: (row, value) => row.role === value,
+  },
   supplier: {
     shouldApply: (value) => Boolean(value),
-    predicate: (row, value) => row.supplier === value,
+    predicate: (row, value) => {
+        const rowVal = row.supplier;
+        if (Array.isArray(rowVal)) return rowVal.some(s => s.includes(value));
+        return rowVal === value;
+    },
   },
   active: {
     shouldApply: (value) => Boolean(value),
-    predicate: (row, value) => row.active === value,
+    predicate: (row, value) => {
+        const statusRow = row.is_active ? "Ativo" : "Inativo";
+        return statusRow === value;
+    },
   },
 };
 
-export default function UsersTable({ users = [] }) {
+export default function UsersTable({ users = [], onDelete, onUpdate }) {
+  // Estado local das linhas
   const [rows, setRows] = useState([]);
+  
+  // Detecção de layout responsivo
   const isCompactLayout = useMediaQuery("(max-width:1279px)");
-  // Edição, visualização, cancelamento
-  const { rowModesModel, setRowModesModel, handleEditClick, handleSaveClick, handleCancelClick } = useRowEditing();
-  // Abrir e fechar de filtro nas colunas
-  const { anchorEl, activeColumnId, openPopover, closePopover } = useColumnPopover();
-  // Gerenciar filtros aplicados à tabela
-  const { filters, handleFilterChange, applyFilters } = useEntityFilters({ config: FILTER_CONFIG });
+  
+  // Hooks de lógica da tabela
+  const { 
+    rowModesModel, 
+    setRowModesModel, 
+    handleEditClick, 
+    handleSaveClick, 
+    handleCancelClick 
+  } = useRowEditing();
 
+  const { 
+    anchorEl, 
+    activeColumnId, 
+    openPopover, 
+    closePopover 
+  } = useColumnPopover();
+
+  const { 
+    filters, 
+    handleFilterChange, 
+    applyFilters 
+  } = useEntityFilters({ config: FILTER_CONFIG });
+
+  // Normalização dos dados vindos do Backend
   useEffect(() => {
-    // Normaliza os dados recebidos
     const normalizedUsers = users.map((user) => ({
       ...user,
-      active: user.active ?? user.status ?? "Ativo",
+      // Cria o campo visual 'status' baseado no booleano 'is_active'
+      // Isso é necessário para o usuário ver "Ativo" ao invés de "true"
+      status: user.is_active ? "Ativo" : "Inativo"
     }));
     setRows(normalizedUsers);
   }, [users]);
 
-  // Gera dinamicamente as opções únicas do campo fornecedor para o filtro/select
+  // Opções dinâmicas para o filtro de Fornecedor
   const supplierOptions = useMemo(() => {
-    return Array.from(new Set(rows.map((row) => row.supplier).filter(Boolean)));
+    const allSuppliers = rows.flatMap(r => r.supplier || []);
+    return Array.from(new Set(allSuppliers.filter(Boolean)));
   }, [rows]);
 
-  // Aplica os filtros ativos sobre as linhas antes de exibir na grade
+ 
   const filteredRows = useMemo(() => applyFilters(rows), [applyFilters, rows]);
 
-  const handleDeleteClick = useCallback(
-    (id) => () => {
-      const rowToDelete = rows.find((row) => row.id === id);
-      if (!rowToDelete) {
-        return;
+  const processRowUpdate = useCallback(async (newRow) => {
+      console.log("Iniciando atualização da linha:", newRow);
+
+
+      const isActiveBoolean = newRow.status === "Ativo";
+
+      let updatedSuppliers = newRow.supplier;
+      
+      if (typeof updatedSuppliers === 'string') {
+          updatedSuppliers = updatedSuppliers.split(',').map(s => s.trim()).filter(Boolean);
+      }
+      
+      // Garante que seja sempre um array
+      if (!Array.isArray(updatedSuppliers)) {
+          updatedSuppliers = [];
       }
 
-      const confirmed = window.confirm(`Remover usuário "${rowToDelete.name}"?`);
-      if (confirmed) {
-        setRows((previousRows) => previousRows.filter((row) => row.id !== id));
-      }
-    },
-    [rows]
-  );
+      // 3. Montar o objeto limpo para enviar à API
+      const apiData = {
+          name: newRow.name,
+          email: newRow.email,
+          role: newRow.role,
+          is_active: isActiveBoolean,
+          supplier: updatedSuppliers
+      };
 
-  // Atualiza a linha editada na coleção local após salvar
-  const processRowUpdate = useCallback((newRow) => {
-    setRows((previousRows) => previousRows.map((row) => (row.id === newRow.id ? newRow : row)));
-    return newRow;
-  }, []);
+    
+      if (onUpdate) {
+          try {
+            
+              await onUpdate(newRow.user_id, apiData);
+          } catch (error) {
+           
+              throw error;
+          }
+      }
+
+  
+      const finalRow = { 
+          ...newRow, 
+          is_active: isActiveBoolean, 
+          supplier: updatedSuppliers 
+      };
+      
+      return finalRow;
+
+  }, [onUpdate]);
+
 
   const onProcessRowUpdateError = useCallback((error) => {
-    console.error("Error updating row:", error);
+      console.error("Erro no processRowUpdate:", error);
+     
   }, []);
 
+
+ 
+  const handleDeleteClick = useCallback((id) => () => { 
+      if (onDelete) {
+          console.log("Solicitando exclusão para o ID:", id);
+          onDelete(id); 
+      } else {
+          console.warn("Função onDelete não fornecida.");
+      }
+  }, [onDelete]);
+
+ 
   const columns = useMemo(
     () => [
-      // Coluna com o nome do analista e filtro de texto
       {
         field: "name",
         headerName: "Analista de compras",
         minWidth: isCompactLayout ? 160 : 200,
         flex: 1,
         editable: true,
-        headerAlign: "center",
-        align: "center",
-        justify:"center",
         renderHeader: () => (
           <CustomFilterHeader
             columnId="name"
@@ -110,16 +185,12 @@ export default function UsersTable({ users = [] }) {
           />
         ),
       },
-      // Coluna de email com filtragem por texto
       {
         field: "email",
         headerName: "Email",
         minWidth: isCompactLayout ? 200 : 250,
         flex: 1.2,
         editable: true,
-        headerAlign: "center",
-        align: "center",
-        justify:"center",
         renderHeader: () => (
           <CustomFilterHeader
             columnId="email"
@@ -135,18 +206,41 @@ export default function UsersTable({ users = [] }) {
           />
         ),
       },
-      // Coluna de fornecedor com seletor de opções dinâmicas
+      {
+        field: "role",
+        headerName: "Perfil",
+        minWidth: 100,
+        flex: 0.5,
+        editable: true,
+        type: "singleSelect",
+        valueOptions: ROLE_OPTIONS,
+        renderHeader: () => (
+          <CustomFilterHeader
+            columnId="role"
+            label="Perfil"
+            activeColumnId={activeColumnId}
+            anchorEl={anchorEl}
+            onOpen={openPopover}
+            onClose={closePopover}
+            filterType="select"
+            placeholder="Perfil"
+            options={ROLE_OPTIONS}
+            filters={filters}
+            onFilterChange={handleFilterChange}
+          />
+        ),
+      },
       {
         field: "supplier",
         headerName: "Fornecedor",
         minWidth: isCompactLayout ? 120 : 150,
         flex: 0.7,
         editable: true,
-        type: "singleSelect",
-        headerAlign: "center",
-        align: "center",
-        justify:"center",
-        valueOptions: supplierOptions,
+        valueGetter: (value, row) => {
+             // Exibe array como string para leitura
+             if (Array.isArray(row.supplier)) return row.supplier.join(", ");
+             return row.supplier || "";
+        },
         renderHeader: () => (
           <CustomFilterHeader
             columnId="supplier"
@@ -156,24 +250,20 @@ export default function UsersTable({ users = [] }) {
             onOpen={openPopover}
             onClose={closePopover}
             filterType="select"
-            placeholder="Selecione o fornecedor"
+            placeholder="Selecione"
             options={supplierOptions}
             filters={filters}
             onFilterChange={handleFilterChange}
           />
         ),
       },
-      // Coluna de status com seletor baseado em STATUS_OPTIONS
       {
-        field: "active",
+        field: "status",
         headerName: "Status",
         minWidth: isCompactLayout ? 110 : 120,
         flex: 0.5,
         editable: true,
         type: "singleSelect",
-        headerAlign: "center",
-        align: "center",
-        justify:"center",
         valueOptions: STATUS_OPTIONS,
         renderHeader: () => (
           <CustomFilterHeader
@@ -184,52 +274,63 @@ export default function UsersTable({ users = [] }) {
             onOpen={openPopover}
             onClose={closePopover}
             filterType="select"
-            placeholder="Selecione o status"
+            placeholder="Status"
             options={STATUS_OPTIONS}
             filters={filters}
             onFilterChange={handleFilterChange}
           />
         ),
       },
-      // Coluna de ações que alterna entre botões de edição e confirmação
       {
         field: "actions",
         type: "actions",
         headerName: "Ações",
-        headerAlign: "center",
-        align: "center",
-        justify:"center",
         width: isCompactLayout ? 96 : 120,
-        cellClassName: "actions",
         getActions: ({ id }) => {
-          const isInEditMode = rowModesModel[id]?.mode === GridRowModes.Edit;
-          if (isInEditMode) {
+            const isInEditMode = rowModesModel[id]?.mode === GridRowModes.Edit;
+            
+            if (isInEditMode) {
+                return [
+                    <GridActionsCellItem 
+                        icon={<FiCheck />} 
+                        label="Salvar" 
+                        onClick={handleSaveClick(id)} 
+                    />,
+                    <GridActionsCellItem 
+                        icon={<FiX />} 
+                        label="Cancelar" 
+                        onClick={handleCancelClick(id)} 
+                        color="inherit" 
+                    />,
+                ];
+            }
+            
             return [
-              <GridActionsCellItem icon={<FiCheck />} label="Salvar" onClick={handleSaveClick(id)} />,
-              <GridActionsCellItem icon={<FiX />} label="Cancelar" onClick={handleCancelClick(id)} color="inherit" />,
+                <GridActionsCellItem 
+                    icon={<FiEdit />} 
+                    label="Editar" 
+                    onClick={handleEditClick(id)} 
+                    color="inherit" 
+                />,
+                <GridActionsCellItem 
+                    icon={<FiTrash2 />} 
+                    label="Excluir" 
+                    onClick={handleDeleteClick(id)} 
+                    color="inherit" 
+                />,
             ];
-          }
-          return [
-            <GridActionsCellItem icon={<FiEdit />} label="Editar" onClick={handleEditClick(id)} color="inherit" />,
-            <GridActionsCellItem icon={<FiTrash2 />} label="Excluir" onClick={handleDeleteClick(id)} color="inherit" />,
-          ];
         },
       },
     ],
     [
-      anchorEl,
-      activeColumnId,
-      filters,
-      handleFilterChange,
-      handleEditClick,
-      handleSaveClick,
-      handleDeleteClick,
-      handleCancelClick,
-      openPopover,
-      closePopover,
-      rowModesModel,
-      supplierOptions,
-      isCompactLayout,
+        anchorEl, 
+        activeColumnId, 
+        filters, 
+        handleFilterChange, 
+        supplierOptions, 
+        isCompactLayout, 
+        rowModesModel, 
+        handleDeleteClick 
     ]
   );
 
@@ -237,9 +338,16 @@ export default function UsersTable({ users = [] }) {
     <BaseDataGrid
       rows={filteredRows}
       columns={columns}
+      
+     
+      getRowId={(row) => row.user_id} 
+      
+      
       editMode="row"
       rowModesModel={rowModesModel}
       onRowModesModelChange={setRowModesModel}
+      
+   
       processRowUpdate={processRowUpdate}
       onProcessRowUpdateError={onProcessRowUpdateError}
     />

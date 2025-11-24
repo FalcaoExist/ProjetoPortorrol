@@ -1,10 +1,12 @@
-import datetime
+# app/repositories/repositories_supabase.py
 from typing import Any, Dict, List, Optional
 
 from fastapi import HTTPException
 
-from app.core.interfaces import IUserRepository
+# Importa o cliente supabase já configurado
 from app.core.supabase_client import supabase
+
+from app.core.interfaces import IUserRepository
 
 
 class SupabaseUserRepository(IUserRepository):
@@ -15,115 +17,103 @@ class SupabaseUserRepository(IUserRepository):
             response = supabase.table("users").select("*").eq("email", email).execute()
             if not response.data:
                 return None
-            user = response.data[0]
-            return {
-                "id": user["user_id"],
-                "user_id": user["user_id"],
-                "name": user["name"],
-                "email": user["email"],
-                "password_hash": user.get("password_hash"),
-                "role": user.get("role"),
-                "is_active": user.get("is_active", False)
-            }
+            return response.data[0]
         except Exception as e:
-            print(f"[ERRO SUPABASE] {e}")
-            raise HTTPException(status_code=500, detail="Ocorreu um erro inesperado. Tente novamente.")
-
-    def get_user_by_id(self, user_id: str) -> Optional[Dict[str, Any]]:
-        try:
-            resp = supabase.table("users").select("*").eq("user_id", user_id).execute()
-            if not resp.data:
-                return None
-            user = resp.data[0]
-            return {
-                "id": user["user_id"],
-                "user_id": user["user_id"],
-                "name": user["name"],
-                "email": user["email"],
-                "password_hash": user.get("password_hash"),
-                "role": user.get("role"),
-                "is_active": user.get("is_active", False)
-            }
-        except Exception as e:
-            print(f"[ERRO SUPABASE - get_user_by_id] {e}")
-            raise HTTPException(status_code=500, detail="Erro ao buscar usuário.")
+            print(f"[ERRO SUPABASE - get_user_by_email] {e}")
+            return None
 
     def get_all_users(self) -> List[Dict[str, Any]]:
         try:
-            resp = supabase.table("users").select("*").execute()
-            return resp.data or []
+            # Busca todos os usuários da tabela 'users'
+            response = supabase.table("users").select("*").execute()
+            
+            if not response.data:
+                return []
+
+            users = []
+            for u in response.data:
+                # Normaliza os dados para o formato que o Service espera
+                users.append({
+                    "user_id": u["user_id"],
+                    "name": u["name"],
+                    "email": u["email"],
+                    # Garante valores padrão caso venham nulos do banco
+                    "role": u.get("role", "comprador"),
+                    "is_active": u.get("is_active", True),
+                    # Supplier será preenchido depois, mas precisa existir a chave
+                    "supplier": [] 
+                })
+            return users
+
         except Exception as e:
             print(f"[ERRO SUPABASE - get_all_users] {e}")
-            raise HTTPException(status_code=500, detail="Erro ao buscar usuários.")
-
-    def get_suppliers_for_user(self, user_id: str) -> List[str]:
-        """
-        Retorna lista de supplier ids vinculados ao usuário (tabela user_suppliers).
-        Ajuste nomes de colunas/tabela conforme seu schema.
-        """
-        try:
-            resp = (
-                supabase.table("user_suppliers")
-                .select("supplier_id")
-                .eq("user_id", user_id)
-                .execute()
+            raise HTTPException(
+                status_code=500,
+                detail="Erro ao buscar usuários no banco de dados."
             )
-            if not resp.data:
-                return []
-            return [r["supplier_id"] for r in resp.data]
-        except Exception as e:
-            print(f"[ERRO SUPABASE - get_suppliers_for_user] {e}")
-            raise HTTPException(status_code=500, detail="Erro ao buscar suppliers do usuário.")
 
-    def create_user(self, user_data: Dict[str, Any]) -> Dict[str, Any]:
+    def create_user(self, user_data: dict) -> Dict[str, Any]:
         try:
-            resp = supabase.table("users").insert(user_data).execute()
-            if not resp.data:
-                raise HTTPException(status_code=500, detail="Falha ao criar usuário.")
-            return resp.data[0]
+            response = supabase.table("users").insert(user_data).execute()
+            if response.data:
+                return response.data[0]
+            raise Exception("Erro ao inserir: Nenhum dado retornado.")
         except Exception as e:
             print(f"[ERRO SUPABASE - create_user] {e}")
-            raise HTTPException(status_code=500, detail="Erro ao criar usuário.")
+            raise e
 
-    def sync_user_suppliers(self, user_id: str, supplier_ids: List[str]) -> None:
-        """
-        Sincroniza os suppliers do usuário:
-         - remove atuais e insere novos na tabela de junção.
-        """
+    def get_user_by_id(self, user_id: str) -> Optional[Dict[str, Any]]:
         try:
-            # delete current links
-            supabase.table("user_suppliers").delete().eq("user_id", user_id).execute()
-
-            if not supplier_ids:
-                return
-
-            # insert new links
-            payload = [{"user_id": user_id, "supplier_id": s} for s in supplier_ids]
-            supabase.table("user_suppliers").insert(payload).execute()
-
+            response = supabase.table("users").select("*").eq("user_id", user_id).execute()
+            if response.data:
+                return response.data[0]
+            return None
         except Exception as e:
-            print(f"[ERRO SUPABASE - sync_user_suppliers] {e}")
-            raise HTTPException(status_code=500, detail="Erro ao sincronizar suppliers.")
+            print(f"[ERRO SUPABASE - get_user_by_id] {e}")
+            return None
 
-    def update_user(self, user_id: str, updates: Dict[str, Any]) -> bool:
+    def update_user(self, user_id: str, updates: dict) -> Dict[str, Any]:
         try:
-            resp = supabase.table("users").update(updates).eq("user_id", user_id).execute()
-            return bool(resp.data)
+            response = supabase.table("users").update(updates).eq("user_id", user_id).execute()
+            if response.data:
+                return response.data[0]
+            raise Exception("Usuário não encontrado para atualização.")
         except Exception as e:
             print(f"[ERRO SUPABASE - update_user] {e}")
-            raise HTTPException(status_code=500, detail="Erro ao atualizar usuário.")
+            raise e
 
-    def insert_audit_log(self, performed_by: str, action: str, entity: str, entity_id: str, extra: dict = None):
+    def sync_user_suppliers(self, user_id: str, supplier_names: List[str]) -> None:
         try:
-            payload = {
-                "performed_by": performed_by,
-                "action": action,
-                "entity": entity,
-                "entity_id": entity_id,
-                "created_at": datetime.datetime.utcnow().isoformat(),
-                "extra": extra or {}
-            }
-            supabase.table("audit_logs").insert(payload).execute()
+            supabase.table("user_suppliers").delete().eq("user_id", user_id).execute()
+            if not supplier_names:
+                return
+            records = [{"user_id": user_id, "supplier_name": name} for name in supplier_names]
+            supabase.table("user_suppliers").insert(records).execute()
         except Exception as e:
-            # não interromper o fluxo por falha de logging
-            print(f"[ERRO SUPABASE - insert_audit_log] {e}")
+            print(f"[ERRO SUPABASE - sync_suppliers] {e}")
+
+    def get_suppliers_for_user(self, user_id: str) -> List[str]:
+        try:
+            response = supabase.table("user_suppliers").select("supplier_name").eq("user_id", user_id).execute()
+            return [item["supplier_name"] for item in response.data]
+        except Exception as e:
+            print(f"[ERRO SUPABASE - get_suppliers] {e}")
+            return []
+        
+    def delete_user(self, user_id: str) -> None:
+            try:
+                    # 1. Primeiro, removemos os vínculos na tabela 'user_suppliers'
+                    supabase.table("user_suppliers").delete().eq("user_id", user_id).execute()
+
+                    # 2. Agora removemos o usuário da tabela 'users'
+                    response = supabase.table("users").delete().eq("user_id", user_id).execute()
+                    
+                    # (Opcional) Log de aviso se não encontrar nada
+                    if not response.data:
+                        print(f"[AVISO] Usuário {user_id} não encontrado ou já deletado.")
+
+            except Exception as e:
+                    print(f"[ERRO SUPABASE - delete_user] {e}")
+                    raise e
+
+        

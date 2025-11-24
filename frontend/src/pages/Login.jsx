@@ -1,16 +1,41 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import logoIby from '../assets/logoIby_maior.png'
 import background from '../assets/background.png'
 import LoginForm from "../components/login/LoginForm"
 import useLogin from "../hooks/useLogin.jsx";
 
-export default function Login(){
-    const navigate = useNavigate();
-    const { email, password, onEmailChange, onPasswordChange, submit, loading, errors } = useLogin();
+import { useAuth } from "../context/authContext"; 
 
-    const handleSubmit = (e) => {
-        submit(e, navigate);
+export default function Login() {
+    const navigate = useNavigate();
+    const { login: authLogin } = useAuth(); 
+    const { email, password, onEmailChange, onPasswordChange, errors: hookErrors } = useLogin();
+    const [localLoading, setLocalLoading] = useState(false);
+    const [loginError, setLoginError] = useState("");
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setLocalLoading(true);
+        setLoginError("");
+
+        try {
+            const result = await authLogin(email, password);
+
+            if (result.success) {
+                navigate("/list_users"); 
+            } else {
+                setLoginError(result.message);
+            }
+        } catch (error) {
+            console.error("Erro inesperado no login:", error);
+            setLoginError("Erro inesperado. Tente novamente.");
+        } finally {
+            setLocalLoading(false);
+        }
     };
+
+    const displayError = hookErrors?.form || loginError;
 
     return (
         <div
@@ -25,21 +50,20 @@ export default function Login(){
                     onEmailChange={onEmailChange} 
                     password={password} 
                     onPasswordChange={onPasswordChange}
-                    errors={errors}
-                    loading={loading}
+                    errors={hookErrors} 
+                    loading={localLoading}
                 />
                 
-                {/* Mensagem de erro genérica */}
-                {errors?.form && (
-                    <div className="mt-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg text-center">
-                        <p className="text-sm font-poppins">{errors.form}</p>
+                {/* exibe erros */}
+                {displayError && (
+                    <div className="mt-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg text-center animate-pulse">
+                        <p className="text-sm font-poppins">{displayError}</p>
                     </div>
                 )}
                 
-                {/* Indicador de carregamento */}
-                {loading && (
+                {localLoading && (
                     <div className="mt-4 text-center">
-                        <p className="text-gray-600 text-sm font-poppins">Verificando credenciais...</p>
+                        <p className="text-gray-600 text-sm font-poppins">Entrando no sistema...</p>
                     </div>
                 )}
             </div>

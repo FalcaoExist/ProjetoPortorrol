@@ -89,6 +89,7 @@ def update_user(
         "message": "Usuário atualizado com sucesso!"
     }
 
+'''
 @router.put("/users/{user_id}/deactivate", response_model=UserGetResponse)
 def deactivate_user(
     user_id: str,
@@ -110,3 +111,9 @@ def activate_user(
 ):
     updated = user_service.activate_user(user_id, current_user)
     return {"success": True, "user": updated}
+
+'''
+@router.delete("/users/{user_id}", status_code=204)
+def delete_user_endpoint(user_id: str, service: UserService = Depends(get_user_service)):
+    service.delete_user_permanently(user_id)
+    return None

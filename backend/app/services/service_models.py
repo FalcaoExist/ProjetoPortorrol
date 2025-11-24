@@ -12,6 +12,7 @@ class UserCreateRequest(BaseModel):
 
 class UserUpdateRequest(BaseModel):
     name: Optional[str] = None
+    email: Optional[EmailStr] = None
     role: Optional[str] = None
-    supplier: Optional[List[str]] = None
-    is_active: Optional[bool] = None
+    is_active: Optional[bool] = None  
+    supplier: Optional[List[str]] = None 

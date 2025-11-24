@@ -1,4 +1,5 @@
 import { FiX } from "react-icons/fi";
+import DateFilterControl from "./DateFilterControl";
 
 // Campo genérico para filtros de texto.
 function TextFilterControl({ value, placeholder, onChange }) {
@@ -35,6 +36,7 @@ function SelectFilterControl({ value, options = [], onChange }) {
 const CONTROL_MAP = {
     text: TextFilterControl,
     select: SelectFilterControl,
+    date: DateFilterControl,
 };
 
 export default function FilterPopoverContent({ column, value, onChange, onClose }) {

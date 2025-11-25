@@ -3,10 +3,10 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import HTTPException
 
+from app.core.interfaces import IUserRepository
+
 # Importa o cliente supabase já configurado
 from app.core.supabase_client import supabase
-
-from app.core.interfaces import IUserRepository
 
 
 class SupabaseUserRepository(IUserRepository):

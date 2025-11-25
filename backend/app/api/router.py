@@ -3,7 +3,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends
 
 # Importa dependências
-from app.core.dependencies import get_auth_service, get_current_user, get_user_service
+from app.core.dependencies import get_auth_service, get_user_service
 
 # Importa serviços
 from app.services.auth_service import AuthService

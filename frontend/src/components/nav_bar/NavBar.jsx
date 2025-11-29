@@ -11,7 +11,8 @@ export default function Navbar({
     logoSrc = logoIby_maior,
 } = {}) {
     
-    const { logout } = useAuth();
+    // Obtém a flag isGestor do contexto de autenticação
+    const { logout, isGestor } = useAuth();
 
     return (
         <aside className={`sticky top-0 h-screen w-64 bg-[#F1F2F7] border-r shadow-sm p-4 flex flex-col self-start`}>
@@ -29,22 +30,29 @@ export default function Navbar({
                             className="flex flex-col gap-y-2 pl-9 items-start"
                             key={section.id || section.title || `section-${sectionIndex}`}
                         >
-                            {section.items?.map((item, i) => (
-                                <NavItem
-                                    key={`${section.title || "sec"}-${i}`}
-                                    to={item.to}
-                                    label={item.label}
-                                    Icon={item.icon}
-                                    LinkComponent={Link}
-                                />
-                            ))}
+                            {section.items?.map((item, i) => {
+                                // [NOVA LÓGICA] 
+                                // Se o item requer gestor e o usuário não é gestor, não renderiza o botão no menu.
+                                if (item.onlyGestor && !isGestor) {
+                                    return null;
+                                }
+
+                                return (
+                                    <NavItem
+                                        key={`${section.title || "sec"}-${i}`}
+                                        to={item.to}
+                                        label={item.label}
+                                        Icon={item.icon}
+                                        LinkComponent={Link}
+                                    />
+                                );
+                            })}
                         </ul>
                     </React.Fragment>
 
                 ))}
 
-                {/* 3. mudar o link por um botao */}
-                {/*  button para executar a ação sem mudar de yrl antes da hora */}
+                {/* Botão de sair */}
                 <button 
                     onClick={logout} 
                     className="text-sm tracking-widest self-start font-poppins mt-2 ml-8 block text-left hover:text-red-600 transition-colors"

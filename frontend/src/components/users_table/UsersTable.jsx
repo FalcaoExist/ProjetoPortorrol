@@ -97,9 +97,6 @@ export default function UsersTable({ users = [], onDelete, onUpdate }) {
   const filteredRows = useMemo(() => applyFilters(rows), [applyFilters, rows]);
 
   const processRowUpdate = useCallback(async (newRow) => {
-      console.log("Iniciando atualização da linha:", newRow);
-
-
       const isActiveBoolean = newRow.status === "Ativo";
 
       let updatedSuppliers = newRow.supplier;
@@ -147,18 +144,14 @@ export default function UsersTable({ users = [], onDelete, onUpdate }) {
 
   const onProcessRowUpdateError = useCallback((error) => {
       console.error("Erro no processRowUpdate:", error);
-     
   }, []);
 
-
- 
-  const handleDeleteClick = useCallback((id) => () => { 
-      if (onDelete) {
-          console.log("Solicitando exclusão para o ID:", id);
-          onDelete(id); 
-      } else {
-          console.warn("Função onDelete não fornecida.");
-      }
+  const handleDeleteClick = useCallback((row) => () => {
+    if (onDelete) {
+      onDelete(row);
+    } else {
+      console.warn("Função onDelete não fornecida.");
+    }
   }, [onDelete]);
 
  
@@ -286,7 +279,7 @@ export default function UsersTable({ users = [], onDelete, onUpdate }) {
         type: "actions",
         headerName: "Ações",
         width: isCompactLayout ? 96 : 120,
-        getActions: ({ id }) => {
+        getActions: ({ id, row }) => {
             const isInEditMode = rowModesModel[id]?.mode === GridRowModes.Edit;
             
             if (isInEditMode) {
@@ -315,7 +308,7 @@ export default function UsersTable({ users = [], onDelete, onUpdate }) {
                 <GridActionsCellItem 
                     icon={<FiTrash2 />} 
                     label="Excluir" 
-                    onClick={handleDeleteClick(id)} 
+                    onClick={handleDeleteClick(row)} 
                     color="inherit" 
                 />,
             ];

@@ -4,6 +4,7 @@ import Navbar from "../components/nav_bar/NavBar";
 import UserProfileSummary from "../components/user_profile_summary/UserProfileSumary";
 import UsersTable from "../components/users_table/UsersTable";
 import AddBuyerModal from "../components/add_buyer_modal/AddBuyerModal.jsx";
+import ConfirmDeleteModal from "../components/common/ConfirmDeleteModal.jsx";
 
 import { useAuth } from "../context/authContext";
 
@@ -17,6 +18,8 @@ export default function ListUsers() {
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [suppliersOptions] = useState(["Timken", "NSK", "SKF", "Fag", "Schaeffler"]);
+    const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+    const [deleteTarget, setDeleteTarget] = useState(null);
 
     useEffect(() => {
         fetchUsers();
@@ -35,9 +38,6 @@ export default function ListUsers() {
     };
 
     const handleDeleteUser = async (userId) => {
-        const confirm = window.confirm("Tem certeza que deseja excluir este usuário?");
-        if (!confirm) return;
-
         try {
             const response = await fetch(`http://127.0.0.1:8000/users/${userId}`, {
                 method: "DELETE",
@@ -45,16 +45,27 @@ export default function ListUsers() {
             });
 
             if (response.ok) {
-                alert("Usuário excluído com sucesso!");
-                fetchUsers();
-            } else {
-                const errorData = await response.json().catch(() => ({}));
-                alert(errorData.detail || "Erro ao excluir.");
+                await fetchUsers();
+                return { success: true, message: "Usuário excluído com sucesso!" };
             }
+
+            const errorData = await response.json().catch(() => ({}));
+            return { success: false, message: errorData.detail || "Erro ao excluir." };
         } catch (error) {
             console.error("Erro:", error);
-            alert("Erro de conexão.");
+            return { success: false, message: "Erro de conexão." };
         }
+    };
+
+    const handleRequestDeleteUser = (userToDelete) => {
+        if (!userToDelete) return;
+        setDeleteTarget(userToDelete);
+        setDeleteModalOpen(true);
+    };
+
+    const handleCloseDeleteModal = () => {
+        setDeleteModalOpen(false);
+        setDeleteTarget(null);
     };
 
     const handleUpdateUser = async (userId, updatedData) => {
@@ -109,7 +120,7 @@ export default function ListUsers() {
                         ) : (
                             <UsersTable 
                                 users={users} 
-                                onDelete={handleDeleteUser}
+                                onDelete={handleRequestDeleteUser}
                                 onUpdate={handleUpdateUser}
                             />
                         )}
@@ -133,6 +144,20 @@ export default function ListUsers() {
                 onSave={createBuyerApi}     
                 onCheckEmail={checkEmailApi} 
                 suppliersOptions={suppliersOptions}
+            />
+
+            <ConfirmDeleteModal
+                isOpen={deleteModalOpen}
+                onClose={handleCloseDeleteModal}
+                entityLabel={deleteTarget ? `o usuário "${deleteTarget.name}"` : "este usuário"}
+                confirmationKeyword="CONFIRMO"
+                description={deleteTarget ? `Esta ação removerá permanentemente o usuário ${deleteTarget.name} (${deleteTarget.email || "sem e-mail"}).` : undefined}
+                onConfirm={async () => {
+                    if (!deleteTarget) {
+                        return { success: false, message: "Nenhum usuário selecionado." };
+                    }
+                    return handleDeleteUser(deleteTarget.user_id);
+                }}
             />
         </div>
     );

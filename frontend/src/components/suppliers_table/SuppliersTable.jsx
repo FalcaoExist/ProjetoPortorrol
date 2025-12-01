@@ -1,9 +1,10 @@
-import React, { useState, useMemo, useCallback } from "react";
+import React, { useState, useMemo } from "react";
 import { GridActionsCellItem, GridRowModes } from "@mui/x-data-grid";
 import { Box, useMediaQuery } from "@mui/material";
 import { FiCheck, FiX, FiEdit, FiTrash2 } from "react-icons/fi";
 import { useRowEditing } from "../../hooks/useRowEditing";
 import { BaseDataGrid } from "../common/BaseDataGrid";
+import AddSupplierModal from "./AddSupplierModal";
 
 const initialRows = [
     { id: 1, name: "Timken", start: new Date("2025-12-01"), end: new Date("2026-01-01"), budget: 60000, leadtime: 15 },
@@ -19,7 +20,8 @@ export default function SuppliersTable() {
     const [nextId, setNextId] = useState(Math.max(...initialRows.map(r => r.id)) + 1);
     const isCompactLayout = useMediaQuery("(max-width:1279px)");
     
-    // Using the custom hook for editing logic
+    const [openModal, setOpenModal] = useState(false);
+
     const {
         rowModesModel,
         setRowModesModel,
@@ -30,17 +32,28 @@ export default function SuppliersTable() {
     } = useRowEditing();
 
     const handleAdd = () => {
+        setOpenModal(true);
+    };
+
+    const handleCloseModal = () => {
+        setOpenModal(false);
+    };
+
+    const handleSave = (newSupplier) => {
         const id = nextId;
         setNextId(prev => prev + 1);
-        setRows((oldRows) => [
+        setRows(oldRows => [
             ...oldRows,
-            { id, name: "", start: new Date(), end: new Date(), budget: 0, leadtime: 0, isNew: true },
+            {
+                id,
+                ...newSupplier,
+            },
         ]);
-        setEditMode(id); // Use the hook's function to set the new row to edit mode
+        handleCloseModal();
     };
 
     const handleDeleteClick = (id) => () => {
-        // Confirmation logic stays within the component
+        // Confirmação dos componentes
         setRows(rows.filter((row) => row.id !== id));
     };
 
@@ -162,6 +175,11 @@ export default function SuppliersTable() {
             >
                 Adicionar Fornecedor
             </button>
+            <AddSupplierModal
+                isOpen={openModal}
+                onClose={handleCloseModal}
+                onSave={handleSave}
+            />
         </Box>
     );
 }

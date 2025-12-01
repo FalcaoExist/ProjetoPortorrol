@@ -1,33 +1,50 @@
-import React, { useMemo, useCallback } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import { GridActionsCellItem, GridRowModes } from "@mui/x-data-grid";
 import { Box, useMediaQuery } from "@mui/material";
 import { FiCheck, FiX, FiEdit, FiTrash2 } from "react-icons/fi";
 import { useRowEditing } from "../../hooks/useRowEditing";
 import { BaseDataGrid } from "../common/BaseDataGrid";
+import AddSupplierModal from "./AddSupplierModal";
 
 export default function SuppliersTable({ rows = [], setRows, onRequestDelete }) {
     const isCompactLayout = useMediaQuery("(max-width:1279px)");
-    
-    // Using the custom hook for editing logic
+    const [openModal, setOpenModal] = useState(false);
+
     const {
         rowModesModel,
         setRowModesModel,
         handleEditClick,
         handleSaveClick,
         handleCancelClick: genericHandleCancelClick, // Rename to avoid conflict
-        setEditMode,
     } = useRowEditing();
 
     const handleAdd = useCallback(() => {
+        setOpenModal(true);
+    }, []);
+
+    const handleCloseModal = useCallback(() => {
+        setOpenModal(false);
+    }, []);
+
+    const handleSave = useCallback((newSupplier) => {
         if (!setRows) return;
-        // Remover geração local de ID quando o backend retornar o identificador oficial.
-        const id = rows.length ? Math.max(...rows.map((row) => row.id)) + 1 : 1;
-        setRows((prevRows) => [
-            ...prevRows,
-            { id, name: "", start: new Date(), end: new Date(), budget: 0, leadtime: 0, isNew: true },
-        ]);
-        setEditMode(id);
-    }, [rows, setRows, setEditMode]);
+
+        setRows((prevRows) => {
+            // TODO: remover geração local de ID quando o backend retornar o identificador oficial.
+            const newId = prevRows.length ? Math.max(...prevRows.map((row) => row.id)) + 1 : 1;
+            const normalizedRow = {
+                id: newId,
+                name: newSupplier.name,
+                start: newSupplier.start ? new Date(newSupplier.start) : null,
+                end: newSupplier.end ? new Date(newSupplier.end) : null,
+                budget: newSupplier.budget ? Number(newSupplier.budget) : 0,
+                leadtime: newSupplier.leadtime ? Number(newSupplier.leadtime) : 0,
+            };
+            return [...prevRows, normalizedRow];
+        });
+
+        setOpenModal(false);
+    }, [setRows]);
 
     const handleDeleteClick = useCallback((id) => () => {
         if (!onRequestDelete) return;
@@ -46,14 +63,14 @@ export default function SuppliersTable({ rows = [], setRows, onRequestDelete }) 
         }
     }, [genericHandleCancelClick, rows, setRows]);
     
-    const processRowUpdate = (newRow) => {
+    const processRowUpdate = useCallback((newRow) => {
         const updatedRow = { ...newRow, isNew: false };
         if (!setRows) {
             return updatedRow;
         }
         setRows((prevRows) => prevRows.map((row) => (row.id === newRow.id ? updatedRow : row)));
         return updatedRow;
-    };
+    }, [setRows]);
 
     const columns = useMemo(() => [
         {
@@ -159,6 +176,11 @@ export default function SuppliersTable({ rows = [], setRows, onRequestDelete }) 
             >
                 Adicionar Fornecedor
             </button>
+            <AddSupplierModal
+                isOpen={openModal}
+                onClose={handleCloseModal}
+                onSave={handleSave}
+            />
         </Box>
     );
 }

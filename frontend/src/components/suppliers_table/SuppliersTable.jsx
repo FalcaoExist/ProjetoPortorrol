@@ -1,22 +1,11 @@
-import React, { useState, useMemo, useCallback } from "react";
+import React, { useMemo, useCallback } from "react";
 import { GridActionsCellItem, GridRowModes } from "@mui/x-data-grid";
 import { Box, useMediaQuery } from "@mui/material";
 import { FiCheck, FiX, FiEdit, FiTrash2 } from "react-icons/fi";
 import { useRowEditing } from "../../hooks/useRowEditing";
 import { BaseDataGrid } from "../common/BaseDataGrid";
 
-const initialRows = [
-    { id: 1, name: "Timken", start: new Date("2025-12-01"), end: new Date("2026-01-01"), budget: 60000, leadtime: 15 },
-    { id: 2, name: "NSK", start: new Date("2025-12-01"), end: new Date("2026-01-01"), budget: 30000, leadtime: 9 },
-    { id: 3, name: "FRM", start: new Date("2025-12-01"), end: new Date("2026-01-01"), budget: 30000, leadtime: 9 },
-    { id: 4, name: "BGL", start: new Date("2025-12-01"), end: new Date("2026-01-01"), budget: 10000, leadtime: 7 },
-    { id: 5, name: "IKO", start: new Date("2025-12-01"), end: new Date("2026-01-01"), budget: 45000, leadtime: 20 },
-    { id: 6, name: "SAV", start: new Date("2025-12-01"), end: new Date("2026-01-01"), budget: 45000, leadtime: 20 },
-];
-
-export default function SuppliersTable() {
-    const [rows, setRows] = useState(initialRows);
-    const [nextId, setNextId] = useState(Math.max(...initialRows.map(r => r.id)) + 1);
+export default function SuppliersTable({ rows = [], setRows, onRequestDelete }) {
     const isCompactLayout = useMediaQuery("(max-width:1279px)");
     
     // Using the custom hook for editing logic
@@ -29,32 +18,40 @@ export default function SuppliersTable() {
         setEditMode,
     } = useRowEditing();
 
-    const handleAdd = () => {
-        const id = nextId;
-        setNextId(prev => prev + 1);
-        setRows((oldRows) => [
-            ...oldRows,
+    const handleAdd = useCallback(() => {
+        if (!setRows) return;
+        // Remover geração local de ID quando o backend retornar o identificador oficial.
+        const id = rows.length ? Math.max(...rows.map((row) => row.id)) + 1 : 1;
+        setRows((prevRows) => [
+            ...prevRows,
             { id, name: "", start: new Date(), end: new Date(), budget: 0, leadtime: 0, isNew: true },
         ]);
-        setEditMode(id); // Use the hook's function to set the new row to edit mode
-    };
+        setEditMode(id);
+    }, [rows, setRows, setEditMode]);
 
-    const handleDeleteClick = (id) => () => {
-        // Confirmation logic stays within the component
-        setRows(rows.filter((row) => row.id !== id));
-    };
+    const handleDeleteClick = useCallback((id) => () => {
+        if (!onRequestDelete) return;
+        const targetRow = rows.find((row) => row.id === id);
+        if (targetRow) {
+            onRequestDelete(targetRow);
+        }
+    }, [rows, onRequestDelete]);
 
-    const handleCancelClick = (id) => () => {
+    const handleCancelClick = useCallback((id) => () => {
         genericHandleCancelClick(id)(); // Call the hook's cancel handler
+        if (!setRows) return;
         const editedRow = rows.find((row) => row.id === id);
         if (editedRow?.isNew) {
-            setRows(rows.filter((row) => row.id !== id));
+            setRows((prevRows) => prevRows.filter((row) => row.id !== id));
         }
-    };
+    }, [genericHandleCancelClick, rows, setRows]);
     
     const processRowUpdate = (newRow) => {
         const updatedRow = { ...newRow, isNew: false };
-        setRows(rows.map((row) => (row.id === newRow.id ? updatedRow : row)));
+        if (!setRows) {
+            return updatedRow;
+        }
+        setRows((prevRows) => prevRows.map((row) => (row.id === newRow.id ? updatedRow : row)));
         return updatedRow;
     };
 

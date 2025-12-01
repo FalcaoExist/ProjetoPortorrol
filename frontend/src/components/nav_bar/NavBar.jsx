@@ -11,14 +11,36 @@ export default function Navbar({
     logoSrc = logoIby_maior,
 } = {}) {
     
-    const { logout } = useAuth();
+    const { logout, isGestor } = useAuth();
+
+    // Limitar visibilidade das opções
+    const visibleSections = sections
+        ?.map((section) => {
+            if (section.requiresGestor && !isGestor) {
+                return null;
+            }
+
+            const visibleItems = section.items?.filter((item) => {
+                if (item.requiresGestor && !isGestor) {
+                    return false;
+                }
+                return true;
+            }) ?? [];
+
+            if (visibleItems.length === 0) {
+                return null;
+            }
+
+            return { ...section, items: visibleItems };
+        })
+        .filter(Boolean);
 
     return (
         <aside className={`sticky top-0 h-screen w-64 bg-[#F1F2F7] border-r shadow-sm p-4 flex flex-col self-start`}>
             <img src={logoSrc} alt="logo" className="w-50 mb-4" />
 
             <nav className={"flex flex-col mt-4"}>
-                {sections?.map((section, sectionIndex) => (
+                {visibleSections?.map((section, sectionIndex) => (
                     <React.Fragment
                         key={section.id || section.title || `section-${sectionIndex}`}
                     >

@@ -35,7 +35,7 @@ export default function App() {
           <Route 
             path="/list_users" 
             element={
-              <PrivateRoute>
+              <PrivateRoute allowedRoles={["gestor"]}>
                 <ListUsers />
               </PrivateRoute>
             } 
@@ -44,7 +44,7 @@ export default function App() {
           <Route 
             path="/list_suppliers" 
             element={
-              <PrivateRoute>
+              <PrivateRoute allowedRoles={["gestor"]}>
                 <ListSuppliers />
               </PrivateRoute>
             } 
@@ -53,7 +53,7 @@ export default function App() {
           <Route 
             path="/records" 
             element={
-              <PrivateRoute>
+              <PrivateRoute allowedRoles={["gestor"]}>
                 <Records />
               </PrivateRoute>
             } 

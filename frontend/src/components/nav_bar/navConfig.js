@@ -11,6 +11,7 @@ export const defaultSections = [
   },
   {
     title: "Gerenciar",
+    requiresGestor: true,
     items: [
       { to: "/list_users", label: "Comprador", icon: BsChatDotsFill },
       { to: "/list_suppliers", label: "Fornecedores", icon: BsFileEarmarkText },

@@ -54,7 +54,6 @@ export default function ListSuppliers() {
             <main className="min-w-0">
                 <div className="flex flex-col">
                     <Header pageTitle={"Configurações"} userName={user?.name || "Usuário"} />
-                    
                     <UserProfileSummary 
                         role={user?.role || "Visitante"} 
                         userName={user?.name || "..."} 

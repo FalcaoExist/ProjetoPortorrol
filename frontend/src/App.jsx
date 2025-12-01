@@ -13,6 +13,7 @@ import Home from "./pages/Home";
 import ListUsers from "./pages/ListUsers";
 import ListSuppliers from "./pages/ListSuppliers";
 import Records from "./pages/Records";
+import Profile from "./pages/Profile"
 
 export default function App() {
   return (
@@ -31,7 +32,14 @@ export default function App() {
               </PrivateRoute>
             } 
           />
-          
+          <Route 
+          path="/profile"
+          element={
+              <PrivateRoute>
+                <Profile />
+              </PrivateRoute>
+            } 
+          />
           <Route 
             path="/list_users" 
             element={

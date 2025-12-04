@@ -23,7 +23,13 @@ export default function Login() {
             const result = await authLogin(email, password);
 
             if (result.success) {
-                navigate("/list_users"); 
+                // [CORREÇÃO AQUI]
+                // Verifica o cargo para decidir o destino
+                if (result.role === "gestor") {
+                    navigate("/list_users");      // Gestor -> Gerenciar Compradores
+                } else {
+                    navigate("/list_suppliers");  // Comprador -> Lista de Fornecedores
+                }
             } else {
                 setLoginError(result.message);
             }
@@ -54,7 +60,6 @@ export default function Login() {
                     loading={localLoading}
                 />
                 
-                {/* exibe erros */}
                 {displayError && (
                     <div className="mt-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg text-center animate-pulse">
                         <p className="text-sm font-poppins">{displayError}</p>

@@ -1,10 +1,7 @@
 import React from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
-
 import { AuthProvider } from "./context/authContext";
-
-
 import PrivateRoute from "./components/privateRoute";
 
 // Páginas
@@ -20,10 +17,12 @@ export default function App() {
     <BrowserRouter>
       <AuthProvider>
         <Routes>
-          {/* login */}
+          {/* Rota pública */}
           <Route path="/" element={<Login />} />
 
-          {/* essas rotas sao protegidas */}
+          {/* Rotas Protegidas */}
+          
+          {/* Dashboard: Acessível para todos */}
           <Route 
             path="/home" 
             element={
@@ -49,6 +48,7 @@ export default function App() {
             } 
           />
 
+          {/* Fornecedores: Acessível para todos */}
           <Route 
             path="/list_suppliers" 
             element={
@@ -58,6 +58,7 @@ export default function App() {
             } 
           />
 
+          {/* [PROTEGIDO] Apenas Gestor pode acessar Registros */}
           <Route 
             path="/records" 
             element={
@@ -67,7 +68,7 @@ export default function App() {
             } 
           />
 
-          {/* qualquer rota desconhecida redireciona para login */}
+          {/* Rota coringa: redireciona para login */}
           <Route path="*" element={<Navigate to="/" />} />
           
         </Routes>

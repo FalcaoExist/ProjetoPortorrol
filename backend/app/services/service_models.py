@@ -16,3 +16,4 @@ class UserUpdateRequest(BaseModel):
     role: Optional[str] = None
     is_active: Optional[bool] = None  
     supplier: Optional[List[str]] = None 
+    password: Optional[str] = None

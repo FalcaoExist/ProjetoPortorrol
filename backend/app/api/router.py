@@ -1,9 +1,9 @@
-from typing import Optional
+from typing import Optional, List
 
 from fastapi import APIRouter, Depends
 
 # Importa dependências
-from app.core.dependencies import get_auth_service, get_current_user, get_user_service
+from app.core.dependencies import get_auth_service, get_user_service
 
 # Importa serviços
 from app.services.auth_service import AuthService
@@ -22,17 +22,41 @@ from .schemas import (
     UserUpdateResponse,
 )
 
-# aqui cria o router
+# cria o router
 router = APIRouter()
 
-# aqui fica os endpoints da API
+# --- ENDPOINTS DA API ---
 
 @router.post("/login", response_model=LoginResponse)
 def login(
     data: LoginRequest,
     auth_service: AuthService = Depends(get_auth_service)
 ):
-    user_dict = auth_service.check_credentials(data.email, data.password)
+    # Tenta buscar o usuário e verificar senha.
+    # Usamos try/except para garantir que, se o service lançar erro, 
+    # nós capturamos e retornamos o JSON personalizado abaixo.
+    try:
+        user_dict = auth_service.check_credentials(data.email, data.password)
+    except Exception:
+        user_dict = None
+
+    # CENÁRIO 1: Usuário não encontrado ou Senha Errada
+    if not user_dict:
+        return {
+            "success": False,
+            "user": None,
+            "message": "E-mail ou senha incorretos."
+        }
+
+    # CENÁRIO 2: Senha correta, mas usuário DESATIVADO
+    if user_dict.get("is_active") is False:
+        return {
+            "success": False,
+            "user": None,
+            "message": "Acesso negado: Sua conta está desativada. Contate o administrador.",
+        }
+
+    # CENÁRIO 3: Tudo certo
     return {
         "success": True,
         "user": user_dict,
@@ -89,31 +113,14 @@ def update_user(
         "message": "Usuário atualizado com sucesso!"
     }
 
-'''
-@router.put("/users/{user_id}/deactivate", response_model=UserGetResponse)
-def deactivate_user(
-    user_id: str,
-    user_service: UserService = Depends(get_user_service),
-    current_user: dict = Depends(get_current_user)
-):
-    """
-    Endpoint para o gestor desativar um comprador.
-    Requer header X-User-Id com o id do gestor que está executando a ação.
-    """
-    updated = user_service.deactivate_user(user_id, current_user)
-    return {"success": True, "user": updated}
-
-@router.put("/users/{user_id}/activate", response_model=UserGetResponse)
-def activate_user(
-    user_id: str,
-    user_service: UserService = Depends(get_user_service),
-    current_user: dict = Depends(get_current_user)
-):
-    updated = user_service.activate_user(user_id, current_user)
-    return {"success": True, "user": updated}
-
-'''
 @router.delete("/users/{user_id}", status_code=204)
 def delete_user_endpoint(user_id: str, service: UserService = Depends(get_user_service)):
     service.delete_user_permanently(user_id)
     return None
+
+# --- Endpoint de Fornecedores (NECESSÁRIO PARA O FRONTEND) ---
+@router.get("/suppliers", response_model=List[str])
+def get_suppliers_list(
+    user_service: UserService = Depends(get_user_service)
+):
+    return user_service.get_available_suppliers()

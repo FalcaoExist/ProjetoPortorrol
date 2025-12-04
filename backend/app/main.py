@@ -1,13 +1,12 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, EmailStr
-from app.core.repositories import JsonUserRepository
-from app.core.hashers import BcryptHasher
-from app.core.services import AuthService
 
+# Importa o roteador principal da sua aplicação
+from app.api.router import router as api_router
 
-app = FastAPI(title="IBy Login API (Em SOLID)")
+app = FastAPI(title="IBy Backend API", version="1.0.0")
 
+# Adiciona o middleware de CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -17,43 +16,12 @@ app.add_middleware(
 )
 
 
-class LoginRequest(BaseModel):
-    email: EmailStr
-    password: str
-
-
-class LoginResponse(BaseModel):
-    success: bool
-    user: dict
-    message: str
-
-
-# injeção de dependências
-user_repo = JsonUserRepository()
-hasher = BcryptHasher()
-auth_service = AuthService(user_repo, hasher)
-
-
-@app.post("/login", response_model=LoginResponse)
-def login(data: LoginRequest):
-    user = auth_service.check_credentials(data.email, data.password)
-
-    return {
-        "success": True,
-        "user": {
-            "id": user["id"],
-            "name": user["name"],
-            "email": user["email"],
-            "role": user["role"],
-        },
-        "message": "Login realizado com sucesso (via JSON)",
-    }
+app.include_router(api_router)
 
 
 @app.get("/")
 def root():
-    return {"message": "Backend rodando com banco de dados JSON!", "status": "ok"}
-
+    return {"message": "API rodando!", "status": "ok"}
 
 @app.get("/health")
 def health():

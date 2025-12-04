@@ -15,7 +15,7 @@ export default defineConfig({
         changeOrigin: true,
   // remove the /api prefix (do not replace with '/'; that can create '//' and 404)
   rewrite: (path) => path.replace(/^\/api/, ''),
-        configure: (proxy, options) => {
+        configure: (proxy) => {
           // if that fails (e.g. running frontend locally), fall back to host.docker.internal
           proxy.on('error', (err) => {
             console.warn('Proxy to backend failed, falling back to host.docker.internal:', err && err.message)

@@ -1,10 +1,7 @@
 import React from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
-
 import { AuthProvider } from "./context/authContext";
-
-
 import PrivateRoute from "./components/privateRoute";
 
 // Páginas
@@ -13,16 +10,19 @@ import Home from "./pages/Home";
 import ListUsers from "./pages/ListUsers";
 import ListSuppliers from "./pages/ListSuppliers";
 import Records from "./pages/Records";
+import Profile from "./pages/Profile"
 
 export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
         <Routes>
-          {/* login */}
+          {/* Rota pública */}
           <Route path="/" element={<Login />} />
 
-          {/* essas rotas sao protegidas */}
+          {/* Rotas Protegidas */}
+          
+          {/* Dashboard: Acessível para todos */}
           <Route 
             path="/home" 
             element={
@@ -31,35 +31,44 @@ export default function App() {
               </PrivateRoute>
             } 
           />
-          
+          <Route 
+          path="/profile"
+          element={
+              <PrivateRoute>
+                <Profile />
+              </PrivateRoute>
+            } 
+          />
           <Route 
             path="/list_users" 
             element={
-              <PrivateRoute>
+              <PrivateRoute allowedRoles={["gestor"]}>
                 <ListUsers />
               </PrivateRoute>
             } 
           />
 
+          {/* Fornecedores: Acessível para todos */}
           <Route 
             path="/list_suppliers" 
             element={
-              <PrivateRoute>
+              <PrivateRoute allowedRoles={["gestor"]}>
                 <ListSuppliers />
               </PrivateRoute>
             } 
           />
 
+          {/* [PROTEGIDO] Apenas Gestor pode acessar Registros */}
           <Route 
             path="/records" 
             element={
-              <PrivateRoute>
+              <PrivateRoute allowedRoles={["gestor"]}>
                 <Records />
               </PrivateRoute>
             } 
           />
 
-          {/* qualquer rota desconhecida redireciona para login */}
+          {/* Rota coringa: redireciona para login */}
           <Route path="*" element={<Navigate to="/" />} />
           
         </Routes>

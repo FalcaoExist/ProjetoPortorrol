@@ -11,14 +11,13 @@ class UserResponse(BaseModel):
     supplier: List[str]
     is_active: bool
 
-# --- AQUI ESTAVA FALTANDO O CAMPO ---
 class UserListItem(BaseModel):
     user_id: str
     name: str
     email: str
     role: str
     is_active: bool
-    # Adicione esta linha para permitir que a lista de fornecedores apareça
+    # Campo opcional para listagens que incluem fornecedores
     supplier: Optional[List[str]] = []
 
 class LoginRequest(BaseModel):
@@ -27,7 +26,8 @@ class LoginRequest(BaseModel):
 
 class LoginResponse(BaseModel):
     success: bool
-    user: dict
+    # Permite que 'user' seja nulo em caso de erro no login
+    user: Optional[dict] = None
     message: str
 
 class UserCreateResponse(BaseModel):

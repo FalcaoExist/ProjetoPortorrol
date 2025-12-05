@@ -1,66 +1,44 @@
-import { useState, useEffect } from "react";
-import iby from "../assets/logoIby_maior.png";
+import Navbar from "../components/nav_bar/NavBar";
+import Header from "../components/header/Header";
+import { useAuth } from "../context/authContext";
 
 export default function Home() {
-  const [isBouncing, setIsBouncing] = useState(true);
-  const [isTimerFinished, setIsTimerFinished] = useState(false);
-  const [apiStatus, setApiStatus] = useState({
-    loading: true,
-    message: "Verificando conexão...",
-  });
-
-  useEffect(() => {
-    fetch("/")
-      .then((res) => {
-        if (!res.ok) {
-          throw new Error("Erro ao conectar: " + res.status);
-        }
-        return res.text();
-      })
-      .then(() => {
-        setApiStatus({
-          loading: false,
-          message: "✅ Front e Back estão integrados!",
-        });
-      })
-      .catch((err) => {
-        console.error("Fetch error connecting to backend:", err);
-        setApiStatus({
-          loading: false,
-          message:
-            "❌ Não conseguiu conectar ao backend: " + err.message,
-        });
-      });
-  }, []);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsBouncing(false);
-      setIsTimerFinished(true);
-    }, 3000);
-
-    return () => clearTimeout(timer);
-  }, []);
+  const { user } = useAuth();
 
   return (
-    <div className="flex flex-col items-center justify-center h-screen gap-6 text-center">
-      <img
-        src={iby}
-        alt="Logo IBy"
-        className={`w-56 sm:w-64 h-auto ${
-          isBouncing ? "animate-bounce" : ""
-        }`}
-      />
+    <div className="grid min-h-screen grid-cols-[16rem_minmax(0,1fr)]">
+      <Navbar />
+      <main className="min-w-0">
+        <div className="flex flex-col">
+          <Header pageTitle={"Dashboard"} userName={user?.name || "Usuário"} />
 
-      <h1 className="text-2xl font-bold text-gray-800">
-        Seja bem-vindo!
-      </h1>
-
-      <p className="text-lg font-bold text-gray-800">
-        {isTimerFinished
-          ? apiStatus.message
-          : "Verificando conexão..."}
-      </p>
+          <section className="xl:pr-48 pl-20 md:px-20 mt-3">
+            <div className="border border-1 rounded-lg w-full  min-h-96"></div>
+            <div className="w-full min-h-72 flex gap-2">
+              <div className="w-1/5 grid grid-rows-3 grid-cols-2 gap-1 items-center">
+                <p className="col-span-2">Pedidos</p>
+                <div className="border border-1 rounded-xl p-12"></div>
+                <div className="border border-1 rounded-xl p-12"></div>
+                <div className="border border-1 rounded-xl p-12"></div>
+                <div className="border border-1 rounded-xl p-12"></div>
+              </div>
+              <div className="w-3/5 grid grid-rows-3 grid-cols-2 gap-1 items-center">
+                <p className="col-span-2">Gastos</p>
+                <div className="border border-1 rounded-lg h-full col-span-2 row-span-2"></div>
+              </div>
+              <div className="grow grid grid-rows-3 grid-cols-2 gap-1 items-center">
+                <p className="col-span-2"></p>
+                <div className="border border-1 rounded-lg h-full col-span-2 row-span-2"></div>
+              </div>
+            </div>
+            <div className="border border-1 rounded-lg w-full  min-h-72 my-3"></div>
+            <div className="border border-1 rounded-lg w-full  min-h-72 mb-10"></div>
+            <div className="flex justify-end">
+              <button>Exportar</button>
+            </div>
+          </section>
+        </div>
+      </main>
     </div>
   );
 }

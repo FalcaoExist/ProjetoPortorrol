@@ -32,6 +32,10 @@ class IUserRepository(ABC):
     def get_suppliers_for_user(self, user_id: str) -> List[str]:
         pass
 
+    @abstractmethod
+    def get_all_suppliers(self) -> List[str]:
+        pass
+
 
 class IPasswordHasher(ABC):
     

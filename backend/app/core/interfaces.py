@@ -36,7 +36,6 @@ class IUserRepository(ABC):
     def get_all_suppliers(self) -> List[str]:
         pass
 
-    # --- NOVOS MÉTODOS DE AUDITORIA ---
     @abstractmethod
     def insert_audit_log(self, performed_by: str, action: str, entity: str, entity_id: Optional[str], extra: Optional[dict] = None) -> None:
         pass
@@ -49,6 +48,9 @@ class IUserRepository(ABC):
     def get_audit_logs(self, filters: dict) -> List[Dict[str, Any]]:
         pass
 
+    @abstractmethod
+    def get_login_attempts(self, limit: int, offset: int) -> List[Dict[str, Any]]:
+        pass
 
 class IPasswordHasher(ABC):
     

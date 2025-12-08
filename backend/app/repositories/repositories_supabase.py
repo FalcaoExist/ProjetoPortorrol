@@ -1,4 +1,3 @@
-# app/repositories/repositories_supabase.py
 from typing import Any, Dict, List, Optional
 
 from fastapi import HTTPException
@@ -291,4 +290,19 @@ class SupabaseUserRepository(IUserRepository):
 
         except Exception as e:
             print(f"[ERRO SUPABASE - get_audit_logs] {e}")
+            return []
+    
+    # MÉTODO PARA LISTAR TENTAIVAS DE LOGIN
+    def get_login_attempts(self, limit: int = 200, offset: int = 0) -> List[Dict[str, Any]]:
+        try:
+            query = (
+                supabase.table("login_attempts")
+                .select("*")
+                .order("created_at", desc=True)
+                .range(offset, offset + limit - 1)
+            )
+            response = query.execute()
+            return response.data or []
+        except Exception as e:
+            print(f"[ERRO SUPABASE - get_login_attempts] {e}")
             return []

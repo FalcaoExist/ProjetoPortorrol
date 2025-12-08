@@ -15,7 +15,25 @@ const headerStylesConfig = {
 };
 
 // Encaspulamento de estilos e arquitetura
-export const BaseDataGrid = ({ headerStyle = 'default', ...props }) => {
+export const BaseDataGrid = ({
+    headerStyle = 'default',
+    disableColumnFilter = true,
+    disableColumnMenu = true,
+    disableColumnSelector = true,
+    disableDensitySelector = true,
+    slots = {},
+    slotProps = {},
+    ...props
+}) => {
+    const mergedSlots = {
+        noRowsOverlay: () => (
+            <Box sx={{ p: 2, textAlign: 'center', color: 'text.secondary', fontFamily: 'Poppins' }}>
+                Nenhum registro encontrado.
+            </Box>
+        ),
+        ...slots,
+    };
+
     return (
         <Box sx={{
             height: 400,
@@ -43,6 +61,14 @@ export const BaseDataGrid = ({ headerStyle = 'default', ...props }) => {
                 color: 'rgb(55 65 81)',
                 borderBottom: '1px solid #e5e7eb', 
             },
+            '& .cell-notes': {
+                whiteSpace: 'normal',
+                wordBreak: 'break-word',
+                alignItems: 'flex-start',
+                paddingTop: '12px',
+                paddingBottom: '12px',
+                lineHeight: 1.35,
+            },
             '& .MuiDataGrid-cell--filler': {
                 display: 'none',
             },
@@ -55,18 +81,13 @@ export const BaseDataGrid = ({ headerStyle = 'default', ...props }) => {
             },
         }}>
             <DataGrid
-                disableColumnFilter
-                disableColumnMenu
-                disableColumnSelector
-                disableDensitySelector
+                disableColumnFilter={disableColumnFilter}
+                disableColumnMenu={disableColumnMenu}
+                disableColumnSelector={disableColumnSelector}
+                disableDensitySelector={disableDensitySelector}
                 getRowId={(row) => row.id}
-                slots={{
-                    noRowsOverlay: () => (
-                        <Box sx={{ p: 2, textAlign: 'center', color: 'text.secondary', fontFamily: 'Poppins' }}>
-                            Nenhum registro encontrado.
-                        </Box>
-                    ),
-                }}
+                slots={mergedSlots}
+                slotProps={slotProps}
                 localeText={{
                     noRowsLabel: 'Nenhum registro encontrado.',
                     toolbarDensity: 'Densidade',

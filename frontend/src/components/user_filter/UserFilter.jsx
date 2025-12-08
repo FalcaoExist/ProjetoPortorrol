@@ -1,3 +1,4 @@
+import React from 'react';
 import TextField from '@mui/material/TextField';
 import Autocomplete, { createFilterOptions } from '@mui/material/Autocomplete';
 
@@ -12,8 +13,8 @@ export default function UserFilter({ label = "", options = [], value = null, onC
     };
 
     return (
-        <div className="flex items-center gap-8 p-20">
-            {label ? <span className="font-poppins">{label}</span> : null}
+        <div className="flex items-center gap-8 px-8 py-6 md:px-12 md:py-8">
+            {label ? <span className="font-poppins text-gray-700 font-medium">{label}</span> : null}
             <Autocomplete
                 options={options}
                 value={value}
@@ -22,12 +23,14 @@ export default function UserFilter({ label = "", options = [], value = null, onC
                 filterOptions={filterOptions}
                 isOptionEqualToValue={(option, value) => option?.id === value?.id}
                 sx={{
-                    '& .MuiOutlinedInput-notchedOutline, & .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline, & .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                        border: '1px solid #e5e7eb',
-                    },
-                    width: "50%",
+                    '& .MuiOutlinedInput-notchedOutline': { border: '1px solid #e5e7eb' },
+                    '& .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline': { border: '1px solid #9ca3af' },
+                    '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': { border: '1px solid #5A44B0' },
+                    width: "300px",
+                    backgroundColor: "white",
+                    borderRadius: "8px"
                 }}
-                renderInput={(params) => <TextField {...params} label="" size="small" />}
+                renderInput={(params) => <TextField {...params} label="" size="small" placeholder="Selecione..." />}
             />
         </div>
     )

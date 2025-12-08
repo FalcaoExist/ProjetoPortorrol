@@ -159,3 +159,33 @@ class UserService:
 
     def get_available_suppliers(self) -> List[str]:
         return self.user_repo.get_all_suppliers()
+    
+    def change_password(self, user_id: str, old_password: str, new_password: str, performed_by: str):
+        # Buscar usuário
+        user = self.user_repo.get_user_by_id(user_id)
+        if not user:
+            raise HTTPException(status_code=404, detail="Usuário não encontrado.")
+
+        # Validar senha antiga
+        if not self.hasher.verify(old_password, user["password_hash"]):
+            raise HTTPException(status_code=400, detail="Senha atual incorreta.")
+
+        # Gerar hash da nova senha
+        new_hash = self.hasher.hash(new_password)
+
+        # Atualizar no banco
+        self.user_repo.update_user(user_id, {"password_hash": new_hash})
+
+        # Auditoria
+        try:
+            self.user_repo.insert_audit_log(
+                performed_by=performed_by,
+                action="update_password",
+                entity="users",
+                entity_id=user_id,
+                extra={"message": "Senha alterada pelo próprio usuário"}
+            )
+        except Exception:
+            pass
+
+        return True

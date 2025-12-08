@@ -7,14 +7,14 @@ import RecordsTable from "../components/records_table/RecordsTable";
 import { useAuth } from "../context/authContext";
 import { getAuditLogs } from "../services/auditService";
 
-const TODOS_OPTION = { id: 0, name: "Todos" };
+const ALL_USERS_OPTION = { id: "all-users", name: "Todos" };
 
 export default function Records() {
     const { user, isGestor } = useAuth();
 
     const [records, setRecords] = useState([]);
-    const [usersList, setUsersList] = useState([TODOS_OPTION]);
-    const [selectedUser, setSelectedUser] = useState(TODOS_OPTION);
+    const [usersList, setUsersList] = useState([ALL_USERS_OPTION]);
+    const [selectedUser, setSelectedUser] = useState(ALL_USERS_OPTION);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -54,7 +54,8 @@ export default function Records() {
                 name
             }));
 
-            setUsersList([TODOS_OPTION, ...uniqueUsers]);
+            setUsersList([ALL_USERS_OPTION, ...uniqueUsers]);
+
         } catch (err) {
             console.error("Erro ao carregar logs:", err);
             setRecords([]);
@@ -64,7 +65,7 @@ export default function Records() {
     };
 
     const handleUserFilterChange = (option) => {
-        setSelectedUser(option ?? TODOS_OPTION);
+        setSelectedUser(option ?? ALL_USERS_OPTION);
     };
 
     function formatDescription(log) {
@@ -79,7 +80,7 @@ export default function Records() {
     }
 
     const filteredRecords = useMemo(() => {
-        if (!selectedUser || selectedUser.id === TODOS_OPTION.id) return records;
+        if (!selectedUser || selectedUser.id === ALL_USERS_OPTION.id) return records;
         return records.filter((rec) => rec.user === selectedUser.name);
     }, [records, selectedUser]);
 
@@ -108,6 +109,8 @@ export default function Records() {
                     options={usersList}
                     value={selectedUser}
                     onChange={handleUserFilterChange}
+                    containerClassName="px-8 py-6 md:px-12 md:py-8"
+                    placeholder="Selecione um usuário"
                 />
 
                 <section className="px-8 md:px-12 pb-10">

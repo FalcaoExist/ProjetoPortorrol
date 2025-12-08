@@ -2,7 +2,7 @@ const API_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
 
 const customFetch = async (endpoint, options = {}) => {
   const url = `${API_URL}${endpoint}`;
-  
+
   const defaultHeaders = {
     "Content-Type": "application/json",
     ...options.headers,
@@ -11,22 +11,42 @@ const customFetch = async (endpoint, options = {}) => {
   const config = {
     ...options,
     headers: defaultHeaders,
-    credentials: "include", 
+    credentials: "include",
   };
 
   const response = await fetch(url, config);
 
-  const contentType = response.headers.get("content-type");
+  const contentType = response.headers.get("content-type") || "";
   let data = null;
-  if (contentType && contentType.includes("application/json")) {
-    data = await response.json();
+  let rawText = null;
+
+  // 204 No Content should not attempt to parse body
+  if (response.status === 204) {
+    data = null;
+  } else if (contentType.includes("application/json")) {
+    // Read as text first to safely handle empty bodies
+    const text = await response.text();
+    rawText = text;
+    if (text && text.trim().length > 0) {
+      try {
+        data = JSON.parse(text);
+      } catch (e) {
+        // If JSON parsing fails, keep data as null; handled below if not ok
+        data = null;
+      }
+    } else {
+      data = null;
+    }
+  } else if (!response.ok) {
+    // For non-JSON error responses, capture text for error messages
+    rawText = await response.text();
   }
 
   if (!response.ok) {
-
-    const error = new Error(data?.detail || data?.message || "Erro na requisição");
+    const message = (data && (data.detail || data.message)) || (rawText && rawText.trim()) || "Erro na requisição";
+    const error = new Error(message);
     error.status = response.status;
-    error.data = data;
+    error.data = data ?? rawText;
     throw error;
   }
 

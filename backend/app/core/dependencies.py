@@ -1,74 +1,68 @@
-#from fastapi import Depends
-from fastapi import Depends, Header, HTTPException, status
+import os
+from typing import Optional
+
+from dotenv import load_dotenv
+from fastapi import Cookie, Depends, HTTPException, status
+from jose import JWTError, jwt
 
 from app.core.hashers import BcryptHasher
 from app.core.interfaces import IPasswordHasher, IUserRepository
-
-# Importa as implementações
 from app.repositories.repositories_supabase import SupabaseUserRepository
-
-# Importa os Serviços que precisam das dependências
 from app.services.auth_service import AuthService
 from app.services.user_service import UserService
 
-# --- Provedores de Implementação (DIP) ---
-# Esta seção "ensina" ao FastAPI como resolver as Interfaces.
+load_dotenv()
+
+SECRET_KEY = os.getenv("SECRET_KEY", "uma_chave_super_secreta_e_segura_123")
+ALGORITHM = os.getenv("ALGORITHM", "HS256")
+
+
 
 def get_user_repository() -> IUserRepository:
-    """
-    Provedor de Dependência (DIP).
-    Quando um endpoint pedir por 'IUserRepository', o FastAPI
-    executará esta função e injetará um 'SupabaseUserRepository'.
-    
-    Se quisermos mudar para o JSON, só precisamos mudar esta linha:
-    return JsonUserRepository()
-    E o resto da aplicação continuará funcionando.
-    """
     return SupabaseUserRepository()
 
 def get_password_hasher() -> IPasswordHasher:
-    """
-    Provedor de Dependência (DIP).
-    Quando um endpoint pedir por 'IPasswordHasher', o FastAPI
-    executará esta função e injetará um 'BcryptHasher'.
-    """
     return BcryptHasher()
 
-# --- Provedores de Serviço ---
-# Esta seção constrói os serviços, injetando as dependências acima.
-
 def get_auth_service(
-    # Pede ao FastAPI: "Me dê o que 'get_user_repository' retorna"
     repo: IUserRepository = Depends(get_user_repository),
-    # Pede ao FastAPI: "Me dê o que 'get_password_hasher' retorna"
     hasher: IPasswordHasher = Depends(get_password_hasher)
 ) -> AuthService:
-    """
-    Provedor que constrói e retorna uma instância do AuthService.
-    Ele automaticamente resolve as dependências (repo, hasher)
-    e as passa para o __init__ do AuthService.
-    """
     return AuthService(repo, hasher)
 
 def get_user_service(
     repo: IUserRepository = Depends(get_user_repository),
     hasher: IPasswordHasher = Depends(get_password_hasher)
 ) -> UserService:
-    """
-    Provedor que constrói e retorna uma instância do UserService.
-    """
     return UserService(repo, hasher)
 
 def get_current_user(
-    x_user_id: str = Header(..., alias="X-User-Id"),
+    access_token: Optional[str] = Cookie(None), 
     repo: IUserRepository = Depends(get_user_repository)
 ):
-    """
-    Dependência simples para recuperar o usuário que está fazendo a requisição.
-    O cliente (frontend ou chamadas internas) deve enviar o header:
-        X-User-Id: <user_id>
-    """
-    user = repo.get_user_by_id(x_user_id)
+    
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Credenciais inválidas ou sessão expirada.",
+    )
+
+    if not access_token:
+        raise credentials_exception
+
+    token_str = access_token.replace("Bearer ", "") if access_token.startswith("Bearer ") else access_token
+
+    try:
+        payload = jwt.decode(token_str, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id: str = payload.get("sub")
+        
+        if user_id is None:
+            raise credentials_exception
+            
+    except JWTError:
+        raise credentials_exception
+
+    user = repo.get_user_by_id(user_id)
     if not user:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Usuário não autenticado.")
+        raise credentials_exception
+        
     return user

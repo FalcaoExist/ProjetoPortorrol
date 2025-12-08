@@ -1,51 +1,43 @@
-// src/services/validators/api/httpClient.js
+const API_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
 
-// A URL base deve ser vazia ou '/api' para usar o proxy do Vite (definido no vite.config.js)
-// Não use 'http://localhost:3000' ou 'http://localhost:8000' aqui
-const BASE_URL = ""; 
-
-async function request(endpoint, options = {}) {
-  // Garante que o endpoint comece com /api se ainda não tiver
-  const url = endpoint.startsWith("/api") ? endpoint : `/api${endpoint}`;
+const customFetch = async (endpoint, options = {}) => {
+  const url = `${API_URL}${endpoint}`;
+  
+  const defaultHeaders = {
+    "Content-Type": "application/json",
+    ...options.headers,
+  };
 
   const config = {
     ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...options.headers,
-    },
+    headers: defaultHeaders,
+    credentials: "include", 
   };
 
-  try {
-    const response = await fetch(`${BASE_URL}${url}`, config);
+  const response = await fetch(url, config);
 
-    // Tenta fazer o parse do JSON
-    let data;
-    try {
-        data = await response.json();
-    } catch (e) {
-        // Se não for JSON, retorna null ou o texto
-        data = null;
-    }
+  const contentType = response.headers.get("content-type");
+  let data = null;
+  if (contentType && contentType.includes("application/json")) {
+    data = await response.json();
+  }
 
-    if (!response.ok) {
-      throw {
-        status: response.status,
-        message: data?.detail || data?.message || "Erro na requisição",
-        body: data
-      };
-    }
+  if (!response.ok) {
 
-    return data;
-  } catch (error) {
-    console.error(`[httpClient] Erro em ${url}:`, error);
+    const error = new Error(data?.detail || data?.message || "Erro na requisição");
+    error.status = response.status;
+    error.data = data;
     throw error;
   }
-}
 
-export default {
-  get: (url) => request(url, { method: "GET" }),
-  post: (url, body) => request(url, { method: "POST", body: JSON.stringify(body) }),
-  put: (url, body) => request(url, { method: "PUT", body: JSON.stringify(body) }),
-  delete: (url) => request(url, { method: "DELETE" }),
+  return data;
 };
+
+const httpClient = {
+  get: (url, options) => customFetch(url, { ...options, method: "GET" }),
+  post: (url, body, options) => customFetch(url, { ...options, method: "POST", body: JSON.stringify(body) }),
+  put: (url, body, options) => customFetch(url, { ...options, method: "PUT", body: JSON.stringify(body) }),
+  delete: (url, options) => customFetch(url, { ...options, method: "DELETE" }),
+};
+
+export default httpClient;

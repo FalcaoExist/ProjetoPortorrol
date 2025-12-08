@@ -8,9 +8,8 @@ class UserResponse(BaseModel):
     name: str
     email: str
     role: str
-    supplier: List[str]
+    supplier: Optional[List[str]] = [] # <--- CORRIGIDO (Opcional)
     is_active: bool
-
 class UserListItem(BaseModel):
     user_id: str
     name: str

@@ -7,6 +7,7 @@ import PrivateRoute from "./components/privateRoute";
 // Páginas
 import Login from "./pages/Login";
 import Home from "./pages/Home";
+import Estoque from "./pages/Estoque";
 import ListUsers from "./pages/ListUsers";
 import ListSuppliers from "./pages/ListSuppliers";
 import Records from "./pages/Records";
@@ -30,6 +31,14 @@ export default function App() {
                 <Home />
               </PrivateRoute>
             } 
+          />
+          <Route 
+            path="/estoque"
+            element={
+              <PrivateRoute>
+                <Estoque />
+              </PrivateRoute>
+            }
           />
           <Route 
           path="/profile"

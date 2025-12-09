@@ -6,7 +6,7 @@ export const defaultSections = [
     items: [
       { to: "/home", label: "Dashboard", icon: BsFileBarGraphFill },
       { to: "/orders", label: "Pedidos", icon: BsCart2 },
-      { to: "/stock", label: "Estoque", icon: BsFileTextFill },
+      { to: "/estoque", label: "Estoque", icon: BsFileTextFill },
     ],
   },
   {

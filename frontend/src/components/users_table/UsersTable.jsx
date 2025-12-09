@@ -38,80 +38,110 @@ export default function UsersTable({ users = [], onDelete, onUpdate, onChangePas
   } = useUsersTableLogic({ users, availableSuppliers, onUpdate });
 
   const onProcessRowUpdateError = (error) => console.error("Erro ao atualizar linha:", error);
-
-  // Definição das Colunas
+  // Definição das Colunas (limpo)
   const columns = useMemo(
     () => [
       {
-        field: "name", 
-        headerName: "Analista de compras", 
-        flex: 1.2, 
-        minWidth: 200, 
+        field: "name",
+        headerName: "Analista de compras",
+        flex: 1.2,
+        minWidth: 200,
         editable: true,
         sortComparator: ptBRComparator,
         renderHeader: () => (
           <CustomFilterHeader
-            columnId="name" label="Analista de compras" activeColumnId={popoverState.columnId}
-            anchorEl={popoverState.anchorEl} handleHeaderClick={handleHeaderClick}
-            handleClose={handlePopoverClose} filterType="text" placeholder="Buscar nome"
-            filters={filters} handleFilterChange={handleFilterChange}
+            columnId="name"
+            label="Analista de compras"
+            activeColumnId={popoverState.columnId}
+            anchorEl={popoverState.anchorEl}
+            handleHeaderClick={handleHeaderClick}
+            handleClose={handlePopoverClose}
+            filterType="text"
+            placeholder="Buscar nome"
+            filters={filters}
+            handleFilterChange={handleFilterChange}
           />
         ),
       },
       {
-        field: "email", 
-        headerName: "Email", 
-        flex: 1.45, 
-        minWidth: 250, 
+        field: "email",
+        headerName: "Email",
+        flex: 1.45,
+        minWidth: 250,
         editable: true,
         sortComparator: ptBRComparator,
         renderHeader: () => (
           <CustomFilterHeader
-            columnId="email" label="Email" activeColumnId={popoverState.columnId}
-            anchorEl={popoverState.anchorEl} handleHeaderClick={handleHeaderClick}
-            handleClose={handlePopoverClose} filterType="text" placeholder="Buscar email"
-            filters={filters} handleFilterChange={handleFilterChange}
+            columnId="email"
+            label="Email"
+            activeColumnId={popoverState.columnId}
+            anchorEl={popoverState.anchorEl}
+            handleHeaderClick={handleHeaderClick}
+            handleClose={handlePopoverClose}
+            filterType="text"
+            placeholder="Buscar email"
+            filters={filters}
+            handleFilterChange={handleFilterChange}
           />
         ),
       },
       {
-        field: "supplier", 
-        headerName: "Fornecedor", 
-        flex: 1.55, 
-        minWidth: 300, 
+        field: "supplier",
+        headerName: "Fornecedor",
+        flex: 1.55,
+        minWidth: 300,
         editable: true,
         sortComparator: ptBRComparator,
-        renderEditCell: (params) => (<SupplierEditCell {...params} options={supplierOptions} />),
-        valueFormatter: (value) => Array.isArray(value) ? value.join(", ") : value,
+        renderEditCell: (params) => (
+          <SupplierEditCell {...params} options={supplierOptions} />
+        ),
+        valueFormatter: (value) => (Array.isArray(value) ? value.join(", ") : value),
         renderHeader: () => (
           <CustomFilterHeader
-            columnId="supplier" label="Fornecedor" activeColumnId={popoverState.columnId}
-            anchorEl={popoverState.anchorEl} handleHeaderClick={handleHeaderClick}
-            handleClose={handlePopoverClose} filterType="multiSelect" placeholder="Filtrar fornecedor"
-            options={supplierOptions} filters={filters} handleFilterChange={handleFilterChange}
+            columnId="supplier"
+            label="Fornecedor"
+            activeColumnId={popoverState.columnId}
+            anchorEl={popoverState.anchorEl}
+            handleHeaderClick={handleHeaderClick}
+            handleClose={handlePopoverClose}
+            filterType="multiSelect"
+            placeholder="Filtrar fornecedor"
+            options={supplierOptions}
+            filters={filters}
+            handleFilterChange={handleFilterChange}
           />
         ),
       },
       {
-        field: "active", 
-        headerName: "Status", 
-        width: 120, 
-        editable: true, 
-        type: "singleSelect", 
+        field: "active",
+        headerName: "Status",
+        width: 120,
+        editable: true,
+        type: "singleSelect",
         valueOptions: ["Ativo", "Inativo"],
         sortComparator: ptBRComparator,
-        // [ALTERADO] Removido renderCell para voltar ao texto padrão (sem fundo/bordas)
         renderHeader: () => (
           <CustomFilterHeader
-            columnId="active" label="Status" activeColumnId={popoverState.columnId}
-            anchorEl={popoverState.anchorEl} handleHeaderClick={handleHeaderClick}
-            handleClose={handlePopoverClose} filterType="select" placeholder="Status"
-            options={["Ativo", "Inativo"]} filters={filters} handleFilterChange={handleFilterChange}
+            columnId="active"
+            label="Status"
+            activeColumnId={popoverState.columnId}
+            anchorEl={popoverState.anchorEl}
+            handleHeaderClick={handleHeaderClick}
+            handleClose={handlePopoverClose}
+            filterType="select"
+            placeholder="Status"
+            options={["Ativo", "Inativo"]}
+            filters={filters}
+            handleFilterChange={handleFilterChange}
           />
         ),
       },
       {
-        field: "actions", type: "actions", headerName: "Ações", width: 140, cellClassName: "actions",
+        field: "actions",
+        type: "actions",
+        headerName: "Ações",
+        width: 140,
+        cellClassName: "actions",
         getActions: ({ id, row }) => {
           const isInEditMode = rowModesModel[id]?.mode === GridRowModes.Edit;
           if (isInEditMode) {
@@ -124,14 +154,14 @@ export default function UsersTable({ users = [], onDelete, onUpdate, onChangePas
           return [
             <GridActionsCellItem icon={<FiEdit />} label="Editar" onClick={handleEditClick(id)} color="inherit" />,
             <GridActionsCellItem icon={<FiLock />} label="Alterar Senha" onClick={() => onChangePassword(id, row.name)} color="inherit" />,
-            <GridActionsCellItem 
-                icon={<FiTrash2 style={isProtectedGestor ? { opacity: 0.5, cursor: "not-allowed" } : {}} />} 
-                label="Excluir" 
-                onClick={() => {
-                   if (isProtectedGestor) alert("Impossível excluir o gestor!");
-                   else onDelete(id);
-                }} 
-                color={isProtectedGestor ? "default" : "inherit"} 
+            <GridActionsCellItem
+              icon={<FiTrash2 style={isProtectedGestor ? { opacity: 0.5, cursor: "not-allowed" } : {}} />}
+              label="Excluir"
+              onClick={() => {
+                if (isProtectedGestor) alert("Impossível excluir o gestor!");
+                else onDelete({ user_id: id, name: row.name, email: row.email });
+              }}
+              color={isProtectedGestor ? "default" : "inherit"}
             />,
           ];
         },

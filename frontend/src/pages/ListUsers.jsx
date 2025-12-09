@@ -4,6 +4,7 @@ import Navbar from "../components/nav_bar/NavBar";
 import UserProfileSummary from "../components/user_profile_summary/UserProfileSumary";
 import UsersTable from "../components/users_table/UsersTable";
 import AddBuyerModal from "../components/add_buyer_modal/AddBuyerModal.jsx";
+import ConfirmDeleteModal from "../components/common/ConfirmDeleteModal.jsx";
 import ChangePasswordModal from "../components/change_password_modal/ChangePasswordModal";
 
 import { useAuth } from "../context/authContext";
@@ -24,9 +25,10 @@ export default function ListUsers() {
 
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(true);
-    
-    // [ALTERADO] Estado agora inicia vazio para ser preenchido pela API
+    // Dinâmico via API
     const [suppliersOptions, setSuppliersOptions] = useState([]);
+    const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+    const [deleteTarget, setDeleteTarget] = useState(null);
 
     useEffect(() => {
         fetchData();
@@ -60,16 +62,32 @@ export default function ListUsers() {
     };
 
     const handleDeleteUser = async (userId) => {
-        const confirm = window.confirm("Tem certeza que deseja excluir este usuário?");
-        if (!confirm) return;
-
         try {
+            // Regras de deleção: proteger gestor principal por email
+            const target = users.find(u => u.user_id === userId);
+            const protectedEmail = "dionatas.terres@portorrol.com";
+            if (target && target.email === protectedEmail) {
+                alert("Impossível excluir o gestor!");
+                return { success: false, message: "Usuário protegido contra exclusão." };
+            }
+
             await deleteUser(userId);
             setUsers(prev => prev.filter(u => u.user_id !== userId));
-            alert("Usuário excluído com sucesso!");
+            return { success: true, message: "Usuário excluído com sucesso!" };
         } catch (error) {
-            alert(error.message || "Erro ao excluir usuário.");
+            return { success: false, message: error.message || "Erro ao excluir usuário." };
         }
+    };
+
+    const handleRequestDeleteUser = (userToDelete) => {
+        if (!userToDelete) return;
+        setDeleteTarget(userToDelete);
+        setDeleteModalOpen(true);
+    };
+
+    const handleCloseDeleteModal = () => {
+        setDeleteModalOpen(false);
+        setDeleteTarget(null);
     };
 
     const handleUpdateUser = async (userId, updatedData) => {
@@ -125,7 +143,7 @@ export default function ListUsers() {
                         ) : (
                             <UsersTable 
                                 users={users} 
-                                onDelete={handleDeleteUser}
+                                onDelete={handleRequestDeleteUser}
                                 onUpdate={handleUpdateUser}
                                 onChangePassword={openChangePasswordModal}
                                 availableSuppliers={suppliersOptions} // Passa a lista dinâmica
@@ -157,6 +175,20 @@ export default function ListUsers() {
                 onClose={() => setPasswordModal({ ...passwordModal, isOpen: false })}
                 onSave={handleSavePassword}
                 userName={passwordModal.userName}
+            />
+
+            <ConfirmDeleteModal
+                isOpen={deleteModalOpen}
+                onClose={handleCloseDeleteModal}
+                entityLabel={deleteTarget ? `o usuário "${deleteTarget.name}"` : "este usuário"}
+                confirmationKeyword="CONFIRMO"
+                description={deleteTarget ? `Esta ação removerá permanentemente o usuário ${deleteTarget.name} (${deleteTarget.email || "sem e-mail"}).` : undefined}
+                onConfirm={async () => {
+                    if (!deleteTarget) {
+                        return { success: false, message: "Nenhum usuário selecionado." };
+                    }
+                    return handleDeleteUser(deleteTarget.user_id);
+                }}
             />
         </div>
     );

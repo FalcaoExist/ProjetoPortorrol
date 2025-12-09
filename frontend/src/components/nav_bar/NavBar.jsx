@@ -10,16 +10,36 @@ export default function Navbar({
     sections = defaultSectionsConfig,
     logoSrc = logoIby_maior,
 } = {}) {
-    
-    // Obtém a flag isGestor do contexto de autenticação
     const { logout, isGestor } = useAuth();
+
+    // Limitar visibilidade das opções
+    const visibleSections = sections
+        ?.map((section) => {
+            if ((section.requiresGestor || section.onlyGestor) && !isGestor) {
+                return null;
+            }
+
+            const visibleItems = section.items?.filter((item) => {
+                if ((item.requiresGestor || item.onlyGestor) && !isGestor) {
+                    return false;
+                }
+                return true;
+            }) ?? [];
+
+            if (visibleItems.length === 0) {
+                return null;
+            }
+
+            return { ...section, items: visibleItems };
+        })
+        .filter(Boolean);
 
     return (
         <aside className={`sticky top-0 h-screen w-64 bg-[#F1F2F7] border-r shadow-sm p-4 flex flex-col self-start`}>
             <img src={logoSrc} alt="logo" className="w-50 mb-4" />
 
             <nav className={"flex flex-col mt-4"}>
-                {sections?.map((section, sectionIndex) => (
+                {visibleSections?.map((section, sectionIndex) => (
                     <React.Fragment
                         key={section.id || section.title || `section-${sectionIndex}`}
                     >
@@ -33,7 +53,7 @@ export default function Navbar({
                             {section.items?.map((item, i) => {
                                 // [NOVA LÓGICA] 
                                 // Se o item requer gestor e o usuário não é gestor, não renderiza o botão no menu.
-                                if (item.onlyGestor && !isGestor) {
+                                if ((item.onlyGestor || item.requiresGestor) && !isGestor) {
                                     return null;
                                 }
 

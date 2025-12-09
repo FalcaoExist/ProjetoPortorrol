@@ -4,59 +4,73 @@ import { Box, useMediaQuery } from "@mui/material";
 import { FiCheck, FiX, FiEdit, FiTrash2 } from "react-icons/fi";
 import { useRowEditing } from "../../hooks/useRowEditing";
 import { BaseDataGrid } from "../common/BaseDataGrid";
+import AddSupplierModal from "./AddSupplierModal";
 
-const initialRows = [
-    { id: 1, name: "Timken", start: new Date("2025-12-01"), end: new Date("2026-01-01"), budget: 60000, leadtime: 15 },
-    { id: 2, name: "NSK", start: new Date("2025-12-01"), end: new Date("2026-01-01"), budget: 30000, leadtime: 9 },
-    { id: 3, name: "FRM", start: new Date("2025-12-01"), end: new Date("2026-01-01"), budget: 30000, leadtime: 9 },
-    { id: 4, name: "BGL", start: new Date("2025-12-01"), end: new Date("2026-01-01"), budget: 10000, leadtime: 7 },
-    { id: 5, name: "IKO", start: new Date("2025-12-01"), end: new Date("2026-01-01"), budget: 45000, leadtime: 20 },
-    { id: 6, name: "SAV", start: new Date("2025-12-01"), end: new Date("2026-01-01"), budget: 45000, leadtime: 20 },
-];
-
-export default function SuppliersTable() {
-    const [rows, setRows] = useState(initialRows);
-    const [nextId, setNextId] = useState(Math.max(...initialRows.map(r => r.id)) + 1);
+export default function SuppliersTable({ rows = [], setRows, onRequestDelete }) {
     const isCompactLayout = useMediaQuery("(max-width:1279px)");
-    
-    // Using the custom hook for editing logic
+    const [openModal, setOpenModal] = useState(false);
+
     const {
         rowModesModel,
         setRowModesModel,
         handleEditClick,
         handleSaveClick,
         handleCancelClick: genericHandleCancelClick, // Rename to avoid conflict
-        setEditMode,
     } = useRowEditing();
 
-    const handleAdd = () => {
-        const id = nextId;
-        setNextId(prev => prev + 1);
-        setRows((oldRows) => [
-            ...oldRows,
-            { id, name: "", start: new Date(), end: new Date(), budget: 0, leadtime: 0, isNew: true },
-        ]);
-        setEditMode(id); // Use the hook's function to set the new row to edit mode
-    };
+    const handleAdd = useCallback(() => {
+        setOpenModal(true);
+    }, []);
 
-    const handleDeleteClick = (id) => () => {
-        // Confirmation logic stays within the component
-        setRows(rows.filter((row) => row.id !== id));
-    };
+    const handleCloseModal = useCallback(() => {
+        setOpenModal(false);
+    }, []);
 
-    const handleCancelClick = (id) => () => {
+    const handleSave = useCallback((newSupplier) => {
+        if (!setRows) return;
+
+        setRows((prevRows) => {
+            // TODO: remover geração local de ID quando o backend retornar o identificador oficial.
+            const newId = prevRows.length ? Math.max(...prevRows.map((row) => row.id)) + 1 : 1;
+            const normalizedRow = {
+                id: newId,
+                name: newSupplier.name,
+                start: newSupplier.start ? new Date(newSupplier.start) : null,
+                end: newSupplier.end ? new Date(newSupplier.end) : null,
+                budget: newSupplier.budget ? Number(newSupplier.budget) : 0,
+                leadtime: newSupplier.leadtime ? Number(newSupplier.leadtime) : 0,
+            };
+            return [...prevRows, normalizedRow];
+        });
+
+        setOpenModal(false);
+    }, [setRows]);
+
+    const handleDeleteClick = useCallback((id) => () => {
+        if (!onRequestDelete) return;
+        const targetRow = rows.find((row) => row.id === id);
+        if (targetRow) {
+            onRequestDelete(targetRow);
+        }
+    }, [rows, onRequestDelete]);
+
+    const handleCancelClick = useCallback((id) => () => {
         genericHandleCancelClick(id)(); // Call the hook's cancel handler
+        if (!setRows) return;
         const editedRow = rows.find((row) => row.id === id);
         if (editedRow?.isNew) {
-            setRows(rows.filter((row) => row.id !== id));
+            setRows((prevRows) => prevRows.filter((row) => row.id !== id));
         }
-    };
+    }, [genericHandleCancelClick, rows, setRows]);
     
-    const processRowUpdate = (newRow) => {
+    const processRowUpdate = useCallback((newRow) => {
         const updatedRow = { ...newRow, isNew: false };
-        setRows(rows.map((row) => (row.id === newRow.id ? updatedRow : row)));
+        if (!setRows) {
+            return updatedRow;
+        }
+        setRows((prevRows) => prevRows.map((row) => (row.id === newRow.id ? updatedRow : row)));
         return updatedRow;
-    };
+    }, [setRows]);
 
     const columns = useMemo(() => [
         {
@@ -162,6 +176,11 @@ export default function SuppliersTable() {
             >
                 Adicionar Fornecedor
             </button>
+            <AddSupplierModal
+                isOpen={openModal}
+                onClose={handleCloseModal}
+                onSave={handleSave}
+            />
         </Box>
     );
 }

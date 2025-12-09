@@ -2,7 +2,7 @@ import React from "react";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "../context/authContext";
 
-export default function PrivateRoute({ children, onlyGestor = false }) {
+export default function PrivateRoute({ children, allowedRoles, onlyGestor = false }) {
     const { user, loading, isGestor } = useAuth();
 
     if (loading) {
@@ -18,6 +18,14 @@ export default function PrivateRoute({ children, onlyGestor = false }) {
     // Redireciona para a tela permitida (Fornecedores)
     if (onlyGestor && !isGestor) {
         return <Navigate to="/list_suppliers" replace />;
+    }
+
+    // Suporte a lista de papéis permitidos
+    if (Array.isArray(allowedRoles) && allowedRoles.length > 0) {
+        const hasRequiredRole = allowedRoles.includes(user.role);
+        if (!hasRequiredRole) {
+            return <Navigate to="/home" replace />;
+        }
     }
 
     // Se passou nas verificações, renderiza a página

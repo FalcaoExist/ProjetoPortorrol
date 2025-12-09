@@ -4,13 +4,14 @@ export const defaultSections = [
   {
     title: "Menu",
     items: [
-      { to: "/", label: "Dashboard", icon: BsFileBarGraphFill },
+      { to: "/home", label: "Dashboard", icon: BsFileBarGraphFill },
       { to: "/orders", label: "Pedidos", icon: BsCart2 },
       { to: "/stock", label: "Estoque", icon: BsFileTextFill },
     ],
   },
   {
     title: "Gerenciar",
+    requiresGestor: true,
     items: [
       // Apenas gestor vê "Comprador"
       { to: "/list_users", label: "Comprador", icon: BsChatDotsFill, onlyGestor: true },

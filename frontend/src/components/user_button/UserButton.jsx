@@ -1,9 +1,12 @@
 import { useState } from "react";
 import { BsPersonCircle } from "react-icons/bs";
 import { Link } from "react-router-dom";
-export default function UserButton({user_name}){
-  const [isOpen, setIsOpen] = useState(false);
+import { useAuth } from "../../context/authContext";
 
+export default function UserButton({user_name}){
+  const [isOpen, setIsOpen] = useState(false);  
+  const { logout, isGestor } = useAuth();
+  
   const toggleDropdown = () => {
     setIsOpen(!isOpen);
   };
@@ -38,7 +41,7 @@ export default function UserButton({user_name}){
             <Link to="/profile" className={"text-gray-700 block px-4 py-2 text-sm hover:bg-gray-100"}>Minha Conta</Link>
           </div>
           <div className="py-1">
-            <Link to="/logout" className={"text-gray-700 block px-4 py-2 text-sm hover:bg-gray-100"}>Logout</Link>
+            <Link onClick={logout}  className={"text-gray-700 block px-4 py-2 text-sm hover:bg-gray-100"}>Logout</Link>
           </div>
         </div>
       )}

@@ -4,10 +4,10 @@ import React from 'react';
 /**
  * Um componente de barra de busca reutilizável.
  *
- * @param {object} props - As propriedades do componente.
- * @param {string} props.value - O valor da busca.
- * @param {function} props.onChange - A função a ser chamada quando o valor mudar.
- * @param {string} props.placeholder - O texto de placeholder para a barra de busca.
+ * @param {object} props 
+ * @param {string} props.value 
+ * @param {function} props.onChange 
+ * @param {string} props.placeholder 
  */
 const SearchBar = ({ value, onChange, placeholder }) => {
   return (

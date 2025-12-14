@@ -4,12 +4,12 @@ import React from 'react';
 /**
  * Um componente de filtro de seleção reutilizável.
  *
- * @param {object} props - As propriedades do componente.
- * @param {string} props.label - O rótulo para o campo de seleção.
- * @param {string} props.name - O nome do campo de seleção.
- * @param {string} props.value - O valor selecionado.
- * @param {function} props.onChange - A função a ser chamada quando o valor mudar.
- * @param {Array<string>} props.options - A lista de opções para o seletor.
+ * @param {object} props 
+ * @param {string} props.label 
+ * @param {string} props.name 
+ * @param {string} props.value 
+ * @param {function} props.onChange 
+ * @param {Array<string>} props.options 
  */
 const SelectFilter = ({ label, name, value, onChange, options }) => {
   return (

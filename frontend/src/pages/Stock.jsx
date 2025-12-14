@@ -1,10 +1,11 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { useAuth } from "../context/authContext";
 import Header from "../components/header/Header";
 import Navbar from "../components/nav_bar/NavBar";
 import SearchBar from "../components/common/SearchBar";
 import SelectFilter from "../components/common/SelectFilter";
 import StockTable from "../components/estoque_table/StockTable";
+import ibyLogo from "../assets/iby.png";
 
 // Opções para os filtros
 const statusOptions = ["OK", "Subdimensionado", "Ruptura iminente", "Excesso"];
@@ -35,6 +36,8 @@ export default function Stock() {
     const [fornecedor, setFornecedor] = useState("");
     const [filial, setFilial] = useState("");
 
+    const fileInputRef = useRef(null);
+
     const filteredRows = useMemo(() => {
         return stockData.filter(row => {
             const statusText = getStatusText(row.dias_cobertura);
@@ -50,6 +53,52 @@ export default function Stock() {
             );
         });
     }, [stockData, searchQuery, statusFilter, fornecedor, filial]);
+
+    const handleExportPDF = () => {
+        const doc = new jsPDF();
+        doc.addImage(ibyLogo, 'PNG', 10, 10, 20, 20);
+        doc.setFontSize(20);
+        doc.text("Planilha de estoque", 40, 22);
+        doc.setFontSize(10);
+        doc.text(`Data de emissão: ${new Date().toLocaleDateString()}`, 40, 28);
+        
+        const tableColumn = ["Código", "Item", "Categoria", "Unidades", "Fornecedor", "Filial", "Dias Cobertura", "Status"];
+        const tableRows = [];
+
+        filteredRows.forEach(row => {
+            const rowData = [
+                row.codigo,
+                row.item,
+                row.categoria,
+                row.unidades,
+                row.fornecedor,
+                row.filial,
+                row.dias_cobertura,
+                getStatusText(row.dias_cobertura)
+            ];
+            tableRows.push(rowData);
+        });
+
+        doc.autoTable({
+            head: [tableColumn],
+            body: tableRows,
+            startY: 40,
+        });
+
+        doc.save("relatorio_estoque.pdf");
+    };
+
+    const handleImportClick = () => {
+        fileInputRef.current.click();
+    };
+
+    const handleFileChange = (event) => {
+        const file = event.target.files[0];
+        if (file) {
+            console.log(`Arquivo selecionado: ${file.name}`);
+            // A lógica para processar o arquivo (ex: ler um CSV) pode ser adicionada aqui.
+        }
+    };
 
     return (
         <div className="grid min-h-screen grid-cols-[16rem_minmax(0,1fr)]">
@@ -91,6 +140,27 @@ export default function Stock() {
                         </div>
 
                         <StockTable rows={filteredRows} />
+                        <div className="flex justify-end gap-4 mt-4">
+                            <button
+                                onClick={handleImportClick}
+                                className="px-4 py-2 font-normal text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
+                            >
+                                IMPORTAR
+                            </button>
+                            <button
+                                onClick={handleExportPDF}
+                                className="px-4 py-2 font-normal text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
+                            >
+                                EXPORTAR
+                            </button>
+                            <input 
+                                type="file"
+                                ref={fileInputRef}
+                                onChange={handleFileChange}
+                                style={{ display: 'none' }}
+                                accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel"
+                            />
+                        </div>
                     </section>
                 </div>
             </main>

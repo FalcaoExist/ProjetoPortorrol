@@ -1,3 +1,4 @@
+// O alinhamento da tabela ajustado para a esquerda, exceto na coluna 'Status', que foi mantida centralizada para melhor visualização.
 // frontend/src/components/estoque_table/EstoqueTable.jsx
 import React, { useMemo } from "react";
 import { Box } from "@mui/material";
@@ -34,24 +35,24 @@ export default function StockTable({ rows = [] }) {
             headerName: "Código",
             minWidth: 100,
             flex: 0.8,
-            headerAlign: "center",
-            align: "center",
+            headerAlign: "left",
+            align: "left",
         },
         {
             field: "item",
             headerName: "Ítem",
             minWidth: 180,
             flex: 1.5,
-            headerAlign: "center",
-            align: "center",
+            headerAlign: "left",
+            align: "left",
         },
         {
             field: "categoria",
             headerName: "Categoria",
             minWidth: 150,
             flex: 1,
-            headerAlign: "center",
-            align: "center",
+            headerAlign: "left",
+            align: "left",
         },
         {
             field: "unidades",
@@ -59,24 +60,24 @@ export default function StockTable({ rows = [] }) {
             type: "number",
             minWidth: 100,
             flex: 0.7,
-            headerAlign: "center",
-            align: "center",
+            headerAlign: "left",
+            align: "left",
         },
         {
             field: "fornecedor",
             headerName: "Fornecedor",
             minWidth: 150,
             flex: 1,
-            headerAlign: "center",
-            align: "center",
+            headerAlign: "left",
+            align: "left",
         },
         {
             field: "filial",
             headerName: "Filial",
             minWidth: 150,
             flex: 1,
-            headerAlign: "center",
-            align: "center",
+            headerAlign: "left",
+            align: "left",
         },
         {
             field: "dias_cobertura",
@@ -84,8 +85,8 @@ export default function StockTable({ rows = [] }) {
             type: "number",
             minWidth: 150,
             flex: 1,
-            headerAlign: "center",
-            align: "center",
+            headerAlign: "left",
+            align: "left",
         },
         {
             field: "status",

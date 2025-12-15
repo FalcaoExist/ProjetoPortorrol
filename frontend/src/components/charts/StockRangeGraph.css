@@ -1,0 +1,77 @@
+.stock-range-container {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 20px ;
+  background: transparent;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.stock-range-label {
+  font-weight: 700;
+  font-size: 1.2em;
+  color: #333;
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+
+.range-bar {
+  display: flex;
+  flex: 1 1 auto;
+  height: 25px;
+  border-radius: 12px;
+  overflow: visible;
+  width: 100%;
+}
+
+.segment {
+  height: 100%;
+  transition: width 0.5s ease-out;
+  position: relative;
+}
+
+.segment-tooltip {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0,0,0,0.82);
+  color: #fff;
+  padding: 6px 8px;
+  border-radius: 6px;
+  font-size: 0.85em;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s ease-in-out;
+  z-index: 20;
+}
+
+.segment:hover .segment-tooltip {
+  opacity: 1;
+}
+
+.range-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 0.9em;
+  margin-left: 20px;
+  flex: 0 0 auto;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  color: #555;
+  white-space: nowrap;
+}
+
+.color-box {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  margin-right: 8px;
+  border-radius: 3px;
+}

@@ -5,8 +5,9 @@ import { useAuth } from "../context/authContext";
 import CriticosChart from "../components/charts/CriticosChart";
 import StockRangeGraph from "../components/charts/StockRangeGraph";
 import Filter from "../components/common/Filter";
-import LateOrders from "../components/charts/LateOrders";
+import Orders from "../components/charts/Orders";
 import lateOrdersImg from "../assets/lateorders.png";
+import aprovedorders from "../assets/aprovedorders.png";
 
 
 export default function Home() {
@@ -59,8 +60,8 @@ export default function Home() {
             <div className="w-full min-h-72 flex gap-2">
               <div className="w-1/5 grid grid-rows-3 grid-cols-2 gap-1 items-center">
                 <p className="col-span-2">Pedidos</p>
-                <LateOrders img={lateOrdersImg} number={8} />
-                <LateOrders img={lateOrdersImg} number={8} />
+                <Orders text={"Atrasados"} img={lateOrdersImg} number={8} />
+                <Orders text={"Aprovados"} img={aprovedorders} number={8} />
 
               </div>
               <div className="w-3/5 grid grid-rows-3 grid-cols-2 gap-1 items-center">

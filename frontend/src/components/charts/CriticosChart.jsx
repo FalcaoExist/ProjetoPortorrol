@@ -63,7 +63,7 @@ function CustomTooltip({ payload, label, active }) {
     return null;
 }
 
-export default function CustomizeTooltipContent() {
+export default function CriticosChart() {
     const sortedData = [...data].sort((a, b) => a.qtd - b.qtd);
 
     return (

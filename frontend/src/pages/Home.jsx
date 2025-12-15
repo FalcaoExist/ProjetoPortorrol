@@ -10,6 +10,7 @@ import Orders from "../components/charts/Orders";
 import lateOrdersImg from "../assets/lateorders.png";
 import aprovedorders from "../assets/aprovedorders.png";
 import BudgetProgressCard from "../components/charts/BudgetProgressCard";
+import MonthlyQuantityChart from "../components/charts/MonthlyQuantityChart";
 
 
 export default function Home() {
@@ -83,7 +84,10 @@ export default function Home() {
                 
               </div>
             </div>
-            <div className="border border-1 rounded-lg w-full  min-h-72 my-3"></div>
+            <div className="border border-1 rounded-lg w-full  min-h-72 my-3">
+             
+              <MonthlyQuantityChart />
+            </div>
             <div className="border border-1 rounded-lg w-full  min-h-72 mb-10"></div>
             <div className="flex justify-end">
               <button>Exportar</button>

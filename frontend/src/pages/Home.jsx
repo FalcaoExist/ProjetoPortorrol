@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import LeadtimeSavingCard from "../components/charts/LeadtimeSavingCard";
 import Navbar from "../components/nav_bar/NavBar";
 import Header from "../components/header/Header";
 import { useAuth } from "../context/authContext";
@@ -8,6 +9,7 @@ import Filter from "../components/common/Filter";
 import Orders from "../components/charts/Orders";
 import lateOrdersImg from "../assets/lateorders.png";
 import aprovedorders from "../assets/aprovedorders.png";
+import BudgetProgressCard from "../components/charts/BudgetProgressCard";
 
 
 export default function Home() {
@@ -58,19 +60,27 @@ export default function Home() {
               </div>
             </div>
             <div className="w-full min-h-72 flex gap-2">
-              <div className="w-1/5 grid grid-rows-3 grid-cols-2 gap-1 items-center">
+              <div className="w-2/5 grid grid-rows-3 grid-cols-2 gap-1 items-center">
                 <p className="col-span-2">Pedidos</p>
                 <Orders text={"Atrasados"} img={lateOrdersImg} number={8} />
                 <Orders text={"Aprovados"} img={aprovedorders} number={8} />
 
               </div>
-              <div className="w-3/5 grid grid-rows-3 grid-cols-2 gap-1 items-center">
+              <div className="w-2/5 grid grid-rows-3 grid-cols-2 gap-1 items-center">
                 <p className="col-span-2">Gastos</p>
-                <div className="border border-1 rounded-lg h-full col-span-2 row-span-2"></div>
+                <BudgetProgressCard
+                  value={31452.32}
+                  budget={88000}
+                  startDate="01/10/2025"
+                  endDate="01/11/2025"
+                />
+
               </div>
               <div className="grow grid grid-rows-3 grid-cols-2 gap-1 items-center">
                 <p className="col-span-2"></p>
-                <div className="border border-1 rounded-lg h-full col-span-2 row-span-2"></div>
+                  {/* Cartão de Leadtime médio e Saving */}
+                  <LeadtimeSavingCard leadtime={15} saving={8} />
+                
               </div>
             </div>
             <div className="border border-1 rounded-lg w-full  min-h-72 my-3"></div>

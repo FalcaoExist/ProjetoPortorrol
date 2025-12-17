@@ -16,6 +16,7 @@ from app.services.service_models import UserCreateRequest, UserUpdateRequest
 from app.services.user_service import UserService
 
 from .schemas import (
+    ChangePasswordRequest,
     LoginRequest,
     LoginResponse,
     UserCreateResponse,
@@ -169,3 +170,18 @@ def list_audit_logs(
 
     logs = audit_service.get_logs(filters)
     return {"success": True, "logs": logs}
+
+# TROCA DE SENHA
+@router.put("/me/password")
+def change_own_password(
+    data: ChangePasswordRequest,
+    user_service: UserService = Depends(get_user_service),
+    current_user: dict = Depends(get_current_user),
+):
+    user_service.change_password(
+        user_id=current_user["user_id"],
+        old_password=data.old_password,
+        new_password=data.new_password,
+        performed_by=current_user["user_id"]  # o próprio usuário
+    )
+    return {"success": True, "message": "Senha alterada com sucesso!"}

@@ -28,22 +28,22 @@ function CustomTooltip({ payload, label, active }) {
     return null;
 }
 
-export default function CriticosChart({ data, asc = true }) {
-    const sortedData = [...data].sort((a, b) => asc ? a.qtd - b.qtd : b.qtd - a.qtd);
+export default function OverstokChart({data}) {
+    const sortedData = [...data].sort((a, b) => b.qtd - a.qtd);
 
     return (
         <ResponsiveContainer width="100%" height={300}>
             <BarChart data={sortedData} margin={margin}>
                 <XAxis dataKey="name" interval={0} height={60} tick={{ angle: -45, textAnchor: 'end' }} />
-                <Label value="Dias de cobertura" angle={-90} position="left" dx={-40} style={{ textAnchor: 'middle' }} />
-                <YAxis ticks={[0, 20, 40, 60, 80]} domain={[0, 100]} />
+                <Label value="Dias de cobertura" angle={-90} position="left" dx={-55} style={{ textAnchor: 'middle' }} />
+                <YAxis ticks={[100, 200, 300, 400, 500, 600]} domain={[100, 600]} />
                 <CartesianGrid stroke="#e6e6e6" horizontal={true} vertical={false} />
-                {/* Linha horizontal personalizada (ex: meta em 60) - lisa e atrás das barras */}
-                <ReferenceLine y={60} stroke="#d88488" strokeWidth={1} isFront={false} label={{ value: '', position: 'right', fill: '#E75656' }} />
+                {/* Linha horizontal personalizada (ex: meta em 60) - lisa e atrás das barras
+                <ReferenceLine y={60} stroke="#d88488" strokeWidth={1} isFront={false} label={{ value: '', position: 'right', fill: '#E75656' }} /> */}
                 <Tooltip content={CustomTooltip} />
                 <Bar dataKey="qtd" fill="#212560" barSize={25} />
             </BarChart>
         </ResponsiveContainer>
-
+        
     );
 }

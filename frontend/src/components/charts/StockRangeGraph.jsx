@@ -44,7 +44,7 @@ export default function StockRangeGraph({ data, totalItems }){
 
   return (
     <div className="flex items-center p-5 bg-transparent w-full box-border">
-      <div className="font-bold text-[1.2em] text-[#333] whitespace-nowrap flex-none">Estoque</div>
+      <div className="font-bold text-2xl text-[#333] whitespace-nowrap flex-none">Estoque</div>
 
       <div className="flex flex-auto h-9 ml-5 overflow-visible w-full items-center rounded-full">
         {segmentsForBar.map((segment, index, array) => {
@@ -95,7 +95,7 @@ export default function StockRangeGraph({ data, totalItems }){
         })}
       </div>
 
-      <div className="flex flex-col gap-[5px] text-[0.9em]  flex-none">
+      <div className="flex flex-col gap-[5px] text-md  flex-none ml-[-70px]">
         {segmentsForLegend.map((segment) => (
           <div key={segment.key} className="flex items-center text-[#555] whitespace-nowrap">
             <span className="inline-block w-3 h-3 mr-2 rounded-[3px]" style={{ backgroundColor: segment.color }} />

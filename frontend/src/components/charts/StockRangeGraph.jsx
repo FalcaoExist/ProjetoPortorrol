@@ -27,7 +27,7 @@ const SEGMENT_METADATA = {
   },
 };
 
-const StockRangeGraph = ({ data, totalItems }) => {
+export default function StockRangeGraph({ data, totalItems }){
 
   const segments = Object.keys(data).map(key => ({
     key,
@@ -107,4 +107,3 @@ const StockRangeGraph = ({ data, totalItems }) => {
   );
 };
 
-export default StockRangeGraph;

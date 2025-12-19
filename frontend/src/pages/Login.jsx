@@ -23,8 +23,7 @@ export default function Login() {
             const result = await authLogin(email, password);
 
             if (result.success) {
-                // [CORREÇÃO AQUI]
-                // Verifica o cargo para decidir o destino
+                // Redirecionamento baseado no cargo (Role Based Redirection)
                 if (result.role === "gestor") {
                     navigate("/list_users");      // Gestor -> Gerenciar Compradores
                 } else {

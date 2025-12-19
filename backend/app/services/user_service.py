@@ -1,5 +1,5 @@
 import uuid
-from typing import Any, Dict, List, Optional  # <--- ADICIONADO 'List' AQUI
+from typing import Any, Dict, List, Optional
 
 from fastapi import HTTPException, status
 
@@ -14,9 +14,12 @@ class UserService:
         self.user_repo = user_repo
         self.hasher = hasher
 
-    def create_new_user(self, data: UserCreateRequest, performed_by: Optional[str] = None) -> Dict[str, Any]:
+    def create_new_user(self, data: UserCreateRequest) -> Dict[str, Any]:
         if self.user_repo.get_user_by_email(data.email.lower()):
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="E-mail já cadastrado no sistema.")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="E-mail já cadastrado no sistema."
+            )
         
         new_user_data_db = {
             "user_id": str(uuid.uuid4()),
@@ -29,32 +32,27 @@ class UserService:
         
         try:
             created_user = self.user_repo.create_user(new_user_data_db)
+            
             new_user_id = created_user["user_id"]
-
             if data.supplier:
                 self.user_repo.sync_user_suppliers(new_user_id, data.supplier)
 
             created_user.pop("password_hash", None)
+            
+            # ADICIONA A LISTA DE SUPPLIERS DE VOLTA (para bater com o schema)
             created_user["supplier"] = data.supplier
             
-            # AUDITORIA
-            try:
-                self.user_repo.insert_audit_log(
-                    performed_by=performed_by or new_user_id,
-                    action="create_user",
-                    entity="users",
-                    entity_id=new_user_id,
-                    extra={"name": created_user["name"], "role": created_user["role"]}
-                )
-            except Exception: 
-                pass
-
             return created_user
         
         except Exception as e:
-            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Erro ao salvar usuário: {str(e)}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Erro ao salvar usuário ou seus fornecedores: {str(e)}"
+            )
 
     def get_formatted_users(self, name: Optional[str] = None, email: Optional[str] = None) -> Dict[str, Any]:
+        # Este método está OK porque o schema 'UserListItem'
+        # (usado para listas) não requer o campo 'supplier'.
         try:
             all_users = self.user_repo.get_all_users()        
             filtered_users = all_users
@@ -71,121 +69,82 @@ class UserService:
                 user.pop("password_hash", None)
                 users_list.append(user)
             
-            return {"success": True, "users": users_list, "total": len(users_list)}
+            return {
+                "success": True,
+                "users": users_list,
+                "total": len(users_list) 
+            }
         except Exception as e:
-            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Erro ao buscar usuários: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Erro ao buscar usuários: {str(e)}"
+            )
 
     def get_user_by_id(self, user_id: str) -> Dict[str, Any]:
+        # ATUALIZADO: Este método agora busca os suppliers
         user = self.user_repo.get_user_by_id(user_id)
-        if not user:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuário não encontrado.")
         
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Usuário não encontrado."
+            )
+        
+        # Busca a lista de suppliers na tabela de junção
         supplier_list = self.user_repo.get_suppliers_for_user(user_id)
+        
         user.pop("password_hash", None)
+        
+        # Adiciona a lista ao objeto
         user["supplier"] = supplier_list
+        
         return user
 
-    def update_existing_user(self, user_id: str, request_data: UserUpdateRequest, performed_by: Optional[str] = None) -> Dict[str, Any]:
-        old_user = self.get_user_by_id(user_id)
+    def update_existing_user(self, user_id: str, request_data: UserUpdateRequest) -> Dict[str, Any]:
+        # ATUALIZADO: Lógica de atualização de senha incluída
         
-        updates = request_data.model_dump(exclude_unset=True)
-        supplier_list = updates.pop("supplier", None) 
+        self.get_user_by_id(user_id) # Validação inicial (garante que existe)
         
-        new_password = updates.pop("password", None)
+        updates_for_user_table = request_data.model_dump(exclude_unset=True)
+        supplier_ids_list = updates_for_user_table.pop("supplier", None) 
+        
+        # Lógica para tratar senha
+        new_password = updates_for_user_table.pop("password", None)
         if new_password:
-            updates["password_hash"] = self.hasher.hash(new_password)
+            updates_for_user_table["password_hash"] = self.hasher.hash(new_password)
 
-        if not updates and supplier_list is None:
-             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Nenhum dado fornecido.")
+        if not updates_for_user_table and supplier_ids_list is None:
+             raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Nenhum dado fornecido para atualização."
+            )
 
-        if updates:
+        if updates_for_user_table:
             try:
-                self.user_repo.update_user(user_id, updates)
-            except Exception as e: 
+                self.user_repo.update_user(user_id, updates_for_user_table)
+            except Exception as e:
                 raise e 
 
-        if supplier_list is not None:
+        if supplier_ids_list is not None:
             try:
-                self.user_repo.sync_user_suppliers(user_id, supplier_list)
-            except Exception as e: 
+                self.user_repo.sync_user_suppliers(user_id, supplier_ids_list)
+            except Exception as e:
                 raise e 
         
-        # AUDITORIA
-        try:
-            changed_fields = {}
-            for key in ["name", "email", "role", "is_active"]:
-                if key in updates and updates[key] != old_user.get(key):
-                    changed_fields[key] = {"old": old_user.get(key), "new": updates[key]}
-            
-            if supplier_list is not None and set(supplier_list) != set(old_user.get("supplier", [])):
-                changed_fields["supplier"] = {"old": old_user.get("supplier"), "new": supplier_list}
-
-            if changed_fields:
-                self.user_repo.insert_audit_log(
-                    performed_by=performed_by or "system",
-                    action="update_user",
-                    entity="users",
-                    entity_id=user_id,
-                    extra=changed_fields
-                )
-        except Exception: 
-            pass
-        
+        # Retorna o estado final e completo do utilizador
         return self.get_user_by_id(user_id)
   
-    def delete_user_permanently(self, user_id: str, performed_by: Optional[str] = None):
+    def delete_user_permanently(self, user_id: str):
+        
         user = self.user_repo.get_user_by_id(user_id)
         if not user:
              raise HTTPException(status_code=404, detail="Usuário não encontrado.")
 
         try:
             self.user_repo.delete_user(user_id) 
-            
-            # AUDITORIA
-            try:
-                self.user_repo.insert_audit_log(
-                    performed_by=performed_by or "system",
-                    action="delete_user",
-                    entity="users",
-                    entity_id=user_id,
-                    extra={"deleted_user": user.get("email")}
-                )
-            except Exception: 
-                pass
-
             return True
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Erro ao excluir: {str(e)}")
 
     def get_available_suppliers(self) -> List[str]:
         return self.user_repo.get_all_suppliers()
-    
-    def change_password(self, user_id: str, old_password: str, new_password: str, performed_by: str):
-        # Buscar usuário
-        user = self.user_repo.get_user_by_id(user_id)
-        if not user:
-            raise HTTPException(status_code=404, detail="Usuário não encontrado.")
-
-        # Validar senha antiga
-        if not self.hasher.verify(old_password, user["password_hash"]):
-            raise HTTPException(status_code=400, detail="Senha atual incorreta.")
-
-        # Gerar hash da nova senha
-        new_hash = self.hasher.hash(new_password)
-
-        # Atualizar no banco
-        self.user_repo.update_user(user_id, {"password_hash": new_hash})
-
-        # Auditoria
-        try:
-            self.user_repo.insert_audit_log(
-                performed_by=performed_by,
-                action="update_password",
-                entity="users",
-                entity_id=user_id,
-                extra={"message": "Senha alterada pelo próprio usuário"}
-            )
-        except Exception:
-            pass
-
-        return True

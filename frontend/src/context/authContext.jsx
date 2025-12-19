@@ -6,28 +6,17 @@ export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
 
-    // -------------------------------------------------------------------------
-    // AO CARREGAR A PÁGINA: Recupera sessão
-    // -------------------------------------------------------------------------
+    // Recupera o usuário do localStorage ao carregar a página
     useEffect(() => {
         const storedUser = localStorage.getItem("user_data");
         if (storedUser) {
-            try {
-                setUser(JSON.parse(storedUser));
-            } catch (e) {
-                console.error("Erro ao ler dados do usuário:", e);
-                localStorage.removeItem("user_data"); // Limpa se estiver corrompido
-            }
+            setUser(JSON.parse(storedUser));
         }
         setLoading(false);
     }, []);
 
-    // -------------------------------------------------------------------------
-    // LOGIN
-    // -------------------------------------------------------------------------
     const login = async (email, password) => {
         try {
-            // Faz a requisição ao backend
             const response = await fetch("http://127.0.0.1:8000/login", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -36,9 +25,9 @@ export const AuthProvider = ({ children }) => {
 
             const data = await response.json();
 
-            // CASO 1: Backend retornou SUCESSO
+            // CASO 1: Backend disse que foi SUCESSO
             if (data.success) {
-                // Verificação de segurança extra no Frontend (dupla checagem)
+                // Verificação de segurança extra no Frontend
                 if (data.user?.is_active === false) {
                     return { 
                         success: false, 
@@ -46,18 +35,17 @@ export const AuthProvider = ({ children }) => {
                     };
                 }
 
-                // Salva o usuário no estado e no localStorage
                 setUser(data.user);
                 localStorage.setItem("user_data", JSON.stringify(data.user));
                 
-                // Retorna a 'role' para que a página de Login saiba para onde redirecionar
+                // [IMPORTANTE] Retorna a role para o Login.jsx saber pra onde redirecionar
                 return { 
                     success: true, 
                     role: data.user.role 
                 };
             } 
             
-            // CASO 2: Backend retornou ERRO (senha errada, etc)
+            // CASO 2: Backend disse que foi ERRO
             else {
                 const msgErro = data.message || data.detail || "Credenciais inválidas.";
                 return { 
@@ -72,17 +60,12 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
-    // -------------------------------------------------------------------------
-    // LOGOUT
-    // -------------------------------------------------------------------------
     const logout = () => {
         setUser(null);
         localStorage.removeItem("user_data");
-        // Redireciona forçado para a raiz (login)
         window.location.href = "/";
     };
 
-    // Helper para verificar permissão facilmente nos componentes
     const isGestor = user?.role === "gestor";
 
     return (

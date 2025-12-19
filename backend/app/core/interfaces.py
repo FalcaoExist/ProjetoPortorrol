@@ -36,21 +36,6 @@ class IUserRepository(ABC):
     def get_all_suppliers(self) -> List[str]:
         pass
 
-    @abstractmethod
-    def insert_audit_log(self, performed_by: str, action: str, entity: str, entity_id: Optional[str], extra: Optional[dict] = None) -> None:
-        pass
-
-    @abstractmethod
-    def insert_login_attempt(self, email_attempted: str, success: bool, user_id: Optional[str], ip_address: Optional[str]) -> None:
-        pass
-
-    @abstractmethod
-    def get_audit_logs(self, filters: dict) -> List[Dict[str, Any]]:
-        pass
-
-    @abstractmethod
-    def get_login_attempts(self, limit: int, offset: int) -> List[Dict[str, Any]]:
-        pass
 
 class IPasswordHasher(ABC):
     

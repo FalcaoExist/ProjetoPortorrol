@@ -1,10 +1,14 @@
+import React, { useState } from "react";
 import { FiLock, FiCheckCircle, FiAlertTriangle } from "react-icons/fi";
+import { BsEye, BsEyeSlash } from "react-icons/bs";
 
 import InputField from "../common/InputField";
 import { useChangePassword } from "../../hooks/useChangePassword";
 
 export default function ChangePasswordSection({ userId, userName }) {
     const { formValues, status, loading, isSuccess, handleFieldChange, handleSubmit } = useChangePassword({ userId });
+    const [showNewPassword, setShowNewPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
     if (!userId) {
         return null;
@@ -26,22 +30,26 @@ export default function ChangePasswordSection({ userId, userName }) {
                 <form onSubmit={handleSubmit} className="space-y-5">
                     <InputField
                         label="Nova senha"
-                        type="password"
+                        type={showNewPassword ? "text" : "password"}
                         name="newPassword"
                         value={formValues.newPassword}
                         onChange={handleFieldChange}
                         placeholder="Digite a nova senha"
                         disabled={loading || isSuccess}
+                        rightIcon={showNewPassword ? <BsEyeSlash size={18} /> : <BsEye size={18} />}
+                        onIconClick={() => setShowNewPassword((s) => !s)}
                     />
 
                     <InputField
                         label="Confirmar nova senha"
-                        type="password"
+                        type={showConfirmPassword ? "text" : "password"}
                         name="confirmPassword"
                         value={formValues.confirmPassword}
                         onChange={handleFieldChange}
                         placeholder="Repita a nova senha"
                         disabled={loading || isSuccess}
+                        rightIcon={showConfirmPassword ? <BsEyeSlash size={18} /> : <BsEye size={18} />}
+                        onIconClick={() => setShowConfirmPassword((s) => !s)}
                     />
 
                     {status.message ? (

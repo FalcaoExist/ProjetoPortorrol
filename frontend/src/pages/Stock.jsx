@@ -4,7 +4,7 @@ import Header from "../components/header/Header";
 import Navbar from "../components/nav_bar/NavBar";
 import SearchBar from "../components/common/SearchBar";
 import SelectFilter from "../components/common/SelectFilter";
-import StockTable from "../components/estoque_table/StockTable";
+import StockTable from "../components/stock_table/StockTable";
 import ibyLogo from "../assets/iby.png";
 
 // Opções para os filtros
@@ -54,39 +54,39 @@ export default function Stock() {
         });
     }, [stockData, searchQuery, statusFilter, fornecedor, filial]);
 
-    const handleExportPDF = () => {
-        const doc = new jsPDF();
-        doc.addImage(ibyLogo, 'PNG', 10, 10, 20, 20);
-        doc.setFontSize(20);
-        doc.text("Planilha de estoque", 40, 22);
-        doc.setFontSize(10);
-        doc.text(`Data de emissão: ${new Date().toLocaleDateString()}`, 40, 28);
+    // const handleExportPDF = () => {
+    //     const doc = new jsPDF();
+    //     doc.addImage(ibyLogo, 'PNG', 10, 10, 20, 20);
+    //     doc.setFontSize(20);
+    //     doc.text("Planilha de estoque", 40, 22);
+    //     doc.setFontSize(10);
+    //     doc.text(`Data de emissão: ${new Date().toLocaleDateString()}`, 40, 28);
         
-        const tableColumn = ["Código", "Item", "Categoria", "Unidades", "Fornecedor", "Filial", "Dias Cobertura", "Status"];
-        const tableRows = [];
+    //     const tableColumn = ["Código", "Item", "Categoria", "Unidades", "Fornecedor", "Filial", "Dias Cobertura", "Status"];
+    //     const tableRows = [];
 
-        filteredRows.forEach(row => {
-            const rowData = [
-                row.codigo,
-                row.item,
-                row.categoria,
-                row.unidades,
-                row.fornecedor,
-                row.filial,
-                row.dias_cobertura,
-                getStatusText(row.dias_cobertura)
-            ];
-            tableRows.push(rowData);
-        });
+    //     filteredRows.forEach(row => {
+    //         const rowData = [
+    //             row.codigo,
+    //             row.item,
+    //             row.categoria,
+    //             row.unidades,
+    //             row.fornecedor,
+    //             row.filial,
+    //             row.dias_cobertura,
+    //             getStatusText(row.dias_cobertura)
+    //         ];
+    //         tableRows.push(rowData);
+    //     });
 
-        doc.autoTable({
-            head: [tableColumn],
-            body: tableRows,
-            startY: 40,
-        });
+    //     doc.autoTable({
+    //         head: [tableColumn],
+    //         body: tableRows,
+    //         startY: 40,
+    //     });
 
-        doc.save("relatorio_estoque.pdf");
-    };
+    //     doc.save("relatorio_estoque.pdf");
+    // };
 
     const handleImportClick = () => {
         fileInputRef.current.click();
@@ -148,7 +148,7 @@ export default function Stock() {
                                 IMPORTAR
                             </button>
                             <button
-                                onClick={handleExportPDF}
+                                // onClick={handleExportPDF}
                                 className="px-4 py-2 font-normal text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
                             >
                                 EXPORTAR

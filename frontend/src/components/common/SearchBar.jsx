@@ -9,7 +9,7 @@ import React from 'react';
  * @param {function} props.onChange 
  * @param {string} props.placeholder 
  */
-const SearchBar = ({ value, onChange, placeholder }) => {
+export default function SearchBar({ value, onChange, placeholder }){
   return (
     <div className="flex flex-col gap-1">
       <label htmlFor="search" className="text-sm text-gray-600">Busca</label>
@@ -26,4 +26,3 @@ const SearchBar = ({ value, onChange, placeholder }) => {
   );
 };
 
-export default SearchBar;

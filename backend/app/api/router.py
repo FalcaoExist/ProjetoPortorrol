@@ -1,8 +1,7 @@
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
-# Importa dependências
 from app.core.dependencies import (
     get_audit_service,
     get_auth_service,
@@ -12,14 +11,12 @@ from app.core.dependencies import (
 )
 from app.core.interfaces import IUserRepository
 from app.services.audit_service import AuditService
-
-# Importa serviços
 from app.services.auth_service import AuthService
 from app.services.service_models import UserCreateRequest, UserUpdateRequest
 from app.services.user_service import UserService
 
-# Importa schemas
 from .schemas import (
+    ChangePasswordRequest,
     LoginRequest,
     LoginResponse,
     UserCreateResponse,
@@ -30,32 +27,42 @@ from .schemas import (
 
 router = APIRouter()
 
+
 # --- LOGIN ---
+# >>> ALTERAÇÃO: agora captura IP e envia para AuthService
 @router.post("/login", response_model=LoginResponse)
 def login(
     data: LoginRequest,
-    auth_service: AuthService = Depends(get_auth_service)
+    request: Request,
+    auth_service: AuthService = Depends(get_auth_service),
 ):
-    try:
-        user_dict = auth_service.check_credentials(data.email, data.password)
-    except Exception:
-        user_dict = None
+    # Extrai IP
+    xff = request.headers.get("x-forwarded-for")
+    if xff:
+        ip = xff.split(",")[0].strip()
+    else:
+        client = request.client
+        ip = client.host if client else None
 
-    if not user_dict:
-        return {"success": False, "user": None, "message": "E-mail ou senha incorretos."}
+    try:
+        user_dict = auth_service.check_credentials(
+            data.email, data.password, ip_address=ip
+        )
+    except HTTPException as he:
+        return {"success": False, "user": None, "message": he.detail}
 
     if user_dict.get("is_active") is False:
         return {"success": False, "user": None, "message": "Acesso negado: Conta desativada."}
 
     return {"success": True, "user": user_dict, "message": "Login realizado com sucesso"}
 
-# --- USERS ---
 
+# --- USERS ---
 @router.post("/users", response_model=UserCreateResponse, status_code=201)
 def create_user(
     data: UserCreateRequest,
     user_service: UserService = Depends(get_user_service),
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user),
 ):
     if current_user.get("role") != "gestor":
         raise HTTPException(status_code=403, detail="Permissão negada.")
@@ -63,43 +70,48 @@ def create_user(
     created_user = user_service.create_new_user(data, performed_by=current_user.get("user_id"))
     return {"success": True, "user": created_user, "message": "Usuário cadastrado com sucesso!"}
 
+
 @router.get("/users", response_model=UserListResponse)
 def list_users(
-    name: Optional[str] = None, 
+    name: Optional[str] = None,
     email: Optional[str] = None,
-    user_service: UserService = Depends(get_user_service)
+    user_service: UserService = Depends(get_user_service),
 ):
     return user_service.get_formatted_users(name, email)
+
 
 @router.get("/users/all", response_model=UserListResponse)
 def get_all_users(user_service: UserService = Depends(get_user_service)):
     return user_service.get_formatted_users()
 
+
 @router.get("/users/{user_id}", response_model=UserGetResponse)
 def get_user_by_id(
     user_id: str,
-    user_service: UserService = Depends(get_user_service)
+    user_service: UserService = Depends(get_user_service),
 ):
     user = user_service.get_user_by_id(user_id)
     return {"success": True, "user": user}
+
 
 @router.put("/users/{user_id}", response_model=UserUpdateResponse)
 def update_user(
     user_id: str,
     data: UserUpdateRequest,
     user_service: UserService = Depends(get_user_service),
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user),
 ):
     updated_user = user_service.update_existing_user(
         user_id, data, performed_by=current_user.get("user_id")
     )
     return {"success": True, "user": updated_user, "message": "Usuário atualizado com sucesso!"}
 
+
 @router.delete("/users/{user_id}", status_code=204)
 def delete_user_endpoint(
-    user_id: str, 
+    user_id: str,
     service: UserService = Depends(get_user_service),
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user),
 ):
     if current_user.get("role") != "gestor":
         raise HTTPException(status_code=403, detail="Permissão negada.")
@@ -107,37 +119,45 @@ def delete_user_endpoint(
     service.delete_user_permanently(user_id, performed_by=current_user.get("user_id"))
     return None
 
-# --- UTILITÁRIOS & LOGS ---
 
-@router.get("/check-email")
-def check_email(email: str, repo: IUserRepository = Depends(get_user_repository)):
-    user = repo.get_user_by_email(email)
-    return {"exists": user is not None}
+# --- LOGIN ATTEMPTS (NOVO ENDPOINT) ---
+# >>> ALTERAÇÃO: retorna todas as tentativas de login (sucesso + falha)
+@router.get("/login-attempts")
+def list_login_attempts(
+    limit: int = 200,
+    offset: int = 0,
+    repo: IUserRepository = Depends(get_user_repository),
+    current_user: dict = Depends(get_current_user),
+):
+    if current_user.get("role") != "gestor":
+        raise HTTPException(status_code=403, detail="Apenas gestores podem acessar os registros.")
 
+    logs = repo.get_login_attempts(limit=limit, offset=offset)
+    return {"success": True, "logs": logs}
+
+
+# --- SUPPLIERS ---
 @router.get("/suppliers", response_model=List[str])
 def get_suppliers_list(user_service: UserService = Depends(get_user_service)):
     return user_service.get_available_suppliers()
 
+
+# --- AUDIT LOGS ---
 @router.get("/audit-logs")
 def list_audit_logs(
-    # [CORREÇÃO] Adicionados os parâmetros que faltavam para o filtro funcionar
     user_id: Optional[str] = None,
     action: Optional[str] = None,
     entity: Optional[str] = None,
-    date_from: Optional[str] = Query(None, alias="date_from"), # Mapeia 'date_from' da URL para essa var
-    date_to: Optional[str] = Query(None, alias="date_to"),     # Mapeia 'date_to' da URL para essa var
+    date_from: Optional[str] = Query(None, alias="date_from"),
+    date_to: Optional[str] = Query(None, alias="date_to"),
     limit: int = 200,
     offset: int = 0,
     audit_service: AuditService = Depends(get_audit_service),
     current_user: dict = Depends(get_current_user),
 ):
-    """
-    Busca logs de auditoria. Exclusivo para gestores.
-    """
     if current_user.get("role") != "gestor":
         raise HTTPException(status_code=403, detail="Apenas gestores podem acessar os registros.")
 
-    # Monta o dicionário de filtros que o repositório espera
     filters = {
         "user_id": user_id,
         "action": action,
@@ -150,3 +170,18 @@ def list_audit_logs(
 
     logs = audit_service.get_logs(filters)
     return {"success": True, "logs": logs}
+
+# TROCA DE SENHA
+@router.put("/me/password")
+def change_own_password(
+    data: ChangePasswordRequest,
+    user_service: UserService = Depends(get_user_service),
+    current_user: dict = Depends(get_current_user),
+):
+    user_service.change_password(
+        user_id=current_user["user_id"],
+        old_password=data.old_password,
+        new_password=data.new_password,
+        performed_by=current_user["user_id"]  # o próprio usuário
+    )
+    return {"success": True, "message": "Senha alterada com sucesso!"}

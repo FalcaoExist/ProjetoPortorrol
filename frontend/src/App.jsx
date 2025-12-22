@@ -8,6 +8,7 @@ import PrivateRoute from "./components/privateRoute";
 import Login from "./pages/Login";
 import Home from "./pages/Home";
 import Stock from "./pages/Stock";
+import Orders from "./pages/Orders";
 import ListUsers from "./pages/ListUsers";
 import ListSuppliers from "./pages/ListSuppliers";
 import Records from "./pages/Records";
@@ -37,6 +38,14 @@ export default function App() {
             element={
               <PrivateRoute>
                 <Stock />
+              </PrivateRoute>
+            }
+          />
+          <Route 
+            path="/orders"
+            element={
+              <PrivateRoute>
+                <Orders />
               </PrivateRoute>
             }
           />

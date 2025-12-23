@@ -1,15 +1,20 @@
 import os
 from datetime import datetime, timedelta
 from typing import List, Optional
-
-from dotenv import load_dotenv
-from fastapi import APIRouter, Depends, Response, status
+import io
+# Adicionado BackgroundTasks de volta
+from fastapi import APIRouter, UploadFile, File, BackgroundTasks, HTTPException, Depends, Header, Response, status
 from jose import jwt
+from dotenv import load_dotenv
 
 from app.core.dependencies import get_auth_service, get_current_user, get_user_service
 from app.services.auth_service import AuthService
 from app.services.service_models import UserCreateRequest, UserUpdateRequest
 from app.services.user_service import UserService
+from app.core.supabase_client import supabase
+
+# Import do processador blindado
+from app.repositories.import_repository import process_import_file
 
 from .schemas import (
     LoginRequest,
@@ -37,14 +42,14 @@ def create_access_token(data: dict):
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
+# --- Rotas de Auth e Usuários (Mantidas Iguais) ---
+
 @router.post("/login", response_model=LoginResponse)
 def login(
-    response: Response, # Necessário para manipular Cookies
+    response: Response,
     data: LoginRequest,
     auth_service: AuthService = Depends(get_auth_service)
 ):
-
-    # 1. Verifica as credenciais
     try:
         user_dict = auth_service.check_credentials(data.email, data.password)
     except Exception:
@@ -58,13 +63,12 @@ def login(
         response.status_code = status.HTTP_403_FORBIDDEN
         return {"success": False, "user": None, "message": "Conta desativada."}
     
-    # 2. Gera o Token JWT
     token_data = {
         "sub": str(user_dict.get("user_id")),
         "role": user_dict.get("role")        
     }
     access_token = create_access_token(token_data)
-    # 3. Define o cookie HttpOnly no response
+    
     response.set_cookie(
         key="access_token",            
         value=f"Bearer {access_token}",
@@ -84,7 +88,6 @@ def login(
 
 @router.post("/logout")
 def logout(response: Response):
-    """Remove o cookie do navegador"""
     response.delete_cookie("access_token")
     return {"success": True, "message": "Logout realizado"}
 
@@ -148,13 +151,56 @@ def get_suppliers_list(
 ):
     return user_service.get_available_suppliers()
 
-
 @router.get("/me", response_model=UserGetResponse)
 def get_current_user_profile(
     current_user: dict = Depends(get_current_user) 
 ):
-
     return {
         "success": True,
         "user": current_user
+    }
+
+# Helper rápido para tentar pegar o ID do usuário sem travar a request se falhar
+async def get_user_id_safe(authorization: str = Header(None)):
+    if not authorization: return None
+    try:
+        token = authorization.replace("Bearer ", "")
+        user = supabase.auth.get_user(token)
+        return user.user.id if user and user.user else None
+    except: return None
+
+@router.post("/stock/import")
+async def import_stock(
+    background_tasks: BackgroundTasks, # <--- A Mágica voltou aqui
+    file: UploadFile = File(...),
+    authorization: str = Header(None)
+):
+    """
+    1. Recebe o arquivo.
+    2. Responde 'OK' para o usuário imediatamente.
+    3. Processa em segundo plano (BackgroundTasks).
+    """
+    
+    # 1. Validação básica
+    if not file.filename.lower().endswith(".csv"):
+        raise HTTPException(status_code=400, detail="Envie um arquivo CSV")
+
+    try:
+        # Lê o arquivo para memória (rápido)
+        contents = await file.read()
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Erro ao ler upload: {e}")
+
+    # Pega o ID do usuário (opcional, para log)
+    user_id = await get_user_id_safe(authorization)
+
+    # 2. Agenda o processamento pesado para depois da resposta
+    # O process_import_file já está blindado contra erros de CSV
+    background_tasks.add_task(process_import_file, contents, user_id)
+
+    # 3. Responde imediatamente
+    return {
+        "success": True,
+        "message": "Upload recebido! O processamento continuará em segundo plano.",
+        "status": "processing_started"
     }

@@ -50,7 +50,7 @@ export default function Orders() {
 
             <main className="min-w-0">
                 <div className="flex flex-col">
-                    <Header pageTitle={"Orders"} userName={user?.name || "Usuário"} />
+                    <Header pageTitle={"Pedidos"} userName={user?.name || "Usuário"} />
 
                     <section className="px-4 py-6 md:px-8 lg:px-12">
                         <div className="flex flex-wrap items-center gap-4 mb-6">
@@ -83,6 +83,20 @@ export default function Orders() {
                         </div>
 
                         <OrdersTable rows={filteredRows} updateData={handleUpdateData} />
+                        <div className="flex items-center justify-between mt-6">
+                            <button
+                                onClick={() => {}}
+                                className="bg-[#5A44B0] hover:bg-white text-white hover:text-black shadow-lg font-poppins uppercase text-sm p-2 rounded-md"
+                            >
+                                Criar nova requisição
+                            </button>
+                            <button
+                                // onClick={handleExportPDF}
+                                className="px-4 py-2 font-normal text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
+                            >
+                                EXPORTAR
+                            </button>
+                        </div>
                     </section>
                 </div>
             </main>

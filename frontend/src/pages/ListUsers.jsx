@@ -108,11 +108,10 @@ export default function ListUsers() {
     const handleSavePassword = async (newPassword) => {
         try {
             await updateUser(passwordModal.userId, { password: newPassword });
-            alert("Senha alterada com sucesso!");
+            return { success: true, message: "Senha alterada com sucesso!" };
         } catch (error) {
             console.error(error);
-            alert("Erro ao alterar senha. Tente novamente.");
-            throw error;
+            return { success: false, message: error?.message || "Erro ao alterar senha. Tente novamente." };
         }
     };
 

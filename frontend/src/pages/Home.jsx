@@ -3,7 +3,7 @@ import LeadtimeSavingCard from "../components/charts/LeadtimeSavingCard";
 import Navbar from "../components/nav_bar/NavBar";
 import Header from "../components/header/Header";
 import { useAuth } from "../context/authContext";
-import CriticosChart from "../components/charts/CriticosChart";
+import CriticosChart from "../components/charts/CriticsChart";
 import StockRangeGraph from "../components/charts/StockRangeGraph";
 import Filter from "../components/common/Filter";
 import Orders from "../components/charts/Orders";
@@ -41,17 +41,24 @@ export default function Home() {
         <div className="flex flex-col">
           <Header pageTitle={"Dashboard"} userName={user?.name || "Usuário"} />
 
-          <section className="pl-20 md:px-20 mt-3">
-            <div className="border border-1 rounded-lg w-full  min-h-96">
-              <div className="flex items-center gap-3 ml-6 mt-4">
-                <Filter label={"Filial"} options={branchOptions} value={branch} onChange={setBranch} />
+          <section className="pl-20 md:px-12 mt-3">
+            <div className="flex gap-5 my-5">
+                <Filter 
+                  label={"Filial"} 
+                  options={branchOptions} 
+                  value={branch} 
+                  onChange={setBranch} 
+                  className="text-lg"
+                />
                 <Filter
                   label={"Fornecedor"}
                   options={supplierOptions}
                   value={supplier}
                   onChange={setSupplier}
+                  className="text-lg"
                 />
-              </div>
+            </div>
+            <div className="border border-1 rounded-lg w-full  min-h-96">
               <h2 className="ml-16 p-3 pb-0 text-[#464255] font-poppins font-bold text-lg">SKUs mais Críticos</h2>
               <CriticosChart branch={branch} supplier={supplier} data={dataCritic} />
               <div className="">
@@ -60,14 +67,14 @@ export default function Home() {
             </div>
             <div className="w-full flex gap-2">
               <div className="flex-1 min-w-0">
-                <p className="text-start font-semibold text-primary text-xl py-5">Pedidos</p>
+                <p className="text-start font-semibold text-primary text-2xl py-5">Pedidos</p>
                 <div className="flex gap-2 h-[128px]">
                   <Orders text={"Atrasados"} img={lateOrdersImg} number={8} />
                   <Orders text={"Aprovados"} img={aprovedorders} number={8} />
                 </div>
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-start font-semibold text-primary text-xl py-5">Gastos</p>
+                <p className="text-start font-semibold text-primary text-2xl py-5">Gastos</p>
                 <div className="h-[128px] flex items-center">
                   <BudgetProgressCard
                     value={31452.32}
@@ -78,7 +85,7 @@ export default function Home() {
                 </div>
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-start font-bold text-primary text-xl py-5">&nbsp;</p>
+                <p className="text-start font-bold text-primary text-2xl py-5">&nbsp;</p>
                 <div className="h-[128px] flex items-center">
                   <LeadtimeSavingCard leadtime={15} saving={8} />
                 </div>
@@ -88,13 +95,24 @@ export default function Home() {
               <div className="flex items-center gap-3 ml-6 mt-4 w-full pr-6">
                 <SkuAutocomplete value={sku} onChange={(newVal) => setSku(newVal)} options={skuOptions} placeholder="Procurar SKU" />
               </div>
-
               <MonthlyQuantityChart data={months} sku={sku?.value} />
             </div>
             <div className="border border-1 rounded-lg w-full  min-h-72 mb-10">
               <div className="flex items-center gap-3 ml-6 mt-4">
-                <Filter label={"Filial"} options={branchOptions} value={branch} onChange={setBranch} />
-                <Filter label={"Fornecedor"} options={supplierOptions} value={supplier} onChange={setSupplier} />
+                <Filter 
+                  label={"Filial"} 
+                  options={branchOptions} 
+                  value={branch} 
+                  onChange={setBranch}
+                  className="text-lg" 
+                />
+                <Filter 
+                  label={"Fornecedor"} 
+                  options={supplierOptions} 
+                  value={supplier} 
+                  onChange={setSupplier}
+                  className="text-lg" 
+                />
               </div>
               <h2 className="ml-16 p-3 pb-0 text-[#464255] font-poppins font-bold text-lg">SKUs em excesso</h2>
               <OverstokChart branch={branch} supplier={supplier} data={data} />

@@ -1,38 +1,14 @@
 import React from 'react';
+import { DEFAULT_SEGMENT_METADATA } from './segmentMetadata';
 
-const SEGMENT_METADATA = {
-  excesso: {
-    label: 'Excesso',
-    color: '#4a89f3',
-    orderBar: 1,
-    orderLegend: 4,
-  },
-  rupturaIminente: {
-    label: 'Ruptura iminente',
-    color: '#e54c4c',
-    orderBar: 2,
-    orderLegend: 3,
-  },
-  subdimensionado: {
-    label: 'Subdimensionado',
-    color: '#ff9944',
-    orderBar: 3,
-    orderLegend: 2,
-  },
-  ok: {
-    label: 'Ok',
-    color: '#e0e0e0',
-    orderBar: 4,
-    orderLegend: 1,
-  },
-};
-
-export default function StockRangeGraph({ data, totalItems }){
+export default function StockRangeGraph({ data, totalItems, segmentMetadata = DEFAULT_SEGMENT_METADATA }){
+  // Permite sobrescrever/estender o metadata via prop
+  const mergedMetadata = { ...DEFAULT_SEGMENT_METADATA, ...segmentMetadata };
 
   const segments = Object.keys(data).map(key => ({
     key,
     value: data[key],
-    ...SEGMENT_METADATA[key],
+    ...mergedMetadata[key],
   }));
 
   const segmentsForBar = [...segments].sort((a, b) => a.orderBar - b.orderBar);
@@ -73,11 +49,11 @@ export default function StockRangeGraph({ data, totalItems }){
           }
 
           const pctText = `${Math.round(percentage)}%`;
-          const labelText = segment.label.toLowerCase();
+          const labelText = segment.label?.toLowerCase() || segment.key;
 
           const tooltipText = itemCount !== null
             ? `${pctText} - ${itemCount} itens em ${labelText}`
-            : `${pctText} ${segment.label}`;
+            : `${pctText} ${segment.label || segment.key}`;
 
           return (
             <div
@@ -99,11 +75,11 @@ export default function StockRangeGraph({ data, totalItems }){
         {segmentsForLegend.map((segment) => (
           <div key={segment.key} className="flex items-center text-[#555] whitespace-nowrap">
             <span className="inline-block w-3 h-3 mr-2 rounded-[3px]" style={{ backgroundColor: segment.color }} />
-            {segment.label}
+            {segment.label || segment.key}
           </div>
         ))}
       </div>
     </div>
   );
-};
+}
 

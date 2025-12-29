@@ -7,7 +7,8 @@ export default function SkuAutocomplete({ value, onChange, options = [], placeho
       <Autocomplete
         size="small"
         options={options}
-        getOptionLabel={(option) => option.label || ''}
+        getOptionLabel={(option) => (typeof option === 'string' ? option : option?.label || '')}
+        isOptionEqualToValue={(option, val) => option?.value === val?.value}
         value={value}
         onChange={(_, newVal) => onChange && onChange(newVal)}
         sx={{ width: '100%' }}
@@ -17,16 +18,13 @@ export default function SkuAutocomplete({ value, onChange, options = [], placeho
             placeholder={placeholder}
             variant="outlined"
             fullWidth
-            slotProps={{
-              ...(params.slotProps || {}),
-              input: {
-                ...((params.slotProps && params.slotProps.input) || {}),
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon fontSize="medium" />
-                  </InputAdornment>
-                ),
-              },
+            InputProps={{
+              ...params.InputProps,
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon fontSize="medium" />
+                </InputAdornment>
+              ),
             }}
             sx={{
               '& .MuiOutlinedInput-root': {

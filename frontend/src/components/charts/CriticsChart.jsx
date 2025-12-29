@@ -28,7 +28,7 @@ function CustomTooltip({ payload, label, active }) {
     return null;
 }
 
-export default function CriticosChart({ data, asc = true }) {
+export default function CriticsChart({ data, asc = true }) {
     const sortedData = [...data].sort((a, b) => asc ? a.qtd - b.qtd : b.qtd - a.qtd);
 
     return (

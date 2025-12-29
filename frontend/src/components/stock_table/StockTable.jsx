@@ -22,7 +22,7 @@ const getStatus = (diasDeCobertura) => {
 const StatusCell = ({ value }) => {
     const status = getStatus(value);
     return (
-        <div className={`inline-block px-2 py-1 text-center rounded-full text-xs font-semibold ${status.bgColor} ${status.textColor}`}>
+        <div className={`inline-block px-2 py-1 rounded-full text-xs font-semibold ${status.bgColor} ${status.textColor}`}>
             {status.text}
         </div>
     );
@@ -93,8 +93,6 @@ export default function StockTable({ rows = [] }) {
             headerName: "Status",
             minWidth: 160,
             flex: 1,
-            headerAlign: "center",
-            align: "center",
             renderCell: (params) => <StatusCell value={params.row.dias_cobertura} />,
         },
     ], []);

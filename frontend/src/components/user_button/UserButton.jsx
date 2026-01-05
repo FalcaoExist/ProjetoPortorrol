@@ -17,7 +17,7 @@ export default function UserButton({user_name}){
         <button
           type="button"
           onClick={toggleDropdown}
-          className="inline-flex justify-center items-center gap-2 w-full rounded-full border border-gray-300 shadow-sm px-16 py-2 bg-[#756B9B] text-lg  text-white font-semibold hover:bg-primary focus:outline-none "
+          className="inline-flex justify-center items-center gap-2 w-full rounded-full border border-gray-300 shadow-sm px-16 py-2 bg-[#031933] text-lg  text-white font-semibold hover:bg-primary focus:outline-none "
           id="menu-button"
           aria-expanded={isOpen}
           aria-haspopup="true"

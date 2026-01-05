@@ -88,7 +88,7 @@ export default function Orders() {
                         <div className="flex items-center justify-between mt-6">
                             <button
                                 onClick={() => navigate("/new-order")}
-                                className="bg-[#5A44B0] hover:bg-white text-white hover:text-black shadow-lg font-poppins uppercase text-sm p-2 rounded-md"
+                                className="bg-[#f43629] hover:bg-white text-white hover:text-black shadow-lg font-poppins uppercase text-sm p-2 rounded-md"
                             >
                                 Criar nova requisição
                             </button>

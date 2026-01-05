@@ -1,6 +1,7 @@
 import React from "react";
 import NavItem from "./NavItem";
 import logoPort from "../../assets/LogoPort.png";
+import logoIby from "../../assets/logoIby_maior.png";
 import { Link } from "react-router-dom";
 import { defaultSections as defaultSectionsConfig } from "./navConfig";
 
@@ -80,6 +81,10 @@ export default function Navbar({
                     Sair
                 </button>
             </nav>
+            <div className="flex flex-col items-center mt-auto pb-4">
+                <span className="text-[0.6rem] text-gray-500 font-poppins">Desenvolvido por</span>
+                <img src={logoIby} alt="IBy Logo" className="w-16 mt-1" />
+            </div>
         </aside>
     );
 }

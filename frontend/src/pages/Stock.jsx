@@ -5,19 +5,7 @@ import Navbar from "../components/nav_bar/NavBar";
 import SearchBar from "../components/common/SearchBar";
 import SelectFilter from "../components/common/SelectFilter";
 import StockTable from "../components/stock_table/StockTable";
-import ibyLogo from "../assets/iby.png";
-
-// Opções para os filtros
-const statusOptions = ["OK", "Subdimensionado", "Ruptura iminente", "Excesso"];
-const fornecedorOptions = ["NSK", "Timken", "FRM", "BGL", "IKO", "SAV"];
-const filialOptions = ["Porto Alegre", "Joinville", "São Paulo"];
-
-// Mock data para a tabela de estoque
-const initialStockData = [
-    { id: 1, codigo: "ROL-001", item: "ANel FRB 100/11,5", categoria: "Rolamento x", unidades: 150, fornecedor: "NSK", filial: "Porto Alegre", dias_cobertura: 25 },
-    { id: 2, codigo: "ROL-002", item: "ANel FRB 100/11,5", categoria: "Rolamento x", unidades: 80, fornecedor: "Timken", filial: "Joinville", dias_cobertura: 45 },
-    { id: 3, codigo: "RET-001", item: "ANel FRB 100/11,5", categoria: "Rolamento x", unidades: 300, fornecedor: "FRM", filial: "São Paulo", dias_cobertura: 75 },
-];
+import { initialStockData, statusOptions, fornecedorOptions, filialOptions } from "../data/mockData";
 
 const getStatusText = (diasDeCobertura) => {
     if (diasDeCobertura <= 30) return "Ruptura iminente";
@@ -54,39 +42,7 @@ export default function Stock() {
         });
     }, [stockData, searchQuery, statusFilter, fornecedor, filial]);
 
-    // const handleExportPDF = () => {
-    //     const doc = new jsPDF();
-    //     doc.addImage(ibyLogo, 'PNG', 10, 10, 20, 20);
-    //     doc.setFontSize(20);
-    //     doc.text("Planilha de estoque", 40, 22);
-    //     doc.setFontSize(10);
-    //     doc.text(`Data de emissão: ${new Date().toLocaleDateString()}`, 40, 28);
-        
-    //     const tableColumn = ["Código", "Item", "Categoria", "Unidades", "Fornecedor", "Filial", "Dias Cobertura", "Status"];
-    //     const tableRows = [];
-
-    //     filteredRows.forEach(row => {
-    //         const rowData = [
-    //             row.codigo,
-    //             row.item,
-    //             row.categoria,
-    //             row.unidades,
-    //             row.fornecedor,
-    //             row.filial,
-    //             row.dias_cobertura,
-    //             getStatusText(row.dias_cobertura)
-    //         ];
-    //         tableRows.push(rowData);
-    //     });
-
-    //     doc.autoTable({
-    //         head: [tableColumn],
-    //         body: tableRows,
-    //         startY: 40,
-    //     });
-
-    //     doc.save("relatorio_estoque.pdf");
-    // };
+    
 
     const handleImportClick = () => {
         fileInputRef.current.click();

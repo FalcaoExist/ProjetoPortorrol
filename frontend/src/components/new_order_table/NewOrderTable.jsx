@@ -7,9 +7,9 @@ const filialOptions = ["Porto Alegre", "Joinville", "São Paulo"];
 
 export default function NewOrderTable({ rows = [], handleRowUpdate, handleDelete }) {
 
-    const processRowUpdate = (newRow, oldRow) => {
-        handleRowUpdate(newRow);
-        return newRow;
+    const processRowUpdate = async (newRow, oldRow) => {
+        const updatedRow = await handleRowUpdate(newRow);
+        return updatedRow;
     };
 
     const columns = useMemo(() => [
@@ -87,7 +87,17 @@ export default function NewOrderTable({ rows = [], handleRowUpdate, handleDelete
             editable: true,
             align: 'left',
             headerAlign: 'left',
-            valueGetter: (params) => new Date(params.value),
+            valueFormatter: (params) => {
+                if (!params.value) return '';
+                const date = new Date(params.value);
+                if (date instanceof Date && !isNaN(date)) {
+                    const year = date.getUTCFullYear();
+                    const month = (date.getUTCMonth() + 1).toString().padStart(2, '0');
+                    const day = date.getUTCDate().toString().padStart(2, '0');
+                    return `${day}/${month}/${year}`;
+                }
+                return '';
+            },
         },
     ], [handleDelete]);
 

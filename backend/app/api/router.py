@@ -3,21 +3,27 @@ from datetime import datetime, timedelta
 from typing import List, Optional
 import io
 
-# Fast API Imports
-from fastapi import APIRouter, UploadFile, File, BackgroundTasks, HTTPException, Depends, Header, Response, status, Query
-from jose import jwt
+from fastapi import APIRouter, UploadFile, File, BackgroundTasks, HTTPException, Depends, Header, Response, status, Query, Request
+from jose import jwt # Mantido caso precise de validação manual
 from dotenv import load_dotenv
 
-# --- IMPORTS DE SERVIÇOS E REPOSITÓRIOS ---
+
 from app.core.supabase_client import supabase
-from app.core.dependencies import get_auth_service, get_current_user, get_user_service
+from app.core.dependencies import (
+    get_audit_service,
+    get_auth_service,
+    get_current_user,
+    get_user_repository,
+    get_user_service,
+)
+from app.core.interfaces import IUserRepository
+from app.services.audit_service import AuditService
 from app.services.auth_service import AuthService
 from app.services.user_service import UserService
 from app.services.service_models import UserCreateRequest, UserUpdateRequest
-from app.repositories.import_repository import process_import_file
 
-# --- IMPORTS DO DASHBOARD (AQUI ESTAVA O ERRO) ---
-# Importamos do arquivo específico que criamos em app/schemas/dashboard_schemas.py
+# --- IMPORTS DO DASHBOARD (Novos da Feature) ---
+from app.repositories.import_repository import process_import_file
 from app.services.dashboard_service import DashboardService
 from app.api.schemas import (
     SkuAnaliseResponse, 
@@ -26,8 +32,9 @@ from app.api.schemas import (
     FilialResponse
 )
 
-# --- IMPORTS DE AUTH/USERS (DO SEU ARQUIVO LOCAL .schemas) ---
+# --- IMPORTS DE SCHEMAS (Locais) ---
 from .schemas import (
+    ChangePasswordRequest,
     LoginRequest,
     LoginResponse,
     UserCreateResponse,
@@ -40,79 +47,100 @@ load_dotenv()
 
 router = APIRouter()
 
-# Configurações JWT
-SECRET_KEY = os.getenv("SECRET_KEY")
-ALGORITHM = os.getenv("ALGORITHM", "HS256")
-ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 60))
-
-def create_access_token(data: dict):
-    to_encode = data.copy()
-    expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-    return encoded_jwt
-
+# --- LOGIN (Mantendo a versão DEV que é mais robusta com Log de IP) ---
 @router.post("/login", response_model=LoginResponse)
-def login(response: Response, data: LoginRequest, auth_service: AuthService = Depends(get_auth_service)):
-    try:
-        user_dict = auth_service.check_credentials(data.email, data.password)
-    except Exception:
-        user_dict = None
+def login(
+    data: LoginRequest,
+    request: Request,
+    auth_service: AuthService = Depends(get_auth_service),
+):
+    # Extrai IP
+    xff = request.headers.get("x-forwarded-for")
+    if xff:
+        ip = xff.split(",")[0].strip()
+    else:
+        client = request.client
+        ip = client.host if client else None
 
-    if not user_dict:
-        response.status_code = status.HTTP_401_UNAUTHORIZED
-        return {"success": False, "user": None, "message": "E-mail ou senha incorretos."}
+    try:
+        user_dict = auth_service.check_credentials(
+            data.email, data.password, ip_address=ip
+        )
+    except HTTPException as he:
+        return {"success": False, "user": None, "message": he.detail}
 
     if user_dict.get("is_active") is False:
-        response.status_code = status.HTTP_403_FORBIDDEN
-        return {"success": False, "user": None, "message": "Conta desativada."}
-    
-    token_data = {"sub": str(user_dict.get("user_id")), "role": user_dict.get("role")}
-    access_token = create_access_token(token_data)
-    
-    response.set_cookie(
-        key="access_token", value=f"Bearer {access_token}", httponly=True, 
-        max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60, expires=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
-        samesite="lax", secure=False, path="/"
-    )
+        return {"success": False, "user": None, "message": "Acesso negado: Conta desativada."}
 
     return {"success": True, "user": user_dict, "message": "Login realizado com sucesso"}
 
-@router.post("/logout")
-def logout(response: Response):
-    response.delete_cookie("access_token")
-    return {"success": True, "message": "Logout realizado"}
 
+# --- USERS (Mantendo a versão DEV que tem Auditoria e Permissões) ---
 @router.post("/users", response_model=UserCreateResponse, status_code=201)
-def create_user(data: UserCreateRequest, user_service: UserService = Depends(get_user_service), current_user: dict = Depends(get_current_user)):
-    created_user = user_service.create_new_user(data)
-    return { "success": True, "user": created_user, "message": "Criado com sucesso!" }
+def create_user(
+    data: UserCreateRequest,
+    user_service: UserService = Depends(get_user_service),
+    current_user: dict = Depends(get_current_user),
+):
+    if current_user.get("role") != "gestor":
+        raise HTTPException(status_code=403, detail="Permissão negada.")
+        
+    created_user = user_service.create_new_user(data, performed_by=current_user.get("user_id"))
+    return {"success": True, "user": created_user, "message": "Usuário cadastrado com sucesso!"}
+
 
 @router.get("/users", response_model=UserListResponse)
-def list_users(name: Optional[str] = None, email: Optional[str] = None, user_service: UserService = Depends(get_user_service), current_user: dict = Depends(get_current_user)):
+def list_users(
+    name: Optional[str] = None,
+    email: Optional[str] = None,
+    user_service: UserService = Depends(get_user_service),
+):
     return user_service.get_formatted_users(name, email)
 
+
 @router.get("/users/all", response_model=UserListResponse)
-def get_all_users(user_service: UserService = Depends(get_user_service), current_user: dict = Depends(get_current_user)):
+def get_all_users(user_service: UserService = Depends(get_user_service)):
     return user_service.get_formatted_users()
 
+
 @router.get("/users/{user_id}", response_model=UserGetResponse)
-def get_user_by_id(user_id: str, user_service: UserService = Depends(get_user_service), current_user: dict = Depends(get_current_user)):
+def get_user_by_id(
+    user_id: str,
+    user_service: UserService = Depends(get_user_service),
+):
     user = user_service.get_user_by_id(user_id)
-    return { "success": True, "user": user }
+    return {"success": True, "user": user}
+
 
 @router.put("/users/{user_id}", response_model=UserUpdateResponse)
-def update_user(user_id: str, data: UserUpdateRequest, user_service: UserService = Depends(get_user_service), current_user: dict = Depends(get_current_user)):
-    updated_user = user_service.update_existing_user(user_id, data)
-    return { "success": True, "user": updated_user, "message": "Atualizado com sucesso!" }
+def update_user(
+    user_id: str,
+    data: UserUpdateRequest,
+    user_service: UserService = Depends(get_user_service),
+    current_user: dict = Depends(get_current_user),
+):
+    updated_user = user_service.update_existing_user(
+        user_id, data, performed_by=current_user.get("user_id")
+    )
+    return {"success": True, "user": updated_user, "message": "Usuário atualizado com sucesso!"}
+
 
 @router.delete("/users/{user_id}", status_code=204)
-def delete_user_endpoint(user_id: str, service: UserService = Depends(get_user_service), current_user: dict = Depends(get_current_user)):
-    service.delete_user_permanently(user_id)
+def delete_user_endpoint(
+    user_id: str,
+    service: UserService = Depends(get_user_service),
+    current_user: dict = Depends(get_current_user),
+):
+    if current_user.get("role") != "gestor":
+        raise HTTPException(status_code=403, detail="Permissão negada.")
+        
+    service.delete_user_permanently(user_id, performed_by=current_user.get("user_id"))
     return None
 
+# --- AUXILIARES E NOVAS ROTAS (DA FEATURE DASHBOARD) ---
+
 @router.get("/suppliers", response_model=List[str])
-def get_suppliers_list(user_service: UserService = Depends(get_user_service), current_user: dict = Depends(get_current_user)):
+def get_suppliers_list(user_service: UserService = Depends(get_user_service)):
     return user_service.get_available_suppliers()
 
 @router.get("/me", response_model=UserGetResponse)
@@ -151,6 +179,7 @@ async def import_stock(
         "status": "processing_started"
     }
 
+# --- DASHBOARD ENDPOINTS (DA FEATURE DASHBOARD) ---
 
 def get_dashboard_service():
     return DashboardService()
@@ -193,3 +222,60 @@ def buscar_skus(
     Retorna uma lista de resultados.
     """
     return service.buscar_produtos(q)
+
+# --- NOVAS ROTAS DE AUDITORIA E LOGS (DA BRANCH DEV) ---
+
+@router.get("/login-attempts")
+def list_login_attempts(
+    limit: int = 200,
+    offset: int = 0,
+    repo: IUserRepository = Depends(get_user_repository),
+    current_user: dict = Depends(get_current_user),
+):
+    if current_user.get("role") != "gestor":
+        raise HTTPException(status_code=403, detail="Apenas gestores podem acessar os registros.")
+
+    logs = repo.get_login_attempts(limit=limit, offset=offset)
+    return {"success": True, "logs": logs}
+
+@router.get("/audit-logs")
+def list_audit_logs(
+    user_id: Optional[str] = None,
+    action: Optional[str] = None,
+    entity: Optional[str] = None,
+    date_from: Optional[str] = Query(None, alias="date_from"),
+    date_to: Optional[str] = Query(None, alias="date_to"),
+    limit: int = 200,
+    offset: int = 0,
+    audit_service: AuditService = Depends(get_audit_service),
+    current_user: dict = Depends(get_current_user),
+):
+    if current_user.get("role") != "gestor":
+        raise HTTPException(status_code=403, detail="Apenas gestores podem acessar os registros.")
+
+    filters = {
+        "user_id": user_id,
+        "action": action,
+        "entity": entity,
+        "from": date_from,
+        "to": date_to,
+        "limit": limit,
+        "offset": offset,
+    }
+
+    logs = audit_service.get_logs(filters)
+    return {"success": True, "logs": logs}
+
+@router.put("/me/password")
+def change_own_password(
+    data: ChangePasswordRequest,
+    user_service: UserService = Depends(get_user_service),
+    current_user: dict = Depends(get_current_user),
+):
+    user_service.change_password(
+        user_id=current_user["user_id"],
+        old_password=data.old_password,
+        new_password=data.new_password,
+        performed_by=current_user["user_id"]  # o próprio usuário
+    )
+    return {"success": True, "message": "Senha alterada com sucesso!"}

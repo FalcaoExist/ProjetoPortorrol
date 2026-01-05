@@ -11,7 +11,7 @@ import React from 'react';
  * @param {function} props.onChange 
  * @param {Array<string>} props.options 
  */
-const SelectFilter = ({ label, name, value, onChange, options }) => {
+export default function SelectFilter({ label, name, value, onChange, options }){
   return (
     <div className="flex flex-col gap-1">
       <label htmlFor={name} className="text-sm text-gray-600">{label}</label>
@@ -32,5 +32,3 @@ const SelectFilter = ({ label, name, value, onChange, options }) => {
     </div>
   );
 };
-
-export default SelectFilter;

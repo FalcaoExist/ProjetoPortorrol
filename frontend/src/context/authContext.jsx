@@ -6,9 +6,10 @@ const AuthContext = createContext();
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
-    useEffect(() => {
+useEffect(() => {
         const checkSession = async () => {
             try {
+                // Tenta validar a sessão no backend (cookie)
                 const data = await httpClient.get("/me");
                 if (data && data.success) {
                     setUser(data.user);
@@ -36,6 +37,7 @@ export const AuthProvider = ({ children }) => {
                     return { success: false, message: "Conta desativada." };
                 }
 
+                // Salva o usuário no estado
                 setUser(data.user);
                 return { success: true, role: data.user.role };
             } else {
@@ -49,8 +51,6 @@ export const AuthProvider = ({ children }) => {
             return { success: false, message: msg };
         }
     };
-
-    // 3. Logout
     const logout = async () => {
         try {
             await httpClient.post("/logout", {});
@@ -58,10 +58,13 @@ export const AuthProvider = ({ children }) => {
             console.error("Erro ao fazer logout no servidor", error);
         } finally {
             setUser(null);
+            // Redireciona
             window.location.href = "/";
         }
     };
+    };
 
+    // Helper para verificar permissão facilmente nos componentes
     const isGestor = user?.role === "gestor";
 
     return (

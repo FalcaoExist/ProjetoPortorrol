@@ -1,14 +1,17 @@
 import React, { useState, useMemo, useCallback } from "react";
 import { GridActionsCellItem, GridRowModes } from "@mui/x-data-grid";
 import { Box, useMediaQuery } from "@mui/material";
-import { FiCheck, FiX, FiEdit, FiTrash2 } from "react-icons/fi";
+import { FiCheck, FiX, FiEdit, FiTrash2, FiClock } from "react-icons/fi";
 import { useRowEditing } from "../../hooks/useRowEditing";
 import { BaseDataGrid } from "../common/BaseDataGrid";
 import AddSupplierModal from "./AddSupplierModal";
+import LeadtimeHistoryModal from "./LeadtimeHistoryModal";
 
-export default function SuppliersTable({ rows = [], setRows, onRequestDelete }) {
+export default function SuppliersTable({ rows = [], setRows, onRequestDelete, historyBySupplier = {}, onRegisterCurrentSnapshot = () => ({}) }) {
     const isCompactLayout = useMediaQuery("(max-width:1279px)");
     const [openModal, setOpenModal] = useState(false);
+    const [leadtimeModalOpen, setLeadtimeModalOpen] = useState(false);
+    const [selectedSupplier, setSelectedSupplier] = useState(null);
 
     const {
         rowModesModel,
@@ -62,6 +65,17 @@ export default function SuppliersTable({ rows = [], setRows, onRequestDelete }) 
             setRows((prevRows) => prevRows.filter((row) => row.id !== id));
         }
     }, [genericHandleCancelClick, rows, setRows]);
+
+    const handleLeadtimeClick = useCallback((id) => () => {
+        const targetRow = rows.find((row) => row.id === id);
+        setSelectedSupplier(targetRow || null);
+        setLeadtimeModalOpen(true);
+    }, [rows]);
+
+    const handleCloseLeadtimeModal = useCallback(() => {
+        setLeadtimeModalOpen(false);
+        setSelectedSupplier(null);
+    }, []);
     
     const processRowUpdate = useCallback((newRow) => {
         const updatedRow = { ...newRow, isNew: false };
@@ -80,9 +94,8 @@ export default function SuppliersTable({ rows = [], setRows, onRequestDelete }) 
             flex: 1,
             editable: true,
             isCellEditable: (params) => params.row.isNew,
-            headerAlign: "center",
-            align: "center",
-            justify:"center",
+            headerAlign: "left",
+            align: "left",
         },
         {
             field: "start",
@@ -92,9 +105,8 @@ export default function SuppliersTable({ rows = [], setRows, onRequestDelete }) 
             flex: 0.8,
             editable: true,
             valueFormatter: (value) => value ? new Date(value).toLocaleDateString("pt-BR") : '',
-            headerAlign: "center",
-            align: "center",
-            justify:"center",
+            headerAlign: "left",
+            align: "left",
         },
         {
             field: "end",
@@ -104,9 +116,8 @@ export default function SuppliersTable({ rows = [], setRows, onRequestDelete }) 
             flex: 0.8,
             editable: true,
             valueFormatter: (value) => value ? new Date(value).toLocaleDateString("pt-BR") : '',
-            headerAlign: "center",
-            align: "center",
-            justify:"center",
+            headerAlign: "left",
+            align: "left",
         },
         {
             field: "budget",
@@ -116,9 +127,8 @@ export default function SuppliersTable({ rows = [], setRows, onRequestDelete }) 
             flex: 1,
             editable: true,
             valueFormatter: (value) => value ? value.toLocaleString("pt-BR", { style: 'currency', currency: 'BRL' }) : '',
-            headerAlign: "center",
-            align: "center",
-            justify:"center",
+            headerAlign: "left",
+            align: "left",
         },
         {
             field: "leadtime",
@@ -128,15 +138,14 @@ export default function SuppliersTable({ rows = [], setRows, onRequestDelete }) 
             flex: 0.6,
             editable: true,
             valueFormatter: (value) => (value != null ? `${value} dias` : ''),
-            headerAlign: "center",
-            align: "center",
-            justify:"center",
+            headerAlign: "left",
+            align: "left",
         },
         {
             field: "actions",
             type: "actions",
             headerName: "Ações",
-            width: isCompactLayout ? 92 : 110,
+            width: isCompactLayout ? 120 : 140,
             cellClassName: "actions",
             headerAlign: "center",
             align: "center",
@@ -152,12 +161,15 @@ export default function SuppliersTable({ rows = [], setRows, onRequestDelete }) 
                 }
 
                 return [
+                    <GridActionsCellItem icon={<FiClock />} label="Leadtime" onClick={handleLeadtimeClick(id)} color="inherit" />,
                     <GridActionsCellItem icon={<FiEdit />} label="Editar" onClick={handleEditClick(id)} color="inherit" />,
                     <GridActionsCellItem icon={<FiTrash2 />} label="Excluir" onClick={handleDeleteClick(id)} color="inherit" />,
                 ];
             },
         },
-    ], [rowModesModel, rows, handleEditClick, handleSaveClick, handleDeleteClick, handleCancelClick, isCompactLayout]);
+    ], [rowModesModel, rows, handleEditClick, handleSaveClick, handleDeleteClick, handleCancelClick, handleLeadtimeClick, isCompactLayout]);
+
+    const selectedHistory = selectedSupplier ? historyBySupplier[selectedSupplier.id] || [] : [];
 
     return (
         <Box sx={{ width: '100%' }}>
@@ -180,6 +192,13 @@ export default function SuppliersTable({ rows = [], setRows, onRequestDelete }) 
                 isOpen={openModal}
                 onClose={handleCloseModal}
                 onSave={handleSave}
+            />
+            <LeadtimeHistoryModal
+                isOpen={leadtimeModalOpen}
+                onClose={handleCloseLeadtimeModal}
+                supplier={selectedSupplier}
+                history={selectedHistory}
+                onRegisterCurrentSnapshot={onRegisterCurrentSnapshot}
             />
         </Box>
     );

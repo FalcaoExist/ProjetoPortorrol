@@ -5,8 +5,7 @@ import { useColumnPopover } from "../../hooks/useColumnPopover";
 import { BaseDataGrid } from "../common/BaseDataGrid";
 import CustomFilterHeader from "../users_table/CustomFilterHeader";
 
-// Opções para o filtro de Ação
-const ACTION_OPTIONS = ["Novo pedido", "Relatórios", "Exclusão", "Login", "Logout"];
+const DEFAULT_ACTION_OPTIONS = ["Novo pedido", "Relatórios", "Exclusão", "Login", "Logout"];
 
 // Regras de filtragem para a tabela de registros
 const FILTER_CONFIG = {
@@ -24,8 +23,17 @@ const FILTER_CONFIG = {
     },
   },
   action: {
-    shouldApply: (value) => Boolean(value),
-    predicate: (row, value) => row.action === value,
+    shouldApply: (value) =>
+      Array.isArray(value) ? value.length > 0 : Boolean(value),
+    predicate: (row, value) => {
+      const selected = Array.isArray(value)
+        ? value
+        : value
+        ? [value]
+        : [];
+      if (!selected.length) return true;
+      return selected.includes(row.action);
+    },
   },
 };
 
@@ -34,6 +42,13 @@ export default function RecordsTable({ records = [] }) {
   const isCompactLayout = useMediaQuery("(max-width:1279px)");
   const { anchorEl, activeColumnId, openPopover, closePopover } = useColumnPopover();
   const { filters, handleFilterChange, applyFilters } = useEntityFilters({ config: FILTER_CONFIG });
+  const actionFilterOptions = useMemo(() => {
+    const uniqueFromRecords = Array.from(
+      new Set(rows.map((row) => row.action).filter(Boolean))
+    );
+    if (uniqueFromRecords.length) return uniqueFromRecords;
+    return DEFAULT_ACTION_OPTIONS;
+  }, [rows]);
 
   useEffect(() => {
     setRows(records);
@@ -66,11 +81,11 @@ export default function RecordsTable({ records = [] }) {
             label="Data/Hora"
             activeColumnId={activeColumnId}
             anchorEl={anchorEl}
-            onOpen={openPopover}
-            onClose={closePopover}
+            handleHeaderClick={openPopover}
+            handleClose={closePopover}
             filterType="date" // Requer um novo tipo de controle no popover
             filters={filters}
-            onFilterChange={handleFilterChange}
+            handleFilterChange={handleFilterChange}
           />
         ),
       },
@@ -87,13 +102,13 @@ export default function RecordsTable({ records = [] }) {
             label="Ação"
             activeColumnId={activeColumnId}
             anchorEl={anchorEl}
-            onOpen={openPopover}
-            onClose={closePopover}
-            filterType="select"
-            placeholder="Selecione a ação"
-            options={ACTION_OPTIONS}
+            handleHeaderClick={openPopover}
+            handleClose={closePopover}
+            filterType="multiSelect"
+            placeholder="Filtrar ações"
+            options={actionFilterOptions}
             filters={filters}
-            onFilterChange={handleFilterChange}
+            handleFilterChange={handleFilterChange}
           />
         ),
       },
@@ -107,7 +122,7 @@ export default function RecordsTable({ records = [] }) {
         sortable: false,
       },
     ],
-    [anchorEl, activeColumnId, filters, handleFilterChange, openPopover, closePopover, isCompactLayout]
+    [anchorEl, activeColumnId, filters, handleFilterChange, openPopover, closePopover, isCompactLayout, actionFilterOptions]
   );
 
   return <BaseDataGrid rows={filteredRows} columns={columns} />;

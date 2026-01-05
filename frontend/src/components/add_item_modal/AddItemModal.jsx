@@ -23,7 +23,7 @@ const style = {
     borderRadius: '8px',
 };
 
-export default function AddItemModal({ open, onClose }) {
+export default function AddItemModal({ open, onClose, onAddItem }) {
     const [searchQuery, setSearchQuery] = useState("");
     const [statusFilter, setStatusFilter] = useState("");
     const [fornecedor, setFornecedor] = useState("");
@@ -64,6 +64,12 @@ export default function AddItemModal({ open, onClose }) {
             align: "left",
         },
     ], []);
+
+    const handleRowClick = (params) => {
+        if (onAddItem) {
+            onAddItem(params.row);
+        }
+    };
 
     return (
         <Modal
@@ -107,6 +113,7 @@ export default function AddItemModal({ open, onClose }) {
                     <BaseDataGrid
                         rows={initialStockData}
                         columns={columns}
+                        onRowClick={handleRowClick}
                         headerStyle="alternative"
                     />
                 </Box>

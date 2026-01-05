@@ -5,13 +5,13 @@ import { useAuth } from "../context/authContext";
 import SearchBar from "../components/common/SearchBar";
 import SelectFilter from "../components/common/SelectFilter";
 import NewOrderTable from "../components/new_order_table/NewOrderTable";
-import AddItemModal from "../components/add_item_modal/AddItemModal"; // Import the modal
+import AddItemModal from "../components/add_item_modal/AddItemModal";
+import ConfirmationModal from "../components/common/ConfirmationModal";
 
 const statusOptions = ["Subdimensionado", "Ok", "Excesso", "Ruptura iminente"];
 const fornecedorOptions = ["NSK", "Timken", "FRM", "BGL", "IKO", "SAV"];
 const filialOptions = ["Porto Alegre", "Joinville", "São Paulo"];
 
-// Mock data for stock - in a real app, this would come from an API
 const initialStockData = [
     { id: 1, codigo: "ROL-001", item: "ANel FRB 100/11,5", categoria: "Rolamento x", unidades: 150, fornecedor: "NSK", filial: "Porto Alegre", dias_cobertura: 25, valor: 100 },
     { id: 2, codigo: "ROL-002", item: "ANel FRB 100/11,5", categoria: "Rolamento x", unidades: 80, fornecedor: "Timken", filial: "Joinville", dias_cobertura: 45, valor: 200 },
@@ -25,9 +25,8 @@ const suggestedItemsData = initialStockData
         ...item,
         unidades: item.unidades || 0,
         valor: item.valor || 0,
-        previsao_entrega: new Date().toISOString().split('T')[0] // Default to today
+        previsao_entrega: new Date().toISOString().split('T')[0]
     }));
-
 
 export default function NewOrder() {
     const { user } = useAuth();
@@ -35,12 +34,46 @@ export default function NewOrder() {
     const [statusFilter, setStatusFilter] = useState("");
     const [fornecedor, setFornecedor] = useState("");
     const [filial, setFilial] = useState("");
-    const [isModalOpen, setIsModalOpen] = useState(false); // State for modal
-
+    const [isAddItemModalOpen, setIsAddItemModalOpen] = useState(false);
+    
     const [suggestedItems, setSuggestedItems] = useState(suggestedItemsData);
 
-    const handleDelete = (id) => {
-        setSuggestedItems(prevItems => prevItems.filter(item => item.id !== id));
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [itemToDelete, setItemToDelete] = useState(null);
+
+    const [isAddConfirmModalOpen, setIsAddConfirmModalOpen] = useState(false);
+    const [itemToAdd, setItemToAdd] = useState(null);
+
+    const handleAddItemClick = (newItem) => {
+        if (suggestedItems.some(item => item.id === newItem.id)) {
+            return; 
+        }
+        setItemToAdd(newItem);
+        setIsAddConfirmModalOpen(true);
+        setIsAddItemModalOpen(false);
+    };
+
+    const confirmAddItem = () => {
+        if (!itemToAdd) return;
+        const formattedNewItem = {
+            ...itemToAdd,
+            unidades: itemToAdd.unidades || 0,
+            valor: itemToAdd.valor || 0,
+            previsao_entrega: new Date().toISOString().split('T')[0]
+        };
+        setSuggestedItems(prevItems => [...prevItems, formattedNewItem]);
+        setItemToAdd(null);
+    };
+
+    const handleDeleteClick = (id) => {
+        setItemToDelete(id);
+        setIsDeleteModalOpen(true);
+    };
+
+    const confirmDelete = () => {
+        if (!itemToDelete) return;
+        setSuggestedItems(prevItems => prevItems.filter(item => item.id !== itemToDelete));
+        setItemToDelete(null);
     };
 
     const handleRowUpdate = (newRow) =>
@@ -90,12 +123,12 @@ export default function NewOrder() {
                     </div>
                     <NewOrderTable 
                         rows={suggestedItems}
-                        handleDelete={handleDelete}
+                        handleDelete={handleDeleteClick}
                         handleRowUpdate={handleRowUpdate}
                     />
                     <div className="flex items-center justify-between mt-6">
                         <button
-                            onClick={() => setIsModalOpen(true)} // Open modal on click
+                            onClick={() => setIsAddItemModalOpen(true)}
                             className="bg-[#5A44B0] hover:bg-white text-white hover:text-black shadow-lg font-poppins uppercase text-sm p-2 rounded-md"
                         >
                             Adicionar item
@@ -109,8 +142,25 @@ export default function NewOrder() {
                 </section>
             </main>
             <AddItemModal 
-                open={isModalOpen}
-                onClose={() => setIsModalOpen(false)}
+                open={isAddItemModalOpen}
+                onClose={() => setIsAddItemModalOpen(false)}
+                onAddItem={handleAddItemClick}
+            />
+            <ConfirmationModal
+                isOpen={isDeleteModalOpen}
+                onClose={() => setIsDeleteModalOpen(false)}
+                onConfirm={confirmDelete}
+                title="Deseja excluir item do pedido?"
+                message="O item será removido da lista."
+                confirmButtonText="Excluir"
+            />
+            <ConfirmationModal
+                isOpen={isAddConfirmModalOpen}
+                onClose={() => setIsAddConfirmModalOpen(false)}
+                onConfirm={confirmAddItem}
+                title="Deseja incluir item em novo pedido?"
+                message={`Você está prestes a adicionar o item "${itemToAdd?.item}" ao pedido.`}
+                confirmButtonText="Incluir"
             />
         </div>
     );

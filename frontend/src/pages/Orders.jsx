@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/authContext";
 import Header from "../components/header/Header";
 import Navbar from "../components/nav_bar/NavBar";
@@ -18,6 +19,7 @@ const initialOrdersData = [
 
 export default function Orders() {
     const { user } = useAuth();
+    const navigate = useNavigate();
     const [ordersData, setOrdersData] = useState(initialOrdersData);
 
     const [searchQuery, setSearchQuery] = useState("");
@@ -85,7 +87,7 @@ export default function Orders() {
                         <OrdersTable rows={filteredRows} updateData={handleUpdateData} />
                         <div className="flex items-center justify-between mt-6">
                             <button
-                                onClick={() => {}}
+                                onClick={() => navigate("/new-order")}
                                 className="bg-[#5A44B0] hover:bg-white text-white hover:text-black shadow-lg font-poppins uppercase text-sm p-2 rounded-md"
                             >
                                 Criar nova requisição

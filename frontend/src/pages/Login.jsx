@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import logoIby from '../assets/logoIby_maior.png'
-import background from '../assets/background.png'
+import logoIby from '../assets/LogoPort.png'
+import background from '../assets/Paginicial.png'
 import LoginForm from "../components/login/LoginForm"
 import useLogin from "../hooks/useLogin.jsx";
 

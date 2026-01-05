@@ -9,13 +9,13 @@ export default function NavItem({ to, label, Icon, LinkComponent }) {
     <li className="group flex flex-row items-center rounded hover:bg-[#D5D9EF]">
       {Icon ? (
         <Icon
-          className={`${active? "text-[#2D205E]": "text-[#A6ABC8]"} group-hover:text-[#2D205E] transition-colors`}
+          className={`${active? "text-[#031933]": "text-[#031933]"} group-hover:text-[#031933] transition-colors`}
           size="20px"
         />
       ) : null}
       <EffectiveLinkComponent
         to={to}
-        className={`${active? "text-[#2D205E]": "text-[#A6ABC8]"} group-hover:text-[#2D205E] font-semibold px-3 py-2 font-poppins`}
+        className={`${active? "text-[#031933]": "text-[#031933]"} group-hover:text-[#031933] font-semibold px-3 py-2 font-poppins`}
       >
         {label}
       </EffectiveLinkComponent>

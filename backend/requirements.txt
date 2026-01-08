@@ -11,3 +11,6 @@ gotrue==2.4.2
 python-jose[cryptography]==3.3.0
 python-multipart
 pandas
+python-jose[cryptography] 
+passlib[bcrypt]           
+python-multipart

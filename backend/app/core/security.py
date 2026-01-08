@@ -1,0 +1,29 @@
+# app/core/security.py
+from datetime import datetime, timedelta
+from typing import Optional
+from jose import jwt
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+# Configurações (Mesmas do dependencies.py)
+SECRET_KEY = os.getenv("SECRET_KEY", "uma_chave_super_secreta_e_segura_123")
+ALGORITHM = os.getenv("ALGORITHM", "HS256")
+
+def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
+    """
+    Gera um token JWT com tempo de expiração.
+    """
+    to_encode = data.copy()
+    
+    if expires_delta:
+        expire = datetime.utcnow() + expires_delta
+    else:
+        # Padrão: 5 horas se não especificado
+        expire = datetime.utcnow() + timedelta(minutes=600)
+    
+    to_encode.update({"exp": expire})
+    
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt

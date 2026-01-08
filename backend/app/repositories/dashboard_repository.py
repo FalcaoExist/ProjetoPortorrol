@@ -1,5 +1,6 @@
+
 from app.core.supabase_client import supabase
-import json
+
 
 class DashboardRepository:
     def get_all_skus_with_analysis(self):
@@ -35,7 +36,7 @@ class DashboardRepository:
             print(f"\n{'='*40}")
             print(f"erro na busca de SKUs por termo: '{termo}'")
             print(f"Motivo: {e}")
-            print(f"você rodou o SQL novo 'search_skus_pro' no Supabase?")
+            print("você rodou o SQL novo 'search_skus_pro' no Supabase?")
             print(f"{'='*40}\n")
             return []
         

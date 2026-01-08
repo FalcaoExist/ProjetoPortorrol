@@ -48,9 +48,11 @@ class UserUpdateResponse(BaseModel):
     user: UserResponse
     message: str
 
-from pydantic import BaseModel
-from typing import List, Optional
 from enum import Enum
+from typing import List, Optional
+
+from pydantic import BaseModel
+
 
 class StatusProduto(str, Enum):
     RUPTURA = "RUPTURA"   # < 50%
@@ -83,3 +85,7 @@ class DashboardSummary(BaseModel):
     total_excesso: int
     orcamento_atual: float
     lead_time_atual: int
+    
+class ChangePasswordRequest(BaseModel):
+    old_password: str
+    new_password: str

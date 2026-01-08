@@ -1,12 +1,15 @@
-import pandas as pd
 import io
+
+import pandas as pd
+
 from app.repositories.import_repository import (
-    salvar_sku,
+    registrar_log_erro,
+    registrar_log_global,
     salvar_analise,
     salvar_historico,
-    registrar_log_erro,
-    registrar_log_global
+    salvar_sku,
 )
+
 
 def processar_background(file_contents: bytes, filename: str, user_id: str):
     """

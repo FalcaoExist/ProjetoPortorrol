@@ -1,5 +1,6 @@
+from app.api.schemas import StatusProduto
 from app.repositories.dashboard_repository import DashboardRepository
-from app.api.schemas import StatusProduto 
+
 
 class DashboardService:
     def __init__(self):

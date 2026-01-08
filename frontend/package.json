@@ -16,7 +16,7 @@
     "@mui/icons-material": "^7.3.6",
     "@mui/material": "^7.3.5",
     "@mui/x-data-grid": "^8.18.0",
-    "@supabase/supabase-js": "^2.89.0",
+    "@supabase/supabase-js": "^2.90.0",
     "react": "^19.1.1",
     "react-circular-progressbar": "^2.2.0",
     "react-dom": "^19.1.1",

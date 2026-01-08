@@ -1,14 +1,28 @@
 import os
 from datetime import datetime, timedelta
 from typing import List, Optional
-import io
 
-from fastapi import APIRouter, UploadFile, File, BackgroundTasks, HTTPException, Depends, Header, Response, status, Query, Request
-from jose import jwt # Mantido caso precise de validação manual
 from dotenv import load_dotenv
+from jose import jwt  
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    File,
+    Header,
+    HTTPException,
+    Query,
+    Request,
+    Response,
+    UploadFile,
+)
 
-
-from app.core.supabase_client import supabase
+from app.api.schemas import (
+    ConfigUpdate,
+    FilialResponse,
+    SkuAnaliseResponse,
+    StatusProduto,
+)
 from app.core.dependencies import (
     get_audit_service,
     get_auth_service,
@@ -17,20 +31,15 @@ from app.core.dependencies import (
     get_user_service,
 )
 from app.core.interfaces import IUserRepository
-from app.services.audit_service import AuditService
-from app.services.auth_service import AuthService
-from app.services.user_service import UserService
-from app.services.service_models import UserCreateRequest, UserUpdateRequest
+from app.core.supabase_client import supabase
 
 # --- IMPORTS DO DASHBOARD (Novos da Feature) ---
 from app.repositories.import_repository import process_import_file
+from app.services.audit_service import AuditService
+from app.services.auth_service import AuthService
 from app.services.dashboard_service import DashboardService
-from app.api.schemas import (
-    SkuAnaliseResponse, 
-    ConfigUpdate, 
-    StatusProduto, 
-    FilialResponse
-)
+from app.services.service_models import UserCreateRequest, UserUpdateRequest
+from app.services.user_service import UserService
 
 # --- IMPORTS DE SCHEMAS (Locais) ---
 from .schemas import (
@@ -45,35 +54,65 @@ from .schemas import (
 
 load_dotenv()
 
+# --- CONFIGURAÇÕES DE SEGURANÇA E TOKEN (ADICIONADO) ---
+SECRET_KEY = os.getenv("SECRET_KEY", "uma_chave_super_secreta_e_segura_123")
+ALGORITHM = os.getenv("ALGORITHM", "HS256")
+ACCESS_TOKEN_EXPIRE_MINUTES = 300  # 5 horas
+
+def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
+    """
+    Gera um token JWT com tempo de expiração.
+    """
+    to_encode = data.copy()
+    if expires_delta:
+        expire = datetime.utcnow() + expires_delta
+    else:
+        expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
+# -------------------------------------------------------
+
 router = APIRouter()
 
 # --- LOGIN (Mantendo a versão DEV que é mais robusta com Log de IP) ---
 @router.post("/login", response_model=LoginResponse)
 def login(
-    data: LoginRequest,
-    request: Request,
-    auth_service: AuthService = Depends(get_auth_service),
+    data: LoginRequest, 
+    response: Response, 
+    request: Request, 
+    auth_service: AuthService = Depends(get_auth_service)
 ):
-    # Extrai IP
-    xff = request.headers.get("x-forwarded-for")
-    if xff:
-        ip = xff.split(",")[0].strip()
-    else:
-        client = request.client
-        ip = client.host if client else None
+    # Pega o IP do cliente para log
+    ip = request.client.host
+    
+    result = auth_service.check_credentials(data.email, data.password, ip_address=ip)
+    
+    if not result:
+        # Nota: O auth_service geralmente já lança HTTPException, mas por segurança:
+        return {"success": False, "message": "Credenciais inválidas", "user": None}
 
-    try:
-        user_dict = auth_service.check_credentials(
-            data.email, data.password, ip_address=ip
-        )
-    except HTTPException as he:
-        return {"success": False, "user": None, "message": he.detail}
+    # Gera o Token (AGORA A FUNÇÃO EXISTE)
+    access_token = create_access_token(data={"sub": result["user_id"]})
+    
+    # --- CONFIGURAÇÃO DO COOKIE (A MÁGICA ESTÁ AQUI) ---
+    response.set_cookie(
+        key="access_token",
+        value=f"Bearer {access_token}",
+        httponly=True,   # Impede acesso via JS (Segurança contra XSS)
+        max_age=18000,   # 5 horas
+        expires=18000,
+        samesite="lax",  # "lax" é necessário para funcionar em localhost sem HTTPS
+        secure=False     # False porque estamos rodando em HTTP local
+    )
+    # ---------------------------------------------------
 
-    if user_dict.get("is_active") is False:
-        return {"success": False, "user": None, "message": "Acesso negado: Conta desativada."}
-
-    return {"success": True, "user": user_dict, "message": "Login realizado com sucesso"}
-
+    return {
+        "success": True, 
+        "user": result, 
+        "message": "Login realizado com sucesso"
+    }
 
 # --- USERS (Mantendo a versão DEV que tem Auditoria e Permissões) ---
 @router.post("/users", response_model=UserCreateResponse, status_code=201)

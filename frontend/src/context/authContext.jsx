@@ -51,7 +51,7 @@ useEffect(() => {
             return { success: false, message: msg };
         }
     };
-    const logout = async () => {
+const logout = async () => {
         try {
             await httpClient.post("/logout", {});
         } catch (error) {
@@ -62,8 +62,6 @@ useEffect(() => {
             window.location.href = "/";
         }
     };
-    };
-
     // Helper para verificar permissão facilmente nos componentes
     const isGestor = user?.role === "gestor";
 

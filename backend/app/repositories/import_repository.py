@@ -1,5 +1,7 @@
-import pandas as pd
 import io
+
+import pandas as pd
+
 from app.core.supabase_client import supabase
 
 

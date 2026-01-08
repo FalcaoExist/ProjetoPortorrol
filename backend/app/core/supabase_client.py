@@ -2,7 +2,7 @@ import os
 
 from dotenv import load_dotenv
 from supabase import Client, create_client
-from supabase.lib.client_options import ClientOptions # <--- Importação necessária
+from supabase.lib.client_options import ClientOptions  # <--- Importação necessária
 
 load_dotenv()
 

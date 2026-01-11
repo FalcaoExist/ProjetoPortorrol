@@ -70,9 +70,9 @@ export default function ChangePasswordSection({ userId, userName }) {
                             type="submit"
                             className={`px-4 py-2 rounded-xl text-white font-medium font-poppins transition-colors shadow-md ${
                                 isSuccess
-                                    ? "bg-green-600 hover:bg-green-700 disabled:bg-green-600 disabled:text-white"
-                                    : "bg-[#5A44B0] hover:bg-[#4a3794] disabled:bg-[#5A44B0]/80"
-                            }`}
+                                                                ? "bg-green-600 hover:bg-green-700 disabled:bg-green-600 disabled:text-white"
+                                                                    : "bg-[#031933] hover:bg-[#082e54] disabled:bg-[#031933]/80"
+                                                            }`}
                             disabled={loading || isSuccess}
                         >
                             {loading ? "Salvando..." : isSuccess ? "Senha atualizada" : "Salvar nova senha"}

@@ -20,7 +20,7 @@ export default function SearchBar({ value, onChange, placeholder }){
         value={value}
         onChange={onChange}
         placeholder={placeholder}
-        className="border border-gray-300 rounded-xl p-2 focus:outline-none focus:ring-2 focus:ring-gray-400"
+        className="border border-gray-300 rounded-xl px-2 py-1 focus:outline-none focus:ring-2 focus:ring-gray-400"
       />
     </div>
   );

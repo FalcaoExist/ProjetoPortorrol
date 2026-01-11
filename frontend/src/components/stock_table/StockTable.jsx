@@ -37,7 +37,7 @@ export default function StockTable({
     const columns = useMemo(() => [
         {
             field: "codigo",
-            headerName: "Código",
+            headerName: "Referência",
             minWidth: 100,
             flex: 0.8,
             headerAlign: "left",

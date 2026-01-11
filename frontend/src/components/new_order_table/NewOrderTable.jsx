@@ -1,14 +1,22 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { BaseDataGrid } from '../common/BaseDataGrid';
 import { IconButton } from '@mui/material';
 import { FaTrash } from 'react-icons/fa';
 import { filialOptions } from '../../data/mockData';
+import ConfirmationModal from '../common/ConfirmationModal';
 
 export default function NewOrderTable({ rows = [], handleRowUpdate, handleDelete }) {
+    const [isConfirmModalOpen, setConfirmModalOpen] = useState(false);
 
     const processRowUpdate = async (newRow, oldRow) => {
         const updatedRow = await handleRowUpdate(newRow);
         return updatedRow;
+    };
+
+    const handleConfirmOrder = () => {
+        console.log("Pedido confirmado!");
+        // Aqui vai a lógica para criar o pedido
+        setConfirmModalOpen(false);
     };
 
     const columns = useMemo(() => [
@@ -101,13 +109,34 @@ export default function NewOrderTable({ rows = [], handleRowUpdate, handleDelete
     ], [handleDelete]);
 
     return (
-        <BaseDataGrid
-            rows={rows}
-            columns={columns}
-            processRowUpdate={processRowUpdate}
-            onProcessRowUpdateError={(error) => console.error(error)}
-            experimentalFeatures={{ newEditingApi: true }}
-            autoHeight
-        />
+        <div className="flex flex-col items-center w-full">
+            <div style={{ height: 'auto', width: '100%' }}>
+                <BaseDataGrid
+                    rows={rows}
+                    columns={columns}
+                    processRowUpdate={processRowUpdate}
+                    onProcessRowUpdateError={(error) => console.error(error)}
+                    experimentalFeatures={{ newEditingApi: true }}
+                    autoHeight
+                />
+            </div>
+            {rows.length > 0 && (
+                <button
+                    onClick={() => setConfirmModalOpen(true)}
+                    className="mt-4 px-6 py-2.5 rounded-xl text-white font-medium shadow-lg transition-all bg-[#5A44B0] hover:bg-[#4e3a9a] disabled:opacity-60"
+                >
+                    Criar pedido
+                </button>
+            )}
+            <ConfirmationModal
+                isOpen={isConfirmModalOpen}
+                onClose={() => setConfirmModalOpen(false)}
+                onConfirm={handleConfirmOrder}
+                title="Concluir Pedido"
+                message="Deseja concluir o pedido?"
+                confirmButtonText="Sim"
+                cancelButtonText="Cancelar"
+            />
+        </div>
     );
 }

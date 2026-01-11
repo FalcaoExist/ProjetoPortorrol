@@ -1,9 +1,10 @@
 # app/core/security.py
+import os
 from datetime import datetime, timedelta
 from typing import Optional
-from jose import jwt
-import os
+
 from dotenv import load_dotenv
+from jose import jwt
 
 load_dotenv()
 

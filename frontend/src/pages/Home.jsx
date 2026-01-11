@@ -30,8 +30,11 @@ export default function Home() {
     months,
     data,
     dataCritic,
+    stockOverview,
+    kpis, // <--- Pegando o KPI calculado
     STATUS_INDICATORS,
     skuOptions,
+    onSkuSearch
   } = useDashboardData();
 
   return (
@@ -53,18 +56,23 @@ export default function Home() {
                 <Filter
                   label={"Fornecedor"}
                   options={supplierOptions}
-                  value={supplier}
+                  value={supplier} 
                   onChange={setSupplier}
                   className="text-lg"
                 />
             </div>
-            <div className="border border-1 rounded-lg w-full  min-h-96">
+            
+            <div className="border border-1 rounded-lg w-full min-h-96">
               <h2 className="ml-16 p-3 pb-0 text-[#464255] font-poppins font-bold text-lg">SKUs mais Críticos</h2>
               <CriticosChart branch={branch} supplier={supplier} data={dataCritic} />
               <div className="">
-                <StockRangeGraph data={STATUS_INDICATORS} />
+                <StockRangeGraph 
+                    data={stockOverview ? stockOverview.data : STATUS_INDICATORS} 
+                    totalItems={stockOverview ? stockOverview.total : 0}
+                />
               </div>
             </div>
+
             <div className="w-full flex gap-2">
               <div className="flex-1 min-w-0">
                 <p className="text-start font-semibold text-primary text-2xl py-5">Pedidos</p>
@@ -87,17 +95,29 @@ export default function Home() {
               <div className="flex-1 min-w-0">
                 <p className="text-start font-bold text-primary text-2xl py-5">&nbsp;</p>
                 <div className="h-[128px] flex items-center">
-                  <LeadtimeSavingCard leadtime={15} saving={8} />
+                  {/* [AQUI] Passando o dado real calculado */}
+                  <LeadtimeSavingCard 
+                    leadtime={kpis ? kpis.coverageDays : 0} 
+                    saving={0} 
+                  />
                 </div>
               </div>
             </div>
-            <div className="border border-1 rounded-lg w-full  min-h-72 my-3">
+
+            <div className="border border-1 rounded-lg w-full min-h-72 my-3">
               <div className="flex items-center gap-3 ml-6 mt-4 w-full pr-6">
-                <SkuAutocomplete value={sku} onChange={(newVal) => setSku(newVal)} options={skuOptions} placeholder="Procurar SKU" />
+                <SkuAutocomplete 
+                    value={sku} 
+                    onChange={(newVal) => setSku(newVal)} 
+                    options={skuOptions} 
+                    onInputChange={(event, newInputValue) => onSkuSearch(newInputValue)}
+                    placeholder="Procurar SKU" 
+                />
               </div>
               <MonthlyQuantityChart data={months} sku={sku?.value} />
             </div>
-            <div className="border border-1 rounded-lg w-full  min-h-72 mb-10">
+
+            <div className="border border-1 rounded-lg w-full min-h-72 mb-10">
               <div className="flex items-center gap-3 ml-6 mt-4">
                 <Filter 
                   label={"Filial"} 
@@ -117,6 +137,7 @@ export default function Home() {
               <h2 className="ml-16 p-3 pb-0 text-[#464255] font-poppins font-bold text-lg">SKUs em excesso</h2>
               <OverstokChart branch={branch} supplier={supplier} data={data} />
             </div>
+
             <div className="flex justify-end mb-24">
               <button className="bg-[#EAEAEA] text-gray-500 px-16 py-2 shadow-md rounded-lg border hover:bg-white">EXPORTAR</button>
             </div>

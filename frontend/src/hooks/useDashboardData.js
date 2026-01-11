@@ -1,119 +1,150 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
+import dashboardService from "../services/dashboardService";
+import supplierService from "../services/supplierService";
+
+const STATUS_INDICATORS = {
+  RUPTURA: { color: "#e54c4c", label: "Ruptura" },
+  SUBDIMENSIONADO: { color: "#f1c40f", label: "Subdimensionado" },
+  OK: { color: "#e0e0e0", label: "Normal" },
+  EXCESSO: { color: "#4a89f3", label: "Excesso" }
+};
 
 export default function useDashboardData() {
-  const [branch, setBranch] = useState("filial");
-  const [supplier, setSupplier] = useState("fornecedor");
+  const [branch, setBranch] = useState("");
+  const [supplier, setSupplier] = useState("");
   const [sku, setSku] = useState(null);
 
-  const branchOptions = [
-    { value: "filial", label: "Filial" },
-    { value: "filial_a", label: "Filial A" },
-    { value: "filial_b", label: "Filial B" },
-  ];
+  const [branchOptions, setBranchOptions] = useState([]);
+  const [supplierOptions, setSupplierOptions] = useState([]);
+  const [skuOptions, setSkuOptions] = useState([]);
 
-  const supplierOptions = [
-    { value: "fornecedor", label: "Fornecedor" },
-    { value: "fornecedor_x", label: "Fornecedor X" },
-    { value: "fornecedor_y", label: "Fornecedor Y" },
-  ];
+  const [dataOverstock, setDataOverstock] = useState([]);
+  const [dataCritic, setDataCritic] = useState([]);
+  const [monthsData, setMonthsData] = useState([]);
+  
+  const [stockOverview, setStockOverview] = useState({
+    data: { ok: 0, excesso: 0, rupturaIminente: 0, subdimensionado: 0 },
+    total: 0
+  });
 
-  const months = [
-    { month: "Jan/24", value: 220 },
-    { month: "Fev/24", value: 370 },
-    { month: "Mar/24", value: 400 },
-    { month: "Abr/24", value: 350 },
-    { month: "Mai/24", value: 330 },
-    { month: "Jun/24", value: 420 },
-    { month: "Jul/24", value: 600 },
-    { month: "Ago/24", value: 700 },
-    { month: "Set/24", value: 800 },
-    { month: "Out/24", value: 650 },
-    { month: "Nov/24", value: 752 },
-    { month: "Dez/24", value: 500 },
-    { month: "Jan/25", value: 300 },
-    { month: "Fev/25", value: 410 },
-    { month: "Mar/25", value: 420 },
-    { month: "Abr/25", value: 390 },
-    { month: "Mai/25", value: 350 },
-    { month: "Jun/25", value: 480 },
-    { month: "Jul/25", value: 700 },
-    { month: "Ago/25", value: 820 },
-    { month: "Set/25", value: 870 },
-    { month: "Out/25", value: 690 },
-    { month: "Nov/25", value: 752 },
-    { month: "Dez/25", value: 510 },
-  ];
+  const [kpis, setKpis] = useState({
+    coverageDays: 0,
+    savingPotential: 0 
+  });
 
-  const data = [
-    { name: 'Page A', qtd: 120 },
-    { name: 'Page B', qtd: 250 },
-    { name: 'Page C', qtd: 320 },
-    { name: 'Page D', qtd: 350 },
-    { name: 'Page E', qtd: 350 },
-    { name: 'Page F', qtd: 350 },
-    { name: 'Page G', qtd: 400 },
-    { name: 'Page M', qtd: 520 },
-    { name: 'Page H', qtd: 410 },
-    { name: 'Page L', qtd: 500 },
-    { name: 'Page I', qtd: 420 },
-    { name: 'Page J', qtd: 440 },
-    { name: 'Page K', qtd: 480 },
-    { name: 'Page T', qtd: 700 },
-    { name: 'Page N', qtd: 520 },
-    { name: 'Page O', qtd: 550 },
-    { name: 'Page P', qtd: 580 },
-    { name: 'Page Q', qtd: 600 },
-    { name: 'Page R', qtd: 630 },
-    { name: 'Page S', qtd: 660 },
-  ];
+  useEffect(() => {
+    async function loadInitialData() {
+      try {
+        if (branchOptions.length === 0) {
+            const filiais = (await dashboardService.getFiliais()) || [];
+            const uniqueFiliais = Array.from(new Map(filiais.map(item => [item.nome, item])).values());
+            const options = uniqueFiliais.map(f => ({ value: f.nome, label: f.nome }));
+            options.unshift({ value: "", label: "Todas" });
+            setBranchOptions(options);
+        }
 
-  const dataCritic = [
-    { name: 'Page A', qtd: 12 },
-    { name: 'Page B', qtd: 25 },
-    { name: 'Page C', qtd: 32 },
-    { name: 'Page D', qtd: 35 },
-    { name: 'Page E', qtd: 35 },
-    { name: 'Page F', qtd: 35 },
-    { name: 'Page G', qtd: 40 },
-    { name: 'Page M', qtd: 52 },
-    { name: 'Page H', qtd: 41 },
-    { name: 'Page L', qtd: 50 },
-    { name: 'Page I', qtd: 42 },
-    { name: 'Page J', qtd: 44 },
-    { name: 'Page K', qtd: 48 },
-    { name: 'Page T', qtd: 70 },
-    { name: 'Page N', qtd: 52 },
-    { name: 'Page O', qtd: 55 },
-    { name: 'Page P', qtd: 58 },
-    { name: 'Page Q', qtd: 60 },
-    { name: 'Page R', qtd: 63 },
-    { name: 'Page S', qtd: 66 },
-  ];
+        if (supplierOptions.length === 0) {
+            const fornecedores = (await supplierService.getAll()) || [];
+            const nomesUnicos = [...new Set(fornecedores.map(s => s.name))].filter(Boolean).sort();
+            const optionsSuppliers = nomesUnicos.map(nome => ({ value: nome, label: nome }));
+            optionsSuppliers.unshift({ value: "", label: "Todos" });
+            setSupplierOptions(optionsSuppliers);
+        }
 
-  const STATUS_INDICATORS = {
-    excesso: 18,
-    rupturaIminente: 32,
-    subdimensionado: 25,
-    ok: 55,
+        const response = await dashboardService.getSkus(null, branch, supplier);
+        const allSkus = Array.isArray(response) ? response : [];
+
+        // --- CÁLCULOS ---
+
+        // 1. Gráficos
+        const excessos = allSkus.filter(i => i.status === "EXCESSO");
+        const rupturas = allSkus.filter(i => i.status === "RUPTURA");
+
+        setDataOverstock(excessos.map(item => ({
+          name: item.codigo,
+          qtd: item.estoque_soma, 
+          ...item
+        })).slice(0, 15));
+
+        setDataCritic(rupturas.map(item => ({
+          name: item.codigo,
+          qtd: item.demanda_soma,
+          ...item
+        })).slice(0, 15));
+
+        // 2. Pizza
+        const counts = { ok: 0, excesso: 0, rupturaIminente: 0, subdimensionado: 0 };
+        allSkus.forEach(item => {
+            const st = item.status;
+            if (st === 'OK') counts.ok++;
+            else if (st === 'EXCESSO') counts.excesso++;
+            else if (st === 'RUPTURA') counts.rupturaIminente++;
+            else if (st === 'SUBDIMENSIONADO') counts.subdimensionado++;
+        });
+        setStockOverview({ data: counts, total: allSkus.length });
+
+        // 3. KPI: Dias de Cobertura (Blindado com Number())
+        const totalEstoque = allSkus.reduce((acc, item) => acc + Number(item.estoque_soma || 0), 0);
+        const totalDemanda = allSkus.reduce((acc, item) => acc + Number(item.demanda_soma || 0), 0);
+        
+        let diasCobertura = 0;
+        
+        // Evita divisão por zero
+        if (totalDemanda > 0) {
+            // Fórmula: (Estoque Total / Demanda Total Mensal) * 30 dias
+            diasCobertura = Math.round((totalEstoque / totalDemanda) * 30);
+        } else if (totalEstoque > 0) {
+            // Se tem estoque mas demanda é 0, a cobertura é "infinita" (ou 999)
+            diasCobertura = 999; 
+        }
+
+        setKpis({
+            coverageDays: diasCobertura,
+            savingPotential: 0 
+        });
+
+      } catch (error) {
+        console.error("Erro dashboard:", error);
+      }
+    }
+    loadInitialData();
+  }, [branch, supplier]); 
+
+  const onSkuSearch = async (query) => {
+    if (!query || query.length < 3) return;
+    const results = await dashboardService.searchSkus(query);
+    setSkuOptions(results.map(r => ({ 
+      label: `${r.codigo} - ${r.nome_produto}`, 
+      value: r.sku_id, 
+      ...r 
+    })));
   };
 
-  const skuOptions = Array.from(
-    new Set([...data.map((d) => d.name), ...dataCritic.map((d) => d.name)])
-  ).map((name) => ({ label: name, value: name }));
+  useEffect(() => {
+    async function loadHistory() {
+      if (sku && sku.value) {
+        const history = await dashboardService.getHistory(sku.value);
+        setMonthsData(history);
+      } else {
+        setMonthsData([]); 
+      }
+    }
+    loadHistory();
+  }, [sku]);
 
   return {
-    branch,
-    setBranch,
-    supplier,
-    setSupplier,
-    sku,
-    setSku,
+    branch, setBranch,
+    supplier, setSupplier,
+    sku, setSku,
     branchOptions,
     supplierOptions,
-    months,
-    data,
-    dataCritic,
-    STATUS_INDICATORS,
     skuOptions,
+    months: monthsData,
+    data: dataOverstock,
+    dataCritic: dataCritic,
+    stockOverview, 
+    kpis, 
+    STATUS_INDICATORS,
+    onSkuSearch
   };
 }

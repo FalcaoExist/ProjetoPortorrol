@@ -1,22 +1,24 @@
 from typing import List, Optional
-
+from uuid import UUID
+from datetime import date, datetime
+from enum import Enum
 from pydantic import BaseModel, EmailStr
 
-
+# --- Schemas de Usuário e Login ---
 class UserResponse(BaseModel):
     user_id: str
     name: str
     email: str
     role: str
-    supplier: Optional[List[str]] = [] # <--- CORRIGIDO (Opcional)
+    supplier: Optional[List[str]] = []
     is_active: bool
+
 class UserListItem(BaseModel):
     user_id: str
     name: str
     email: str
     role: str
     is_active: bool
-    # Campo opcional para listagens que incluem fornecedores
     supplier: Optional[List[str]] = []
 
 class LoginRequest(BaseModel):
@@ -25,7 +27,6 @@ class LoginRequest(BaseModel):
 
 class LoginResponse(BaseModel):
     success: bool
-    # Permite que 'user' seja nulo em caso de erro no login
     user: Optional[dict] = None
     message: str
 
@@ -48,16 +49,16 @@ class UserUpdateResponse(BaseModel):
     user: UserResponse
     message: str
 
-from enum import Enum
-from typing import List, Optional
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
 
-from pydantic import BaseModel
-
-
+# --- CORREÇÃO AQUI: Adicionado SUBDIMENSIONADO ---
 class StatusProduto(str, Enum):
-    RUPTURA = "RUPTURA"   # < 50%
-    OK = "OK"             # 100% exato
-    EXCESSO = "EXCESSO"   # > 100%
+    RUPTURA = "RUPTURA"
+    SUBDIMENSIONADO = "SUBDIMENSIONADO" 
+    OK = "OK"
+    EXCESSO = "EXCESSO"
 
 class ConfigUpdate(BaseModel):
     valor: str
@@ -69,23 +70,41 @@ class SkuAnaliseResponse(BaseModel):
     marca: str
     classificacao: str
     atendimento: float
-    status: StatusProduto # Calculado dinamicamente
+    status: StatusProduto
     sugestao_compra: int
     estoque_soma: int
     demanda_soma: float
-    # Adicione campos de filiais se precisar detalhar no card
+    filial_nome: Optional[str] = "Geral"
 
 class FilialResponse(BaseModel):
     id: str
     nome: str
 
-class DashboardSummary(BaseModel):
-    total_skus: int
-    total_ruptura: int
-    total_excesso: int
-    orcamento_atual: float
-    lead_time_atual: int
-    
-class ChangePasswordRequest(BaseModel):
-    old_password: str
-    new_password: str
+# --- Schemas de Fornecedor e Pedido ---
+class FornecedorCreate(BaseModel):
+    name: str
+    lead_time_days: Optional[int] = 30
+    external_id: Optional[str] = None
+
+class FornecedorResponse(BaseModel):
+    supplier_id: UUID
+    name: str
+    lead_time_days: Optional[int]
+    is_active: bool
+
+class PedidoCreate(BaseModel):
+    sku_codigo: str          
+    fornecedor_nome: str     
+    quantidade: int
+    valor_unitario: float
+    previsao_entrega: Optional[date] = None
+
+class PedidoResponse(BaseModel):
+    order_id: UUID
+    status: str
+    created_at: datetime
+    supplier_name: str
+    item_name: str
+    quantity: int
+    total_value: float
+    data_entrega: Optional[date] = None

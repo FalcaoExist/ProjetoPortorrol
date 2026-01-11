@@ -1,9 +1,9 @@
 import os
 from datetime import datetime, timedelta
 from typing import List, Optional
+from uuid import uuid4  # <--- ADICIONADO PARA OS NOVOS CADASTROS
 
 from dotenv import load_dotenv
-from jose import jwt  
 from fastapi import (
     APIRouter,
     BackgroundTasks,
@@ -16,6 +16,7 @@ from fastapi import (
     Response,
     UploadFile,
 )
+from jose import jwt
 
 from app.api.schemas import (
     ConfigUpdate,
@@ -44,8 +45,13 @@ from app.services.user_service import UserService
 # --- IMPORTS DE SCHEMAS (Locais) ---
 from .schemas import (
     ChangePasswordRequest,
+    # --- NOVOS SCHEMAS (SUPPLIER & ORDERS) ---
+    FornecedorCreate,
+    FornecedorResponse,
     LoginRequest,
     LoginResponse,
+    PedidoCreate,
+    PedidoResponse,
     UserCreateResponse,
     UserGetResponse,
     UserListResponse,
@@ -176,11 +182,159 @@ def delete_user_endpoint(
     service.delete_user_permanently(user_id, performed_by=current_user.get("user_id"))
     return None
 
-# --- AUXILIARES E NOVAS ROTAS (DA FEATURE DASHBOARD) ---
+# =================================================================
+# ROTAS DE FORNECEDORES (Adaptadas para public.suppliers)
+# =================================================================
 
-@router.get("/suppliers", response_model=List[str])
-def get_suppliers_list(user_service: UserService = Depends(get_user_service)):
-    return user_service.get_available_suppliers()
+@router.get("/suppliers", response_model=List[FornecedorResponse])
+def get_suppliers_list(current_user: dict = Depends(get_current_user)):
+    try:
+        # Filtra apenas ativos
+        response = supabase.table("suppliers").select("*").eq("is_active", True).order("name").execute()
+        return response.data
+    except Exception as e:
+        print(f"Erro suppliers: {e}")
+        return []
+
+@router.post("/suppliers", response_model=FornecedorResponse)
+def create_supplier(
+    data: FornecedorCreate,
+    current_user: dict = Depends(get_current_user)
+):
+    try:
+        # Gera external_id se não vier, pois é UNIQUE no banco
+        ext_id = data.external_id or str(uuid4())[:8]
+        
+        payload = {
+            "name": data.name,
+            "lead_time_days": data.lead_time_days,
+            "is_active": True,
+            "external_id": ext_id
+        }
+        response = supabase.table("suppliers").insert(payload).execute()
+        return response.data[0]
+    except Exception as e:
+        # Tratamento de erro de duplicidade (Unique constraint)
+        if "duplicate key" in str(e):
+             raise HTTPException(status_code=400, detail="Fornecedor ou ID externo já existe.")
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.delete("/suppliers/{id}")
+def delete_supplier(id: str, current_user: dict = Depends(get_current_user)):
+    try:
+        # Soft delete para não quebrar integridade referencial
+        supabase.table("suppliers").update({"is_active": False}).eq("supplier_id", id).execute()
+        return {"message": "Fornecedor inativado com sucesso"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+# =================================================================
+# ROTAS DE PEDIDOS (Adaptadas para purchase_orders + items)
+# =================================================================
+
+@router.get("/orders", response_model=List[PedidoResponse])
+def get_orders(current_user: dict = Depends(get_current_user)):
+    """
+    Busca pedidos fazendo JOIN manual nas tabelas relacionais.
+    """
+    try:
+        # Query complexa para trazer nomes relacionados
+        query = """
+            order_id, status, created_at, expected_delivery_date,
+            suppliers!inner(name),
+            purchase_order_items(
+                quantity_ordered, unit_cost,
+                tb_skus(nome_produto)
+            )
+        """
+        response = supabase.table("purchase_orders").select(query).order("created_at", desc=True).execute()
+        
+        formatted_orders = []
+        for row in response.data:
+            # Pega o primeiro item (assumindo 1 item por pedido para simplificar interface)
+            items = row.get("purchase_order_items", [])
+            item = items[0] if items else {}
+            sku = item.get("tb_skus") or {}
+            
+            formatted_orders.append({
+                "order_id": row["order_id"],
+                "status": row["status"],
+                "created_at": row["created_at"],
+                "supplier_name": row["suppliers"]["name"] if row["suppliers"] else "N/A",
+                "item_name": sku.get("nome_produto") or "Item não encontrado",
+                "quantity": item.get("quantity_ordered", 0),
+                "total_value": float(item.get("unit_cost", 0)) * item.get("quantity_ordered", 0),
+                "data_entrega": row.get("expected_delivery_date")
+            })
+            
+        return formatted_orders
+    except Exception as e:
+        print(f"Erro orders: {e}")
+        return []
+
+@router.post("/orders", response_model=PedidoResponse)
+def create_order(
+    pedido: PedidoCreate,
+    current_user: dict = Depends(get_current_user)
+):
+    try:
+        # 1. Busca Supplier ID pelo Nome
+        sup = supabase.table("suppliers").select("supplier_id").ilike("name", pedido.fornecedor_nome).execute()
+        if not sup.data:
+            raise HTTPException(400, f"Fornecedor '{pedido.fornecedor_nome}' não encontrado. Cadastre-o primeiro.")
+        supplier_id = sup.data[0]["supplier_id"]
+
+        # 2. Busca SKU ID pelo Código (ou Nome)
+        # Tenta codigo exato primeiro
+        sku = supabase.table("tb_skus").select("id, nome_produto").eq("codigo", pedido.sku_codigo).execute()
+        if not sku.data:
+             # Fallback: Tenta buscar pelo nome do produto
+             sku = supabase.table("tb_skus").select("id, nome_produto").ilike("nome_produto", f"%{pedido.sku_codigo}%").execute()
+        
+        if not sku.data:
+            raise HTTPException(400, f"Produto com código/nome '{pedido.sku_codigo}' não encontrado.")
+        
+        sku_id = sku.data[0]["id"]
+        sku_name = sku.data[0]["nome_produto"]
+
+        # 3. Cria Cabeçalho (Purchase Order)
+        order_payload = {
+            "supplier_id": supplier_id,
+            "user_id": current_user["user_id"],
+            "status": "DRAFT",
+            "expected_delivery_date": str(pedido.previsao_entrega) if pedido.previsao_entrega else None
+        }
+        order_res = supabase.table("purchase_orders").insert(order_payload).execute()
+        new_order = order_res.data[0]
+
+        # 4. Cria Item (Purchase Order Item)
+        item_payload = {
+            "order_id": new_order["order_id"],
+            "sku_id": sku_id,
+            "quantity_ordered": pedido.quantidade,
+            "unit_cost": pedido.valor_unitario
+        }
+        supabase.table("purchase_order_items").insert(item_payload).execute()
+
+        # Retorno formatado
+        return {
+            "order_id": new_order["order_id"],
+            "status": new_order["status"],
+            "created_at": new_order["created_at"],
+            "supplier_name": pedido.fornecedor_nome,
+            "item_name": sku_name,
+            "quantity": pedido.quantidade,
+            "total_value": pedido.quantidade * pedido.valor_unitario,
+            "data_entrega": new_order.get("expected_delivery_date")
+        }
+
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        print(f"Erro critico criar pedido: {e}")
+        raise HTTPException(500, f"Erro interno ao criar pedido: {str(e)}")
+
+# --- AUXILIARES E NOVAS ROTAS (DA FEATURE DASHBOARD) ---
 
 @router.get("/me", response_model=UserGetResponse)
 def get_current_user_profile(current_user: dict = Depends(get_current_user)):
@@ -222,23 +376,28 @@ async def import_stock(
 
 def get_dashboard_service():
     return DashboardService()
+def get_dashboard_service():
+    return DashboardService()
 
 @router.get("/dashboard/skus", response_model=List[SkuAnaliseResponse])
 def listar_skus_dashboard(
-    status: Optional[StatusProduto] = Query(None, description="Filtre por: RUPTURA, EXCESSO ou OK"),
-    filial: Optional[str] = Query(None, description="Filtrar visão por filial (JV, SP, POA)"),
+    status: Optional[StatusProduto] = Query(None),
+    filial: Optional[str] = Query(None),
+    fornecedor: Optional[str] = Query(None), # <--- NOVO PARAMETRO
     service: DashboardService = Depends(get_dashboard_service),
-    # current_user: dict = Depends(get_current_user) # Descomente se quiser proteger a rota
 ):
     """
     Retorna a lista de SKUs com seus status calculados.
-    Permite filtrar por Ruptura (<50%) ou Excesso (>100%).
+    Permite filtrar por Status, Filial e Fornecedor.
     """
-    return service.get_skus_filtrados(filtro_status=status.value if status else None, filial=filial)
-
+    return service.get_skus_filtrados(
+        filtro_status=status.value if status else None, 
+        filial=filial,
+        fornecedor=fornecedor
+    )
+    
 @router.get("/dashboard/filiais", response_model=List[FilialResponse])
 def listar_filiais_dashboard(service: DashboardService = Depends(get_dashboard_service)):
-    """Retorna as filiais disponíveis para preencher o select/dropdown do front."""
     return service.get_filiais()
 
 @router.post("/dashboard/config/lead-time")
@@ -253,14 +412,23 @@ def atualizar_orcamento(config: ConfigUpdate, service: DashboardService = Depend
 
 @router.get("/dashboard/search", response_model=List[SkuAnaliseResponse])
 def buscar_skus(
-    q: str = Query(..., description="nome, código ou ID do SKU"),
+    q: str = Query(...),
     service: DashboardService = Depends(get_dashboard_service)
 ):
+    return service.buscar_produtos(q)
     """
     faz uma busca de SKUs por Nome (parcial), Código (exato) ou ID.
     Retorna uma lista de resultados.
     """
     return service.buscar_produtos(q)
+
+@router.get("/dashboard/history")
+def get_product_history(
+    sku_id: int, 
+    service: DashboardService = Depends(get_dashboard_service)
+):
+    """Retorna o histórico de vendas de um produto para o gráfico"""
+    return service.get_sku_history(sku_id)
 
 # --- NOVAS ROTAS DE AUDITORIA E LOGS (DA BRANCH DEV) ---
 

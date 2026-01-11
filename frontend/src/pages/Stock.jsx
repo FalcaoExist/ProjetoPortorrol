@@ -7,6 +7,7 @@ import SearchBar from "../components/common/SearchBar";
 import SelectFilter from "../components/common/SelectFilter";
 import StockTable from "../components/stock_table/StockTable";
 import NewOrderTable from "../components/new_order_table/NewOrderTable";
+import ConfirmationModal from "../components/common/ConfirmationModal";
 import { initialStockData, statusOptions, fornecedorOptions, filialOptions } from "../data/mockData";
 
 const getStatusText = (diasDeCobertura) => {
@@ -44,8 +45,21 @@ export default function Stock() {
     }, [stockData, searchQuery, statusFilter, fornecedor, filial]);
 
     const handleShowNewOrder = useCallback(() => {
-        setIsNewOrderVisible(true);
-    }, []);
+    const suggestedItems = stockData
+        .filter(item => item.dias_cobertura < 60)
+        .map(item => ({
+            ...item,
+            unidades: 0,
+            valor: 0,
+            previsao_entrega: new Date()
+        }));
+
+    setNewOrderRows(suggestedItems);
+    setIsNewOrderVisible(true);
+}, [stockData]);
+
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [itemToDelete, setItemToDelete] = useState(null);
 
     const handleCloseNewOrder = useCallback(() => {
         setIsNewOrderVisible(false);
@@ -58,9 +72,17 @@ export default function Stock() {
         return newRow;
     }, []);
 
-    const handleNewOrderRowDelete = useCallback((id) => {
-        setNewOrderRows(prevRows => prevRows.filter(row => row.id !== id));
-    }, []);
+    const handleDeleteClick = (id) => {
+        setItemToDelete(id);
+        setIsDeleteModalOpen(true);
+    };
+
+    const confirmDelete = () => {
+        if (!itemToDelete) return;
+        setNewOrderRows(prevRows => prevRows.filter(row => row.id !== itemToDelete));
+        setItemToDelete(null);
+        setIsDeleteModalOpen(false);
+    };
 
     const handleCreateOrder = () => {
         if (newOrderRows.length === 0) {
@@ -183,7 +205,7 @@ export default function Stock() {
                                 <NewOrderTable 
                                     rows={newOrderRows} 
                                     handleRowUpdate={handleNewOrderRowUpdate} 
-                                    handleDelete={handleNewOrderRowDelete} 
+                                    handleDelete={handleDeleteClick} 
                                 />
                                 <div className="flex justify-end mt-4">
                                     <button
@@ -198,6 +220,14 @@ export default function Stock() {
                     </section>
                 </div>
             </main>
+            <ConfirmationModal
+                isOpen={isDeleteModalOpen}
+                onClose={() => setIsDeleteModalOpen(false)}
+                onConfirm={confirmDelete}
+                title="Deseja excluir item do pedido?"
+                message="O item será removido da lista."
+                confirmButtonText="Excluir"
+            />
         </div>
     );
 }

@@ -7,26 +7,7 @@ import SelectFilter from "../components/common/SelectFilter";
 import NewOrderTable from "../components/new_order_table/NewOrderTable";
 import AddItemModal from "../components/add_item_modal/AddItemModal";
 import ConfirmationModal from "../components/common/ConfirmationModal";
-
-const statusOptions = ["Subdimensionado", "Ok", "Excesso", "Ruptura iminente"];
-const fornecedorOptions = ["NSK", "Timken", "FRM", "BGL", "IKO", "SAV"];
-const filialOptions = ["Porto Alegre", "Joinville", "São Paulo"];
-
-const initialStockData = [
-    { id: 1, codigo: "ROL-001", item: "ANel FRB 100/11,5", categoria: "Rolamento x", unidades: 150, fornecedor: "NSK", filial: "Porto Alegre", dias_cobertura: 25, valor: 100 },
-    { id: 2, codigo: "ROL-002", item: "ANel FRB 100/11,5", categoria: "Rolamento x", unidades: 80, fornecedor: "Timken", filial: "Joinville", dias_cobertura: 45, valor: 200 },
-    { id: 3, codigo: "RET-001", item: "ANel FRB 100/11,5", categoria: "Rolamento x", unidades: 300, fornecedor: "FRM", filial: "São Paulo", dias_cobertura: 75, valor: 300 },
-    { id: 4, item: "ARRUELA BGL MB 11", categoria: "Arruela", unidades: 100, fornecedor: "BGL", filial: "Porto Alegre", dias_cobertura: 60, valor: 150.00 },
-];
-
-const suggestedItemsData = initialStockData
-    .filter(item => item.dias_cobertura <= 60)
-    .map(item => ({
-        ...item,
-        unidades: item.unidades || 0,
-        valor: item.valor || 0,
-        previsao_entrega: new Date().toISOString().split('T')[0]
-    }));
+import * as mockData from "../data/mockData";
 
 export default function NewOrder() {
     const { user } = useAuth();
@@ -36,7 +17,15 @@ export default function NewOrder() {
     const [filial, setFilial] = useState("");
     const [isAddItemModalOpen, setIsAddItemModalOpen] = useState(false);
     
-    const [suggestedItems, setSuggestedItems] = useState(suggestedItemsData);
+    const [suggestedItems, setSuggestedItems] = useState(() => {
+        // Inicializa itens sugeridos a partir do estoque mockado
+        return mockData.initialStockData.map(item => ({
+            ...item,
+            unidades: item.unidades || 0,
+            valor: item.valor || 0,
+            previsao_entrega: new Date()
+        }));
+    });
 
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [itemToDelete, setItemToDelete] = useState(null);
@@ -59,7 +48,7 @@ export default function NewOrder() {
             ...itemToAdd,
             unidades: itemToAdd.unidades || 0,
             valor: itemToAdd.valor || 0,
-            previsao_entrega: new Date().toISOString().split('T')[0]
+            previsao_entrega: new Date()
         };
         setSuggestedItems(prevItems => [...prevItems, formattedNewItem]);
         setItemToAdd(null);
@@ -104,21 +93,21 @@ export default function NewOrder() {
                             name="status"
                             value={statusFilter}
                             onChange={(e) => setStatusFilter(e.target.value)}
-                            options={statusOptions}
+                            options={mockData.statusOptions}
                         />
                         <SelectFilter
                             label="Fornecedor"
                             name="fornecedor"
                             value={fornecedor}
                             onChange={(e) => setFornecedor(e.target.value)}
-                            options={fornecedorOptions}
+                            options={mockData.fornecedorOptions}
                         />
                         <SelectFilter
                             label="Filial"
                             name="filial"
                             value={filial}
                             onChange={(e) => setFilial(e.target.value)}
-                            options={filialOptions}
+                            options={mockData.filialOptions}
                         />
                     </div>
                     <NewOrderTable 

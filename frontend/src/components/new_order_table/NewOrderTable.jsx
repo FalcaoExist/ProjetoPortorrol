@@ -2,8 +2,7 @@ import React, { useMemo } from 'react';
 import { BaseDataGrid } from '../common/BaseDataGrid';
 import { IconButton } from '@mui/material';
 import { FaTrash } from 'react-icons/fa';
-
-const filialOptions = ["Porto Alegre", "Joinville", "São Paulo"];
+import { filialOptions } from '../../data/mockData';
 
 export default function NewOrderTable({ rows = [], handleRowUpdate, handleDelete }) {
 

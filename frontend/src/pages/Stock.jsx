@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useCallback } from "react";
+import { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/authContext";
 import Header from "../components/header/Header";
@@ -20,11 +20,29 @@ const getStatusText = (diasDeCobertura) => {
 export default function Stock() {
     const { user } = useAuth();
     const navigate = useNavigate();
-    const [stockData, setStockData] = useState(initialStockData);
+    const [stockData] = useState(initialStockData);
     const [isNewOrderVisible, setIsNewOrderVisible] = useState(false);
+    const [rowSelectionModel, setRowSelectionModel] = useState({ type: 'include', ids: new Set() });
     const [newOrderRows, setNewOrderRows] = useState([]);
 
-    // Estados para os filtros
+    useEffect(() => {
+        const selectionSet = rowSelectionModel.ids || new Set();
+        setNewOrderRows(prevOrderRows => {
+            const selectedRows = stockData
+                .filter(row => selectionSet.has(row.id))
+                .map(item => {
+                    const existingItem = prevOrderRows.find(nr => nr.id === item.id);
+                    return existingItem || {
+                        ...item,
+                        unidades: 1,
+                        valor: item.valor || 0,
+                        previsao_entrega: new Date()
+                    };
+                });
+            return selectedRows;
+        });
+    }, [rowSelectionModel, stockData]);
+
     const [searchQuery, setSearchQuery] = useState("");
     const [statusFilter, setStatusFilter] = useState("");
     const [fornecedor, setFornecedor] = useState("");
@@ -45,24 +63,22 @@ export default function Stock() {
     }, [stockData, searchQuery, statusFilter, fornecedor, filial]);
 
     const handleShowNewOrder = useCallback(() => {
-    const suggestedItems = stockData
-        .filter(item => item.dias_cobertura < 60)
-        .map(item => ({
-            ...item,
-            unidades: 0,
-            valor: 0,
-            previsao_entrega: new Date()
-        }));
-
-    setNewOrderRows(suggestedItems);
-    setIsNewOrderVisible(true);
-}, [stockData]);
+        if (!isNewOrderVisible) {
+            const suggestedItemIds = stockData
+                .filter(item => item.dias_cobertura <= 60)
+                .map(item => item.id);
+            setRowSelectionModel({ type: 'include', ids: new Set(suggestedItemIds) });
+        }
+        setIsNewOrderVisible(true);
+    }, [stockData, isNewOrderVisible]);
 
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [itemToDelete, setItemToDelete] = useState(null);
 
     const handleCloseNewOrder = useCallback(() => {
         setIsNewOrderVisible(false);
+        setRowSelectionModel({ type: 'include', ids: new Set() });
+        setNewOrderRows([]);
     }, []);
 
     const handleNewOrderRowUpdate = useCallback(async (newRow) => {
@@ -79,7 +95,11 @@ export default function Stock() {
 
     const confirmDelete = () => {
         if (!itemToDelete) return;
-        setNewOrderRows(prevRows => prevRows.filter(row => row.id !== itemToDelete));
+        setRowSelectionModel(prevModel => {
+            const newIds = new Set(prevModel.ids);
+            newIds.delete(itemToDelete);
+            return { ...prevModel, ids: newIds };
+        });
         setItemToDelete(null);
         setIsDeleteModalOpen(false);
     };
@@ -93,7 +113,7 @@ export default function Stock() {
         const newOrders = newOrderRows.map((row, index) => {
             const timestamp = Date.now();
             return {
-                id: timestamp + index, // Simple unique ID
+                id: timestamp + index,
                 numero_pedido: `PED-${timestamp + index}`,
                 item: row.item,
                 fornecedor: row.fornecedor,
@@ -129,7 +149,7 @@ export default function Stock() {
                     <Header pageTitle={"Estoque"} userName={user?.name || "Usuário"} />
 
                     <section className="px-4 py-6 md:px-8 lg:px-12">
-                        {/* ... CÓDIGO DOS FILTROS ... */}
+                        
                         <div className="flex flex-wrap items-center gap-4 mb-6">
                             <SearchBar
                                 value={searchQuery}
@@ -159,7 +179,12 @@ export default function Stock() {
                             />
                         </div>
 
-                        <StockTable rows={filteredRows} />
+                        <StockTable 
+                            rows={filteredRows}
+                            isRequisitionMode={isNewOrderVisible}
+                            rowSelectionModel={rowSelectionModel}
+                            onRowSelectionModelChange={setRowSelectionModel}
+                        />
                         <div className="flex items-center justify-between mt-4">
                             <div className="flex gap-4">
                                 <button
@@ -202,6 +227,7 @@ export default function Stock() {
 
                         {isNewOrderVisible && (
                             <div className="mt-6">
+                                <h2 className="text-xl font-semibold mb-4">Itens da Requisição</h2>
                                 <NewOrderTable 
                                     rows={newOrderRows} 
                                     handleRowUpdate={handleNewOrderRowUpdate} 

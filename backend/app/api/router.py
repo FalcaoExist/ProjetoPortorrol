@@ -1,7 +1,7 @@
 import os
 from datetime import datetime, timedelta
 from typing import List, Optional
-from uuid import uuid4  # <--- ADICIONADO PARA OS NOVOS CADASTROS
+from uuid import uuid4
 
 from dotenv import load_dotenv
 from fastapi import (
@@ -45,7 +45,6 @@ from app.services.user_service import UserService
 # --- IMPORTS DE SCHEMAS (Locais) ---
 from .schemas import (
     ChangePasswordRequest,
-    # --- NOVOS SCHEMAS (SUPPLIER & ORDERS) ---
     FornecedorCreate,
     FornecedorResponse,
     LoginRequest,
@@ -63,12 +62,10 @@ load_dotenv()
 # --- CONFIGURAÇÕES DE SEGURANÇA E TOKEN (ADICIONADO) ---
 SECRET_KEY = os.getenv("SECRET_KEY", "uma_chave_super_secreta_e_segura_123")
 ALGORITHM = os.getenv("ALGORITHM", "HS256")
-ACCESS_TOKEN_EXPIRE_MINUTES = 300  # 5 horas
+ACCESS_TOKEN_EXPIRE_MINUTES = 3000 
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
-    """
-    Gera um token JWT com tempo de expiração.
-    """
+
     to_encode = data.copy()
     if expires_delta:
         expire = datetime.utcnow() + expires_delta
@@ -99,18 +96,16 @@ def login(
         # Nota: O auth_service geralmente já lança HTTPException, mas por segurança:
         return {"success": False, "message": "Credenciais inválidas", "user": None}
 
-    # Gera o Token (AGORA A FUNÇÃO EXISTE)
     access_token = create_access_token(data={"sub": result["user_id"]})
     
-    # --- CONFIGURAÇÃO DO COOKIE (A MÁGICA ESTÁ AQUI) ---
     response.set_cookie(
         key="access_token",
         value=f"Bearer {access_token}",
-        httponly=True,   # Impede acesso via JS (Segurança contra XSS)
-        max_age=18000,   # 5 horas
+        httponly=True,   
+        max_age=18000,   
         expires=18000,
-        samesite="lax",  # "lax" é necessário para funcionar em localhost sem HTTPS
-        secure=False     # False porque estamos rodando em HTTP local
+        samesite="lax",  
+        secure=False        
     )
     # ---------------------------------------------------
 

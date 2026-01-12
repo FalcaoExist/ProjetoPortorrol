@@ -23,20 +23,20 @@ class DashboardService:
         except Exception:
             return default
 
-    # --- LÓGICA DE STATUS (REGRA DE NEGÓCIO) ---
-    def _calcular_status(self, atendimento: float) -> StatusProduto:
+    # --- LÓGICA DE STATUS (Baseada em DIAS DE COBERTURA) ---
+    def _calcular_status(self, dias_cobertura: float) -> StatusProduto:
         """
-        Define o status do produto baseado na cobertura (atendimento %):
-        > 120%      -> EXCESSO
-        60% a 120%  -> OK
-        30% a 59.9% -> SUBDIMENSIONADO
-        < 30%       -> RUPTURA
+        Define o status baseado nos Dias de Cobertura (Estoque / Demanda * 30):
+        > 120 dias       -> EXCESSO
+        60 a 120 dias    -> OK
+        30 a 59.9 dias   -> SUBDIMENSIONADO
+        < 30 dias        -> RUPTURA
         """
-        if atendimento > 120.0:
+        if dias_cobertura > 120.0:
             return StatusProduto.EXCESSO
-        elif atendimento >= 60.0:
+        elif dias_cobertura >= 60.0:
             return StatusProduto.OK
-        elif atendimento >= 30.0:
+        elif dias_cobertura >= 30.0:
             return StatusProduto.SUBDIMENSIONADO
         else:
             return StatusProduto.RUPTURA
@@ -60,8 +60,25 @@ class DashboardService:
             elif isinstance(raw_analise, dict):
                 analise_data = raw_analise
             
-            atendimento = self._safe_float(analise_data.get("atendimento"), 0.0)
-            status = self._calcular_status(atendimento)
+            # 1. Extrair Estoque e Demanda
+            estoque = self._safe_int(analise_data.get("estoque_soma"))
+            demanda = self._safe_float(analise_data.get("demanda_soma"))
+            
+            # 2. Calcular Dias de Cobertura
+            # Fórmula: (Estoque / Demanda) * 30
+            dias_cobertura = 0.0
+            
+            if demanda > 0:
+                dias_cobertura = (estoque / demanda) * 30
+            elif estoque > 0:
+                # Se tem estoque mas demanda é 0, a cobertura é "infinita" -> Excesso
+                dias_cobertura = 999.0 
+            else:
+                # Sem estoque e sem demanda -> Consideramos Ruptura (0 dias)
+                dias_cobertura = 0.0
+
+            # 3. Definir Status baseado nos dias
+            status = self._calcular_status(dias_cobertura)
 
             sku_obj = {
                 "sku_id": item.get("id"),
@@ -69,11 +86,12 @@ class DashboardService:
                 "nome_produto": item.get("nome_produto") or "",
                 "marca": item.get("marca") or "",
                 "classificacao": item.get("classificacao") or "Geral",
-                "atendimento": atendimento,
+                # Enviamos 'dias_cobertura' no campo 'atendimento' para o front mostrar "45 dias" e não "%"
+                "atendimento": round(dias_cobertura, 1), 
                 "status": status,
                 "sugestao_compra": self._safe_int(analise_data.get("sugestao_compra")),
-                "estoque_soma": self._safe_int(analise_data.get("estoque_soma")),
-                "demanda_soma": self._safe_float(analise_data.get("demanda_soma")),
+                "estoque_soma": estoque,
+                "demanda_soma": demanda,
                 "filial_nome": str(analise_data.get("filial_id") or "")
             }
             processed_data.append(sku_obj)
@@ -111,35 +129,23 @@ class DashboardService:
         return self._formatar_saida(raw_data)
 
     def get_sku_history(self, sku_id: int = None):
-        """
-        Retorna o histórico de vendas.
-        Se sku_id for fornecido, retorna histórico daquele produto.
-        Se não, retorna o histórico agregado (soma total).
-        Converte a sequência numérica (1..24) em rótulos de data (MM/YY).
-        """
         if sku_id:
             data = self.repo.get_history_by_sku(sku_id)
             field = 'quantidade'
         else:
-            # Busca soma geral (RPC get_sales_summary)
             data = self.repo.get_aggregate_history()
             field = 'total_quantidade'
 
         if not data:
             return []
         
-        # Helper para calcular nome do mês
-        # Lógica: Assume que o periodo_sequencia '24' é o mês atual.
         def get_date_label(seq):
             try:
                 seq_int = int(seq)
                 hoje = datetime.now()
-                # Se 24 é hoje, então (24 - seq) é quantos meses atrás
                 meses_atras = 24 - seq_int
-                
-                # Cálculo aproximado (30 dias por mês)
                 data_alvo = hoje - timedelta(days=meses_atras * 30)
-                return data_alvo.strftime("%m/%y") # Ex: 01/26
+                return data_alvo.strftime("%m/%y") 
             except:
                 return f"P{seq}"
 

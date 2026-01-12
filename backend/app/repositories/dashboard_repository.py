@@ -1,5 +1,6 @@
 from app.core.supabase_client import supabase
 
+
 class DashboardRepository:
     def get_all_skus_with_analysis(self):
         try:

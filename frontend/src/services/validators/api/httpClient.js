@@ -61,14 +61,16 @@ async function request(endpoint, options = {}) {
 
     // Se o status não for 2xx, lança um erro para ser capturado pelo try/catch do serviço
     if (!response.ok) {
-      throw {
-        status: response.status,
-        message: data?.detail || data?.message || "Erro na requisição",
-        body: data,
-      };
-    }
+  const error = new Error(
+    data?.detail || data?.message || "Erro na requisição"
+  );
 
-    return data;
+  error.status = response.status;
+  error.data = data;
+
+  throw error;
+}
+
   } catch (error) {
     console.error(`[httpClient] Erro em ${url}:`, error);
     throw error;

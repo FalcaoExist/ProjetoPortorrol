@@ -45,6 +45,7 @@ from app.services.user_service import UserService
 # --- IMPORTS DE SCHEMAS (Locais) ---
 from .schemas import (
     ChangePasswordRequest,
+    # --- NOVOS SCHEMAS (SUPPLIER & ORDERS) ---
     FornecedorCreate,
     FornecedorResponse,
     LoginRequest,
@@ -62,10 +63,12 @@ load_dotenv()
 # --- CONFIGURAÇÕES DE SEGURANÇA E TOKEN (ADICIONADO) ---
 SECRET_KEY = os.getenv("SECRET_KEY", "uma_chave_super_secreta_e_segura_123")
 ALGORITHM = os.getenv("ALGORITHM", "HS256")
-ACCESS_TOKEN_EXPIRE_MINUTES = 3000 
+ACCESS_TOKEN_EXPIRE_MINUTES = 300  # 5 horas
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
-
+    """
+    Gera um token JWT com tempo de expiração.
+    """
     to_encode = data.copy()
     if expires_delta:
         expire = datetime.utcnow() + expires_delta
@@ -96,16 +99,18 @@ def login(
         # Nota: O auth_service geralmente já lança HTTPException, mas por segurança:
         return {"success": False, "message": "Credenciais inválidas", "user": None}
 
+    # Gera o Token (AGORA A FUNÇÃO EXISTE)
     access_token = create_access_token(data={"sub": result["user_id"]})
     
+    # --- CONFIGURAÇÃO DO COOKIE (A MÁGICA ESTÁ AQUI) ---
     response.set_cookie(
         key="access_token",
         value=f"Bearer {access_token}",
-        httponly=True,   
-        max_age=18000,   
+        httponly=True,   # Impede acesso via JS (Segurança contra XSS)
+        max_age=18000,   # 5 horas
         expires=18000,
-        samesite="lax",  
-        secure=False        
+        samesite="lax",  # "lax" é necessário para funcionar em localhost sem HTTPS
+        secure=False     # False porque estamos rodando em HTTP local
     )
     # ---------------------------------------------------
 
@@ -419,12 +424,11 @@ def buscar_skus(
 
 @router.get("/dashboard/history")
 def get_product_history(
-    sku_id: int, 
+    sku_id: Optional[int] = None, # <--- MUDANÇA: Agora aceita vazio (None)
     service: DashboardService = Depends(get_dashboard_service)
 ):
-    """Retorna o histórico de vendas de um produto para o gráfico"""
+    """Retorna o histórico de vendas (Geral ou Por Produto)"""
     return service.get_sku_history(sku_id)
-
 # --- NOVAS ROTAS DE AUDITORIA E LOGS (DA BRANCH DEV) ---
 
 @router.get("/login-attempts")

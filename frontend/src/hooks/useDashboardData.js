@@ -116,7 +116,7 @@ export default function useDashboardData() {
         if (totalDemanda > 0) {
             diasCobertura = Math.round((totalEstoque / totalDemanda) * 30);
         } else if (totalEstoque > 0) {
-            diasCobertura = 999; 
+            diasCobertura = 9999; 
         }
 
         setKpis({ coverageDays: diasCobertura, savingPotential: 0 });
@@ -129,25 +129,41 @@ export default function useDashboardData() {
   }, [branch, supplier]); 
 
   // Busca de SKU
-  const onSkuSearch = async (query) => {
-    if (!query || query.length < 3) return;
-    const results = await dashboardService.searchSkus(query);
-    setSkuOptions(results.map(r => ({ 
-      label: `${r.codigo} - ${r.nome_produto}`, 
-      value: r.sku_id, 
-      ...r 
-    })));
+const onSkuSearch = async (query) => {
+    // Reduzi para 1 caractere para teste (antes era 3)
+    if (!query || query.length < 1) return; 
+    
+    try {
+        console.log("Buscando no front:", query); // Debug no navegador
+        const results = await dashboardService.searchSkus(query);
+        
+        // Mapeia garantindo que 'value' seja o ID e 'label' o texto visível
+        const options = results.map(r => ({ 
+          label: `${r.codigo} - ${r.nome_produto}`, 
+          value: r.id,  // ATENÇÃO: Confirme se no banco é 'id' ou 'sku_id'
+          ...r 
+        }));
+        
+        setSkuOptions(options);
+    } catch (error) {
+        console.error("Erro na busca:", error);
+    }
   };
 
   // Carregar Histórico
-  useEffect(() => {
+useEffect(() => {
     async function loadHistory() {
       try {
         const id = sku && sku.value ? sku.value : null;
+        // Chama a API real
         const history = await dashboardService.getHistory(id);
+        
+        // Se a API retornar vazio, deixa vazio (não inventa dados)
         setMonthsData(history || []);
+        
       } catch (error) {
-        setMonthsData([]);
+        console.error("Erro ao carregar histórico:", error);
+        setMonthsData([]); // Zera em caso de erro
       }
     }
     loadHistory();

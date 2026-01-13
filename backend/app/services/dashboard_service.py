@@ -1,6 +1,8 @@
 from datetime import datetime, timedelta
+
 from app.api.schemas import StatusProduto
 from app.repositories.dashboard_repository import DashboardRepository
+
 
 class DashboardService:
     def __init__(self):
@@ -168,3 +170,14 @@ class DashboardService:
 
     def update_orcamento(self, valor):
         return self.repo.update_configuracao("orcamento_mensal", valor)
+    
+def get_date_label(seq):
+    try:
+        seq_int = int(seq)
+        hoje = datetime.now()
+        # Se seq=24 (último), meses_atras=0. Se seq=1 (primeiro), meses_atras=23.
+        meses_atras = 24 - seq_int 
+        data_alvo = hoje - timedelta(days=meses_atras * 30)
+        return data_alvo.strftime("%m/%y") 
+    except:
+        return f"P{seq}"

@@ -6,6 +6,7 @@ from uuid import UUID
 from pydantic import BaseModel, EmailStr
 
 
+# --- Schemas de Usuário e Login ---
 class UserResponse(BaseModel):
     user_id: str
     name: str
@@ -54,6 +55,7 @@ class ChangePasswordRequest(BaseModel):
     current_password: str
     new_password: str
 
+# --- CORREÇÃO AQUI: Adicionado SUBDIMENSIONADO ---
 class StatusProduto(str, Enum):
     RUPTURA = "RUPTURA"
     SUBDIMENSIONADO = "SUBDIMENSIONADO" 
@@ -70,18 +72,17 @@ class SkuAnaliseResponse(BaseModel):
     marca: str
     classificacao: str
     atendimento: float
-    status: StatusProduto # Calculado dinamicamente
+    status: StatusProduto
     sugestao_compra: int
     estoque_soma: int
     demanda_soma: float
     filial_nome: Optional[str] = "Geral"
-    # Adicione campos de filiais se precisar detalhar no card
-    
 
 class FilialResponse(BaseModel):
     id: str
     nome: str
 
+# --- Schemas de Fornecedor e Pedido ---
 class FornecedorCreate(BaseModel):
     name: str
     lead_time_days: Optional[int] = 30

@@ -35,14 +35,21 @@ const dashboardService = {
     }
   },
 
-  async getHistory(skuId) {
-    if (!skuId) return [];
+async getHistory(skuId) {
+    // REMOVIDO O BLOQUEIO: if (!skuId) return [];
     try {
-      return await httpClient.get(`/dashboard/history?sku_id=${skuId}`);
+      // Se tiver ID, manda. Se não, chama a rota limpa para pegar o geral.
+      const endpoint = skuId 
+        ? `/dashboard/history?sku_id=${skuId}` 
+        : `/dashboard/history`;
+        
+      const data = await httpClient.get(endpoint);
+      return data || [];
     } catch (error) {
+      console.error("Erro ao buscar histórico:", error);
       return [];
     }
-  }
+  },
 };
 
 export default dashboardService;

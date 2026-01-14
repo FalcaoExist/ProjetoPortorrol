@@ -1,6 +1,10 @@
-import { useState, useMemo, useRef, useCallback, useEffect } from "react";
+import { useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/authContext";
+import { useStock } from "../hooks/useStock";
+import { importStockFromFile, exportStockData } from "../services/stockService";
+import { initialStockData, statusOptions, fornecedorOptions, filialOptions } from "../hooks/mockData";
+
 import Header from "../components/header/Header";
 import Navbar from "../components/nav_bar/NavBar";
 import SearchBar from "../components/common/SearchBar";
@@ -8,135 +12,61 @@ import SelectFilter from "../components/common/SelectFilter";
 import StockTable from "../components/stock_table/StockTable";
 import NewOrderTable from "../components/new_order_table/NewOrderTable";
 import ConfirmationModal from "../components/common/ConfirmationModal";
-import { initialStockData, statusOptions, fornecedorOptions, filialOptions } from "../hooks/mockData";
-
-const getStatusText = (diasDeCobertura) => {
-    if (diasDeCobertura <= 30) return "Ruptura iminente";
-    if (diasDeCobertura <= 60) return "Subdimensionado";
-    if (diasDeCobertura <= 100) return "OK";
-    return "Excesso";
-};
 
 export default function Stock() {
     const { user } = useAuth();
     const navigate = useNavigate();
-    const [stockData] = useState(initialStockData);
-    const [isNewOrderVisible, setIsNewOrderVisible] = useState(false);
-    const [rowSelectionModel, setRowSelectionModel] = useState({ type: 'include', ids: new Set() });
-    const [newOrderRows, setNewOrderRows] = useState([]);
-
-    useEffect(() => {
-        const selectionSet = rowSelectionModel.ids || new Set();
-        setNewOrderRows(prevOrderRows => {
-            const selectedRows = stockData
-                .filter(row => selectionSet.has(row.id))
-                .map(item => {
-                    const existingItem = prevOrderRows.find(nr => nr.id === item.id);
-                    return existingItem || {
-                        ...item,
-                        unidades: 1,
-                        valor: item.valor || 0,
-                        previsao_entrega: new Date()
-                    };
-                });
-            return selectedRows;
-        });
-    }, [rowSelectionModel, stockData]);
-
-    const [searchQuery, setSearchQuery] = useState("");
-    const [statusFilter, setStatusFilter] = useState("");
-    const [fornecedor, setFornecedor] = useState("");
-    const [filial, setFilial] = useState("");
-
     const fileInputRef = useRef(null);
 
-    const filteredRows = useMemo(() => {
-        return stockData.filter(row => {
-            const statusText = getStatusText(row.dias_cobertura);
-            return (
-                (searchQuery === "" || row.item.toLowerCase().includes(searchQuery.toLowerCase()) || row.codigo.toLowerCase().includes(searchQuery.toLowerCase())) &&
-                (statusFilter === "" || statusText === statusFilter) &&
-                (fornecedor === "" || row.fornecedor === fornecedor) &&
-                (filial === "" || row.filial === filial)
-            );
-        });
-    }, [stockData, searchQuery, statusFilter, fornecedor, filial]);
-
-    const handleShowNewOrder = useCallback(() => {
-        if (!isNewOrderVisible) {
-            const suggestedItemIds = stockData
-                .filter(item => item.dias_cobertura <= 60)
-                .map(item => item.id);
-            setRowSelectionModel({ type: 'include', ids: new Set(suggestedItemIds) });
-        }
-        setIsNewOrderVisible(true);
-    }, [stockData, isNewOrderVisible]);
-
-    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-    const [itemToDelete, setItemToDelete] = useState(null);
-
-    const handleCloseNewOrder = useCallback(() => {
-        setIsNewOrderVisible(false);
-        setRowSelectionModel({ type: 'include', ids: new Set() });
-        setNewOrderRows([]);
-    }, []);
-
-    const handleNewOrderRowUpdate = useCallback(async (newRow) => {
-        setNewOrderRows(prevRows => 
-            prevRows.map(row => (row.id === newRow.id ? newRow : row))
-        );
-        return newRow;
-    }, []);
-
-    const handleDeleteClick = (id) => {
-        setItemToDelete(id);
-        setIsDeleteModalOpen(true);
-    };
-
-    const confirmDelete = () => {
-        if (!itemToDelete) return;
-        setRowSelectionModel(prevModel => {
-            const newIds = new Set(prevModel.ids);
-            newIds.delete(itemToDelete);
-            return { ...prevModel, ids: newIds };
-        });
-        setItemToDelete(null);
-        setIsDeleteModalOpen(false);
-    };
-
-    const handleCreateOrder = () => {
-        if (newOrderRows.length === 0) {
-            alert("Por favor, adicione itens ao pedido.");
-            return;
-        }
-
-        const newOrders = newOrderRows.map((row, index) => {
-            const timestamp = Date.now();
-            return {
-                id: timestamp + index,
-                numero_pedido: `PED-${timestamp + index}`,
-                item: row.item,
-                fornecedor: row.fornecedor,
-                quantidade: row.unidades,
-                filial: row.filial,
-                valor: row.valor,
-                previsao_entrega: row.previsao_entrega,
-                status: "Aprovado",
-                data_entrega: null,
-            };
-        });
-
-        navigate('/orders', { state: { newOrders: newOrders } });
-    };
+    const {
+        isNewOrderVisible,
+        newOrderRows,
+        rowSelectionModel,
+        setRowSelectionModel,
+        filteredRows,
+        searchQuery,
+        setSearchQuery,
+        statusFilter,
+        setStatusFilter,
+        fornecedor,
+        setFornecedor,
+        filial,
+        setFilial,
+        isDeleteModalOpen,
+        setIsDeleteModalOpen,
+        handleShowNewOrder,
+        handleCloseNewOrder,
+        handleNewOrderRowUpdate,
+        handleDeleteClick,
+        confirmDelete,
+        handleCreateOrder
+    } = useStock(initialStockData);
 
     const handleImportClick = () => {
         fileInputRef.current.click();
     };
 
-    const handleFileChange = (event) => {
+    const handleFileChange = async (event) => {
         const file = event.target.files[0];
         if (file) {
-            console.log(`Arquivo selecionado: ${file.name}`);
+            try {
+                const result = await importStockFromFile(file);
+                alert(result.message); 
+            } catch (error) {
+                console.error("Erro ao importar arquivo:", error);
+                alert(`Erro ao importar: ${error.message}`);
+            }
+        }
+        event.target.value = '';
+    };
+
+    const handleExportClick = async () => {
+        try {
+            const result = await exportStockData(filteredRows);
+            alert(result.message);
+        } catch (error) {
+            console.error("Erro ao exportar dados:", error);
+            alert(`Erro ao exportar: ${error.message}`);
         }
     };
 
@@ -210,6 +140,7 @@ export default function Stock() {
                                     IMPORTAR
                                 </button>
                                 <button
+                                    onClick={handleExportClick}
                                     className="px-4 py-2 font-normal text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
                                 >
                                     EXPORTAR
@@ -235,7 +166,7 @@ export default function Stock() {
                                 />
                                 <div className="flex justify-end mt-4">
                                     <button
-                                        onClick={handleCreateOrder}
+                                        onClick={() => handleCreateOrder(navigate)}
                                         className="bg-[#5A44B0] hover:bg-white text-white hover:text-black shadow-lg font-poppins uppercase text-sm p-2 rounded-md"
                                     >
                                         Criar pedido

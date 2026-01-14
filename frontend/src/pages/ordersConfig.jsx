@@ -48,7 +48,7 @@ export const getMainOrdersColumns = (handleOpenModal) => [
         renderCell: (params) => (
             <button
                 onClick={() => handleOpenModal(params.row.items)}
-                className="px-4 py-2 font-normal text-gray-700 rounded-md"
+                className="px-4 py-0 font-normal text-gray-700 rounded-md"
             >
                 Ver Itens
             </button>

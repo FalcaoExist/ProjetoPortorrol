@@ -196,7 +196,7 @@ export default function Stock() {
                                 {isNewOrderVisible && (
                                     <button
                                         onClick={handleCloseNewOrder}
-                                        className="px-4 py-2 font-normal text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 font-poppins uppercase text-sm p-2 rounded-md"
+                                        className="px-4 py-2 font-normal text-gray-700 bg-gray-200 hover:bg-gray-300 font-poppins uppercase text-sm p-2 rounded-md"
                                     >
                                         Fechar
                                     </button>

@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { BaseDataGrid } from '../common/BaseDataGrid';
 import { IconButton } from '@mui/material';
 import { FaTrash } from 'react-icons/fa';
-import { filialOptions } from '../../data/mockData';
+import { filialOptions } from '../../hooks/mockData';
 
 export default function NewOrderTable({ rows = [], handleRowUpdate, handleDelete }) {
     const processRowUpdate = async (newRow, oldRow) => {

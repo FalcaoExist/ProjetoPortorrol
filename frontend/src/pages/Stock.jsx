@@ -8,7 +8,7 @@ import SelectFilter from "../components/common/SelectFilter";
 import StockTable from "../components/stock_table/StockTable";
 import NewOrderTable from "../components/new_order_table/NewOrderTable";
 import ConfirmationModal from "../components/common/ConfirmationModal";
-import { initialStockData, statusOptions, fornecedorOptions, filialOptions } from "../data/mockData";
+import { initialStockData, statusOptions, fornecedorOptions, filialOptions } from "../hooks/mockData";
 
 const getStatusText = (diasDeCobertura) => {
     if (diasDeCobertura <= 30) return "Ruptura iminente";

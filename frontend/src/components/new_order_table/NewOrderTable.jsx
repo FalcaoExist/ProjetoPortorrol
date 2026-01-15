@@ -52,16 +52,23 @@ export default function NewOrderTable({ rows = [], handleRowUpdate, handleDelete
             headerAlign: 'left',
         },
         {
-            field: "filial",
-            headerName: "Filial",
-            minWidth: 150,
-            flex: 1,
-            editable: true,
-            type: 'singleSelect',
-            valueOptions: filialOptions,
-            align: 'left',
-            headerAlign: 'left',
-        },
+    field: "filial",
+    headerName: "Filial",
+    minWidth: 150,
+    flex: 1,
+    editable: true,
+    type: "singleSelect",
+    valueOptions: filialOptions,
+    align: "left",
+    headerAlign: "left",
+
+    renderCell: (params) => {
+        
+        if (!params.isEditable) return "";
+
+        return params.value ?? "";
+    },
+},
         {
             field: "valor",
             headerName: "Valor (R$)",
@@ -72,9 +79,24 @@ export default function NewOrderTable({ rows = [], handleRowUpdate, handleDelete
             align: 'left',
             headerAlign: 'left',
             valueFormatter: ({ value }) => {
-                if (typeof value !== 'number') return '';
-                return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-            }
+    if (value == null || value === "") return "";
+
+    const number = typeof value === "number" ? value : Number(value);
+    if (isNaN(number)) return "";
+
+    return number.toLocaleString("pt-BR", {
+        style: "currency",
+        currency: "BRL",
+    });
+},
+    valueSetter: (params) => {
+    const n = Number(params.value);
+
+    return {
+        ...params.row,
+        valor: isNaN(n) ? 0 : n,
+    };
+},
         },
         {
             field: "previsao_entrega",
@@ -87,15 +109,19 @@ export default function NewOrderTable({ rows = [], handleRowUpdate, handleDelete
             headerAlign: 'left',
             valueFormatter: (params) => {
                 if (!params.value) return '';
-                const date = new Date(params.value);
-                if (date instanceof Date && !isNaN(date)) {
-                    const year = date.getUTCFullYear();
-                    const month = (date.getUTCMonth() + 1).toString().padStart(2, '0');
-                    const day = date.getUTCDate().toString().padStart(2, '0');
-                    return `${day}/${month}/${year}`;
-                }
-                return '';
+                const date = params.value instanceof Date ? params.value : new Date(params.value);
+                if (isNaN(date.getTime())) return '';
+                return date.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
             },
+            valueSetter: (params) => {
+    const date = new Date(params.value);
+
+    return {
+        ...params.row,
+        previsao_entrega: isNaN(date.getTime()) ? null : date,
+    };
+},
+            
         },
     ], [handleDelete]);
 

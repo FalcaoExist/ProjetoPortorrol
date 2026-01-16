@@ -1,80 +1,64 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useMemo } from "react";
+import { useAuth } from "../context/authContext";
 import Header from "../components/header/Header";
 import Navbar from "../components/nav_bar/NavBar";
+import SearchBar from "../components/common/SearchBar";
 import SelectFilter from "../components/common/SelectFilter";
 import OrdersTable from "../components/orders_table/OrdersTable";
-import orderService from "../services/orderService";
-import { useAuth } from "../context/authContext";
 
-const statusOptions = ["DRAFT", "Aprovado", "Entregue"]; // Ajustado para status do banco
-const filialOptions = ["Geral"]; 
+const statusOptions = ["Aprovado", "Atrasado"];
+const fornecedorOptions = ["NSK", "Timken", "FRM", "BGL", "IKO", "SAV"];
+const filialOptions = ["Porto Alegre", "Joinville", "São Paulo"];
+
+const initialOrdersData = [
+    { id: 1, numero_pedido: "PED-001", item: "ANEL FRB 100/11,5", fornecedor: "NSK", quantidade: 100, filial: "Porto Alegre", valor: 5000, previsao_entrega: "2024-10-20", status: "Aprovado", data_entrega: null },
+    { id: 2, numero_pedido: "PED-002", item: "ANEL FRB 100/11,5", fornecedor: "Timken", quantidade: 50, filial: "Joinville", valor: 2500, previsao_entrega: "2024-09-15", status: "Atrasado", data_entrega: null },
+    { id: 3, numero_pedido: "PED-003", item: "ANEL FRB 100/11,5", fornecedor: "FRM", quantidade: 200, filial: "São Paulo", valor: 10000, previsao_entrega: "2024-11-01", status: "Aprovado", data_entrega: null },
+];
 
 export default function Orders() {
     const { user } = useAuth();
-    
-    const [rows, setRows] = useState([]);
-    const [loading, setLoading] = useState(true);
-    
-    // Filtros
+    const [ordersData, setOrdersData] = useState(initialOrdersData);
+
+    const [searchQuery, setSearchQuery] = useState("");
     const [statusFilter, setStatusFilter] = useState("");
-    const [filialFilter, setFilialFilter] = useState("");
+    const [fornecedor, setFornecedor] = useState("");
+    const [filial, setFilial] = useState("");
 
-    // Carregar Pedidos
-    const fetchOrders = useCallback(async () => {
-        setLoading(true);
-        try {
-            const data = await orderService.getAll();
-            setRows(data);
-        } catch (error) {
-            console.error("Falha ao carregar pedidos");
-        } finally {
-            setLoading(false);
-        }
-    }, []);
+    const filteredRows = useMemo(() => {
+        return ordersData.filter(row => {
+            return (
+                (searchQuery === "" || row.item.toLowerCase().includes(searchQuery.toLowerCase()) || row.numero_pedido.toLowerCase().includes(searchQuery.toLowerCase())) &&
+                (statusFilter === "" || row.status === statusFilter) &&
+                (fornecedor === "" || row.fornecedor === fornecedor) &&
+                (filial === "" || row.filial === filial)
+            );
+        });
+    }, [ordersData, searchQuery, statusFilter, fornecedor, filial]);
 
-    useEffect(() => {
-        fetchOrders();
-    }, [fetchOrders]);
-
-    // Filtragem Local
-    const filteredRows = rows.filter(row => {
-        const matchStatus = statusFilter ? row.status === statusFilter : true;
-        return matchStatus;
-    });
-
-    const handleUpdateData = async (newRow) => {
-        // Edição inline desabilitada por enquanto devido à complexidade do banco
-        return newRow;
-    };
-
-    // Simulação de criação (Botão "Criar nova requisição")
-    const handleCreateDummy = async () => {
-        // Exemplo de payload para testar a criação complexa
-        const novo = {
-            item: "ROL-001", // Tente usar um código que EXISTA no seu tb_skus
-            fornecedor: "NSK", // Tente usar um fornecedor que EXISTA no suppliers
-            quantidade: 10,
-            valor: 500.00, // Valor total
-            previsao_entrega: new Date().toISOString().split('T')[0]
-        };
-        try {
-            await orderService.create(novo);
-            alert("Pedido criado! (Verifique se ROL-001 e NSK existem no banco)");
-            fetchOrders(); 
-        } catch (e) {
-            alert("Erro ao criar: " + (e.response?.data?.detail || e.message));
-        }
+    const handleUpdateData = (id, field, value) => {
+        setOrdersData(currentData =>
+            currentData.map(row =>
+                row.id === id ? { ...row, [field]: value } : row
+            )
+        );
     };
 
     return (
         <div className="grid min-h-screen grid-cols-[16rem_minmax(0,1fr)]">
             <Navbar />
-            <main className="min-w-0 flex flex-col">
-                <Header pageTitle={"Pedidos de Compra"} userName={user?.name || "Usuário"} />
-                
-                <div className="flex-1 bg-gray-50 p-8">
-                    <section className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-                        <div className="flex flex-wrap gap-4 mb-6">
+
+            <main className="min-w-0">
+                <div className="flex flex-col">
+                    <Header pageTitle={"Pedidos"} userName={user?.name || "Usuário"} />
+
+                    <section className="px-4 py-6 md:px-8 lg:px-12">
+                        <div className="flex flex-wrap items-center gap-4 mb-6">
+                            <SearchBar
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                placeholder="Buscar por número do pedido ou item..."
+                            />
                             <SelectFilter
                                 label="Status"
                                 name="status"
@@ -82,24 +66,36 @@ export default function Orders() {
                                 onChange={(e) => setStatusFilter(e.target.value)}
                                 options={statusOptions}
                             />
+                            <SelectFilter
+                                label="Fornecedor"
+                                name="fornecedor"
+                                value={fornecedor}
+                                onChange={(e) => setFornecedor(e.target.value)}
+                                options={fornecedorOptions}
+                            />
+                            <SelectFilter
+                                label="Filial"
+                                name="filial"
+                                value={filial}
+                                onChange={(e) => setFilial(e.target.value)}
+                                options={filialOptions}
+                            />
                         </div>
 
-                        {loading ? (
-                            <p className="p-10 text-center text-gray-500">Carregando pedidos do banco...</p>
-                        ) : (
-                            <OrdersTable rows={filteredRows} updateData={handleUpdateData} />
-                        )}
-
+                        <OrdersTable rows={filteredRows} updateData={handleUpdateData} />
                         <div className="flex items-center justify-between mt-6">
                             <button
-                                onClick={handleCreateDummy}
-                                className="bg-[#5A44B0] hover:bg-[#4a3794] text-white shadow-lg font-poppins uppercase text-sm p-3 rounded-xl transition-colors"
+                                onClick={() => {}}
+                                className="bg-[#5A44B0] hover:bg-white text-white hover:text-black shadow-lg font-poppins uppercase text-sm p-2 rounded-md"
                             >
-                                + Testar Pedido (ROL-001 / NSK)
+                                Criar nova requisição
                             </button>
-                            <span className="text-xs text-gray-500">
-                                * Para funcionar, 'ROL-001' deve existir em tb_skus e 'NSK' em suppliers.
-                            </span>
+                            <button
+                                // onClick={handleExportPDF}
+                                className="px-4 py-2 font-normal text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
+                            >
+                                EXPORTAR
+                            </button>
                         </div>
                     </section>
                 </div>

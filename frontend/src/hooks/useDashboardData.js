@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
 import dashboardService from "../services/dashboardService";
-import supplierService from "../services/supplierService";
+// CORREÇÃO 1: 'import * as' permite usar supplierService.getSuppliers()
+import * as supplierService from "../services/supplierService";
 
 // Configuração Central de Cores e Labels
 const STATUS_INDICATORS = {
-  RUPTURA: { color: "#e54c4c", label: "Ruptura" },           // Vermelho (< 30 dias)
+  RUPTURA: { color: "#e54c4c", label: "Ruptura" },          // Vermelho (< 30 dias)
   SUBDIMENSIONADO: { color: "#f1c40f", label: "Subdimen." },  // Amarelo (30-60 dias)
   OK: { color: "#e0e0e0", label: "Normal" },                  // Cinza (60-120 dias)
   EXCESSO: { color: "#4a89f3", label: "Excesso" }             // Azul (> 120 dias)
@@ -52,8 +53,17 @@ export default function useDashboardData() {
         }
 
         if (supplierOptions.length === 0) {
-            const fornecedores = (await supplierService.getAll()) || [];
-            const nomesUnicos = [...new Set(fornecedores.map(s => s.name))].filter(Boolean).sort();
+            // CORREÇÃO 2: Chamada direta para getSuppliers
+            const fornecedores = (await supplierService.getSuppliers()) || [];
+            
+            // CORREÇÃO 3: Tratamento híbrido (String ou Objeto)
+            // Se o backend retornar ["Timken", "NSK"], usamos 's' direto.
+            // Se retornar [{name: "Timken"}], usamos 's.name'.
+            const nomesUnicos = [...new Set(fornecedores.map(s => {
+                if (typeof s === 'string') return s;
+                return s?.name || s?.nome; // Tenta name ou nome
+            }))].filter(Boolean).sort();
+
             const optionsSuppliers = nomesUnicos.map(nome => ({ value: nome, label: nome }));
             optionsSuppliers.unshift({ value: "", label: "Todos" });
             setSupplierOptions(optionsSuppliers);
@@ -67,9 +77,6 @@ export default function useDashboardData() {
 
         // A) Gráfico de Excesso (Azul)
         const excessos = allSkus.filter(i => i.status === "EXCESSO");
-        
-        // ORDENAÇÃO: Do MAIOR estoque para o MENOR (Decrescente)
-        // Lógica: b.estoque - a.estoque
         excessos.sort((a, b) => b.estoque_soma - a.estoque_soma);
         
         setDataOverstock(excessos.map(item => ({
@@ -81,18 +88,12 @@ export default function useDashboardData() {
 
         // B) Gráfico de Críticos (Ruptura)
         const rupturas = allSkus.filter(i => i.status === "RUPTURA");
-        
-        // ORDENAÇÃO: Do MENOR estoque para o MAIOR (Crescente)
-        // Lógica: a.estoque - b.estoque
-        // Itens com 0 unidades aparecem primeiro
         rupturas.sort((a, b) => a.estoque_soma - b.estoque_soma);
 
         setDataCritic(rupturas.map(item => ({
           name: item.codigo,
-          // Nota: No gráfico de críticos, geralmente mostramos a DEMANDA (o que falta vender)
-          // Mas a ordenação acima garantiu que os que tem MENOS estoque físico apareçam primeiro.
           qtd: item.demanda_soma, 
-          estoque_real: item.estoque_soma, // Passando estoque real caso precise no tooltip
+          estoque_real: item.estoque_soma,
           dias: item.atendimento,
           ...item
         })).slice(0, 15));
@@ -129,21 +130,16 @@ export default function useDashboardData() {
   }, [branch, supplier]); 
 
   // Busca de SKU
-const onSkuSearch = async (query) => {
-    // Reduzi para 1 caractere para teste (antes era 3)
+  const onSkuSearch = async (query) => {
     if (!query || query.length < 1) return; 
     
     try {
-        console.log("Buscando no front:", query); // Debug no navegador
         const results = await dashboardService.searchSkus(query);
-        
-        // Mapeia garantindo que 'value' seja o ID e 'label' o texto visível
         const options = results.map(r => ({ 
           label: `${r.codigo} - ${r.nome_produto}`, 
-          value: r.id,  // ATENÇÃO: Confirme se no banco é 'id' ou 'sku_id'
+          value: r.id, 
           ...r 
         }));
-        
         setSkuOptions(options);
     } catch (error) {
         console.error("Erro na busca:", error);
@@ -151,19 +147,15 @@ const onSkuSearch = async (query) => {
   };
 
   // Carregar Histórico
-useEffect(() => {
+  useEffect(() => {
     async function loadHistory() {
       try {
         const id = sku && sku.value ? sku.value : null;
-        // Chama a API real
         const history = await dashboardService.getHistory(id);
-        
-        // Se a API retornar vazio, deixa vazio (não inventa dados)
         setMonthsData(history || []);
-        
       } catch (error) {
         console.error("Erro ao carregar histórico:", error);
-        setMonthsData([]); // Zera em caso de erro
+        setMonthsData([]); 
       }
     }
     loadHistory();
@@ -184,4 +176,4 @@ useEffect(() => {
     STATUS_INDICATORS,
     onSkuSearch
   };
-} 
+}

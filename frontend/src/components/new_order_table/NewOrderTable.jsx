@@ -5,9 +5,10 @@ import { FaTrash } from 'react-icons/fa';
 import { filialOptions } from '../../hooks/mockData';
 
 export default function NewOrderTable({ rows = [], handleRowUpdate, handleDelete }) {
+
     const processRowUpdate = async (newRow, oldRow) => {
         const updatedRow = await handleRowUpdate(newRow);
-        return updatedRow;
+        return updatedRow ?? oldRow;
     };
 
     const columns = useMemo(() => [
@@ -52,23 +53,18 @@ export default function NewOrderTable({ rows = [], handleRowUpdate, handleDelete
             headerAlign: 'left',
         },
         {
-    field: "filial",
-    headerName: "Filial",
-    minWidth: 150,
-    flex: 1,
-    editable: true,
-    type: "singleSelect",
-    valueOptions: filialOptions,
-    align: "left",
-    headerAlign: "left",
+            field: "filial",
+            headerName: "Filial",
+            minWidth: 150,
+            flex: 1,
+            editable: true,
+            type: "singleSelect",
+            valueOptions: filialOptions,
+            align: "left",
+            headerAlign: "left",
+            renderCell: (params) => params.value ?? "",
+        },
 
-    renderCell: (params) => {
-        
-        if (!params.isEditable) return "";
-
-        return params.value ?? "";
-    },
-},
         {
             field: "valor",
             headerName: "Valor (R$)",
@@ -76,52 +72,63 @@ export default function NewOrderTable({ rows = [], handleRowUpdate, handleDelete
             minWidth: 120,
             flex: 0.8,
             editable: true,
-            align: 'left',
-            headerAlign: 'left',
-            valueFormatter: ({ value }) => {
-    if (value == null || value === "") return "";
+            align: "left",
+            headerAlign: "left",
 
-    const number = typeof value === "number" ? value : Number(value);
-    if (isNaN(number)) return "";
-
-    return number.toLocaleString("pt-BR", {
-        style: "currency",
-        currency: "BRL",
-    });
-},
-    valueSetter: (params) => {
-    const n = Number(params.value);
-
-    return {
-        ...params.row,
-        valor: isNaN(n) ? 0 : n,
-    };
-},
-        },
-        {
-            field: "previsao_entrega",
-            headerName: "Previsão de entrega",
-            type: 'date',
-            minWidth: 180,
-            flex: 1,
-            editable: true,
-            align: 'left',
-            headerAlign: 'left',
-            valueFormatter: (params) => {
-                if (!params.value) return '';
-                const date = params.value instanceof Date ? params.value : new Date(params.value);
-                if (isNaN(date.getTime())) return '';
-                return date.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+            valueParser: (value) => {
+                if (value === "" || value == null) return null;
+                const n = Number(value);
+                return isNaN(n) ? null : n;
             },
-            valueSetter: (params) => {
-    const date = new Date(params.value);
 
-    return {
-        ...params.row,
-        previsao_entrega: isNaN(date.getTime()) ? null : date,
-    };
-},
-            
+            renderCell: (params) => {
+                if (typeof params.value !== "number") return "";
+                return params.value.toLocaleString("pt-BR", {
+                    style: "currency",
+                    currency: "BRL",
+                });
+            },
+        },
+
+        {
+    field: "previsao_entrega",
+    headerName: "Previsão de entrega",
+    minWidth: 180,
+    flex: 1,
+    editable: true,
+    align: "left",
+    headerAlign: "left",
+
+    renderCell: (params) => {
+        if (!params.value) return "";
+        const date = new Date(params.value);
+        if (isNaN(date.getTime())) return "";
+        return date.toLocaleDateString("pt-BR");
+    },
+
+    renderEditCell: (params) => {
+        const { id, field, value, api } = params;
+
+        const handleChange = async (e) => {
+            const newValue = e.target.value || null;
+
+            await api.setEditCellValue(
+                { id, field, value: newValue },
+                { debounceMs: 0 }
+            );
+
+            api.stopCellEditMode({ id, field });
+        };
+
+        return (
+                    <input
+                        type="date"
+                        value={value ?? ""}
+                        onChange={handleChange}
+                        className="w-full h-full bg-transparent outline-none border-none text-left"
+                    />
+                );
+            },
         },
     ], [handleDelete]);
 

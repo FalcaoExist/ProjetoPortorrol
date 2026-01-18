@@ -1,7 +1,7 @@
 import React from 'react';
-import SearchBar from '../components/common/SearchBar';
-import SelectFilter from '../components/common/SelectFilter';
-import { statusOptions, fornecedorOptions, filialOptions } from './ordersConfig';
+import SearchBar from './common/SearchBar';
+import SelectFilter from './common/SelectFilter';
+import { statusOptions, fornecedorOptions, filialOptions } from '../pages/ordersConfig';
 
 export default function OrdersFilter({
   searchQuery,

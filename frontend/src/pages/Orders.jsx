@@ -5,7 +5,7 @@ import { BaseDataGrid } from "../components/common/BaseDataGrid";
 import { useOrders } from "../hooks/useOrders";
 import { getMainOrdersColumns } from "./ordersConfig.jsx";
 import OrderDetailsModal from "../components/OrderDetailsModal.jsx";
-import OrdersFilter from "./OrdersFilter.jsx";
+import OrdersFilter from "../components/OrdersFilter.jsx";
 
 export default function Orders() {
     const { user } = useAuth();

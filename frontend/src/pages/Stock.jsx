@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/authContext";
 import { useStock } from "../hooks/useStock";
@@ -17,6 +17,8 @@ export default function Stock() {
     const { user } = useAuth();
     const navigate = useNavigate();
     const fileInputRef = useRef(null);
+
+    const [isConfirmOrderModalOpen, setIsConfirmOrderModalOpen] = useState(false);
 
     const {
         isNewOrderVisible,
@@ -166,7 +168,7 @@ export default function Stock() {
                                 />
                                 <div className="flex justify-end mt-4">
                                     <button
-                                        onClick={() => handleCreateOrder(navigate)}
+                                        onClick={() => setIsConfirmOrderModalOpen(true)}
                                         className="bg-[#5A44B0] hover:bg-white text-white hover:text-black shadow-lg font-poppins uppercase text-sm p-2 rounded-md"
                                     >
                                         Criar pedido
@@ -184,6 +186,18 @@ export default function Stock() {
                 title="Deseja excluir item do pedido?"
                 message="O item será removido da lista."
                 confirmButtonText="Excluir"
+            />
+            <ConfirmationModal
+                isOpen={isConfirmOrderModalOpen}
+                onClose={() => setIsConfirmOrderModalOpen(false)}
+                onConfirm={() => {
+                    handleCreateOrder(navigate);
+                    setIsConfirmOrderModalOpen(false);
+                }}
+                title="Confirmar Novo Pedido"
+                message="Você gostaria de fazer um novo pedido?"
+                confirmButtonText="Sim"
+                cancelButtonText="Cancelar"
             />
         </div>
     );

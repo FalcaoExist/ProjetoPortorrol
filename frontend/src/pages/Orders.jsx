@@ -4,7 +4,7 @@ import Navbar from "../components/nav_bar/NavBar";
 import { BaseDataGrid } from "../components/common/BaseDataGrid";
 import { useOrders } from "../hooks/useOrders";
 import { getMainOrdersColumns } from "./ordersConfig.jsx";
-import OrderDetailsModal from "./OrderDetailsModal.jsx";
+import OrderDetailsModal from "../components/OrderDetailsModal.jsx";
 import OrdersFilter from "./OrdersFilter.jsx";
 
 export default function Orders() {

@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { useAuth } from "../context/authContext";
 import Header from "../components/header/Header";
 import Navbar from "../components/nav_bar/NavBar";
@@ -35,6 +35,24 @@ export default function Stock() {
     const [statusFilter, setStatusFilter] = useState("");
     const [fornecedor, setFornecedor] = useState("");
     const [filial, setFilial] = useState("");
+
+    // Lê possíveis filtros vindos da URL (ex: /stock?sku=...&status=...&supplier=...&branch=...)
+    useEffect(() => {
+        try {
+            const params = new URLSearchParams(window.location.search);
+            const sku = params.get('sku');
+            const status = params.get('status');
+            const supplier = params.get('supplier');
+            const branch = params.get('branch');
+
+            if (sku) setSearchQuery(decodeURIComponent(sku));
+            if (status) setStatusFilter(decodeURIComponent(status));
+            if (supplier) setFornecedor(decodeURIComponent(supplier));
+            if (branch) setFilial(decodeURIComponent(branch));
+        } catch (err) {
+            // noop
+        }
+    }, []);
 
     const fileInputRef = useRef(null);
 

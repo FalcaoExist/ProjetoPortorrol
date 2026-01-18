@@ -14,6 +14,7 @@ import MonthlyQuantityChart from "../components/charts/MonthlyQuantityChart";
 import OverstokChart from "../components/charts/OverstokChart";
 import SkuAutocomplete from "../components/common/SKUAutocomplete";
 import useDashboardData from "../hooks/useDashboardData";
+import { exportDashboardCSV } from "../services/csvExporter";
 
 
 export default function Home() {
@@ -32,7 +33,25 @@ export default function Home() {
     dataCritic,
     STATUS_INDICATORS,
     skuOptions,
+    orders,
+    budget,
+    leadtimeInfo,
   } = useDashboardData();
+
+  // Exporta via serviço externo (single responsibility)
+  const handleExport = () =>
+    exportDashboardCSV({
+      branch,
+      supplier,
+      sku,
+      months,
+      data,
+      dataCritic,
+      statusIndicators: STATUS_INDICATORS,
+      orders,
+      budget,
+      leadtimeInfo,
+    });
 
   return (
     <div className="grid min-h-screen grid-cols-[16rem_minmax(0,1fr)]">
@@ -62,7 +81,7 @@ export default function Home() {
               <h2 className="ml-16 p-3 pb-0 text-[#464255] font-poppins font-bold text-lg">SKUs mais Críticos</h2>
               <CriticosChart branch={branch} supplier={supplier} data={dataCritic} />
               <div className="">
-                <StockRangeGraph data={STATUS_INDICATORS} />
+                <StockRangeGraph data={STATUS_INDICATORS} branch={branch} supplier={supplier} />
               </div>
             </div>
             <div className="w-full flex gap-2">
@@ -118,7 +137,7 @@ export default function Home() {
               <OverstokChart branch={branch} supplier={supplier} data={data} />
             </div>
             <div className="flex justify-end mb-24">
-              <button className="bg-[#EAEAEA] text-gray-500 px-16 py-2 shadow-md rounded-lg border hover:bg-white">EXPORTAR</button>
+              <button onClick={handleExport} className="bg-[#EAEAEA] text-gray-500 px-16 py-2 shadow-md rounded-lg border hover:bg-white">EXPORTAR</button>
             </div>
           </section>
         </div>

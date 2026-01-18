@@ -1,4 +1,5 @@
 import { Bar, BarChart, Tooltip, XAxis, YAxis, ResponsiveContainer, Label, CartesianGrid, ReferenceLine } from 'recharts';
+import { useNavigate } from 'react-router-dom';
 
 
 
@@ -28,8 +29,18 @@ function CustomTooltip({ payload, label, active }) {
     return null;
 }
 
-export default function CriticsChart({ data, asc = true }) {
+export default function CriticsChart({ data, asc = true, branch, supplier }) {
+    const navigate = useNavigate();
     const sortedData = [...data].sort((a, b) => asc ? a.qtd - b.qtd : b.qtd - a.qtd);
+
+    const handleBarClick = (payload) => {
+        if (!payload || !payload.name) return;
+        const params = new URLSearchParams();
+        params.set('sku', payload.name);
+        if (supplier && supplier !== 'Todos') params.set('supplier', supplier);
+        if (branch && branch !== 'Todos') params.set('branch', branch);
+        navigate(`/stock?${params.toString()}`);
+    };
 
     return (
         <ResponsiveContainer width="100%" height={300}>
@@ -41,7 +52,7 @@ export default function CriticsChart({ data, asc = true }) {
                 {/* Linha horizontal personalizada (ex: meta em 60) - lisa e atrás das barras */}
                 <ReferenceLine y={60} stroke="#d88488" strokeWidth={1} isFront={false} label={{ value: '', position: 'right', fill: '#E75656' }} />
                 <Tooltip content={CustomTooltip} />
-                <Bar dataKey="qtd" fill="#212560" barSize={25} />
+                <Bar dataKey="qtd" fill="#212560" barSize={25} onClick={(data) => handleBarClick(data)} />
             </BarChart>
         </ResponsiveContainer>
 

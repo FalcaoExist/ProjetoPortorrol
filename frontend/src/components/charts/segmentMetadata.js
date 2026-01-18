@@ -18,7 +18,7 @@ export const DEFAULT_SEGMENT_METADATA = {
     orderLegend: 2,
   },
   ok: {
-    label: 'Ok',
+    label: 'OK',
     color: '#e0e0e0',
     orderBar: 4,
     orderLegend: 1,

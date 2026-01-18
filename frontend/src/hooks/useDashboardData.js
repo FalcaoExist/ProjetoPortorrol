@@ -1,20 +1,22 @@
 import { useState } from "react";
 
 export default function useDashboardData() {
-  const [branch, setBranch] = useState("filial");
-  const [supplier, setSupplier] = useState("fornecedor");
+  const [branch, setBranch] = useState("Todos");
+  const [supplier, setSupplier] = useState("Todos");
   const [sku, setSku] = useState(null);
 
   const branchOptions = [
-    { value: "filial", label: "Filial" },
-    { value: "filial_a", label: "Filial A" },
-    { value: "filial_b", label: "Filial B" },
+    { value: "Todos", label: "Todos" },
+    { value: "Porto Alegre", label: "Porto Alegre" },
+    { value: "Joinville", label: "Joinville" },
+    { value: "São Paulo", label: "São Paulo" },
   ];
 
   const supplierOptions = [
-    { value: "fornecedor", label: "Fornecedor" },
-    { value: "fornecedor_x", label: "Fornecedor X" },
-    { value: "fornecedor_y", label: "Fornecedor Y" },
+    { value: "Todos", label: "Todos" },
+    { value: "NSK", label: "NSK" },
+    { value: "Timken", label: "Timken" },
+    { value: "FRM", label: "FRM" },
   ];
 
   const months = [
@@ -97,6 +99,21 @@ export default function useDashboardData() {
     ok: 55,
   };
 
+  // Dados de pedidos, gastos e leadtime/saving — colocados no hook para serem dinâmicos
+  const orders = [
+    { text: "Atrasados", number: 8 },
+    { text: "Aprovados", number: 8 },
+  ];
+
+  const budget = {
+    value: 31452.32,
+    budget: 88000,
+    startDate: "01/10/2025",
+    endDate: "01/11/2025",
+  };
+
+  const leadtimeInfo = { leadtime: 15, saving: 8 };
+
   const skuOptions = Array.from(
     new Set([...data.map((d) => d.name), ...dataCritic.map((d) => d.name)])
   ).map((name) => ({ label: name, value: name }));
@@ -114,6 +131,9 @@ export default function useDashboardData() {
     data,
     dataCritic,
     STATUS_INDICATORS,
+    orders,
+    budget,
+    leadtimeInfo,
     skuOptions,
   };
 }

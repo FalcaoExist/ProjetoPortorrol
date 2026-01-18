@@ -1,4 +1,5 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 
 const initialOrdersData = [
     { id: 1, numero_pedido: "PED-001", item: "ANEL FRB 100/11,5", fornecedor: "NSK", quantidade: 100, filial: "Porto Alegre", valor: 5000, previsao_entrega: "2024-10-20", status: "Aprovado", data_entrega: null, data_pedido: "2024-07-20" },
@@ -8,6 +9,7 @@ const initialOrdersData = [
 ];
 
 export function useOrders() {
+    const location = useLocation();
     const [ordersData, setOrdersData] = useState(initialOrdersData);
     const [searchQuery, setSearchQuery] = useState("");
     const [statusFilter, setStatusFilter] = useState("");
@@ -15,6 +17,21 @@ export function useOrders() {
     const [filial, setFilial] = useState("");
     const [modalOpen, setModalOpen] = useState(false);
     const [selectedOrderItems, setSelectedOrderItems] = useState([]);
+
+    useEffect(() => {
+        if (location.state?.newOrders) {
+            const newOrders = location.state.newOrders;
+            setOrdersData(prevOrders => {
+                const existingIds = new Set(prevOrders.map(o => o.id));
+                const uniqueNewOrders = newOrders.filter(o => !existingIds.has(o.id));
+                if (uniqueNewOrders.length > 0) {
+                    return [...uniqueNewOrders, ...prevOrders];
+                }
+                return prevOrders;
+            });
+            window.history.replaceState({}, document.title);
+        }
+    }, [location.state]);
 
     const handleOpenModal = (items) => {
         setSelectedOrderItems(items);

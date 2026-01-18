@@ -96,23 +96,28 @@ export const useStock = (initialStockData = []) => {
             return;
         }
 
-        const newOrders = newOrderRows.map((row, index) => {
-            const timestamp = Date.now();
-            return {
-                id: timestamp + index,
-                numero_pedido: `PED-${timestamp + index}`,
-                item: row.item,
-                fornecedor: row.fornecedor,
-                quantidade: row.unidades,
-                filial: row.filial,
-                valor: row.valor,
-                previsao_entrega: row.previsao_entrega,
-                status: "Aprovado",
-                data_entrega: null,
-            };
-        });
+        const timestamp = Date.now(); // Single timestamp for the whole order
+        const today = new Date();
+        const year = today.getFullYear();
+        const month = String(today.getMonth() + 1).padStart(2, '0');
+        const day = String(today.getDate()).padStart(2, '0');
+        const formattedDate = `${year}-${month}-${day}`;
 
-        navigate('/orders', { state: { newOrders: newOrders } });
+        const newOrderItems = newOrderRows.map((row, index) => ({
+            id: timestamp + index, // Unique ID for each item row
+            numero_pedido: `PED-${timestamp}`, // Shared order number
+            item: row.item,
+            fornecedor: row.fornecedor,
+            quantidade: row.unidades,
+            filial: row.filial,
+            valor: row.valor,
+            previsao_entrega: row.previsao_entrega,
+            status: "Aprovado",
+            data_entrega: null,
+            data_pedido: formattedDate,
+        }));
+
+        navigate('/orders', { state: { newOrders: newOrderItems } });
     };
 
     return {

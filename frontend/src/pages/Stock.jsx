@@ -121,7 +121,7 @@ export default function Stock() {
                             <div className="flex gap-4">
                                 <button
                                     onClick={handleShowNewOrder}
-                                    className="bg-[#5A44B0] hover:bg-white text-white hover:text-black shadow-lg font-poppins uppercase text-sm p-2 rounded-md"
+                                    className="bg-[#f43629] hover:bg-white text-white hover:text-black shadow-lg font-poppins uppercase text-sm p-2 rounded-md"
                                 >
                                     Criar nova requisição
                                 </button>
@@ -169,7 +169,7 @@ export default function Stock() {
                                 <div className="flex justify-end mt-4">
                                     <button
                                         onClick={() => setIsConfirmOrderModalOpen(true)}
-                                        className="bg-[#5A44B0] hover:bg-white text-white hover:text-black shadow-lg font-poppins uppercase text-sm p-2 rounded-md"
+                                        className="bg-[#f43629] hover:bg-white text-white hover:text-black shadow-lg font-poppins uppercase text-sm p-2 rounded-md"
                                     >
                                         Criar pedido
                                     </button>

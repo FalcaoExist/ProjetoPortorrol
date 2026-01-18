@@ -12,7 +12,8 @@ import Orders from "./pages/Orders";
 import ListUsers from "./pages/ListUsers";
 import ListSuppliers from "./pages/ListSuppliers";
 import Records from "./pages/Records";
-import Profile from "./pages/Profile";
+import Profile from "./pages/Profile"
+import NewOrder from "./pages/NewOrder";
 
 export default function App() {
   return (
@@ -46,6 +47,14 @@ export default function App() {
             element={
               <PrivateRoute>
                 <Orders />
+              </PrivateRoute>
+            }
+          />
+          <Route 
+            path="/new-order"
+            element={
+              <PrivateRoute>
+                <NewOrder />
               </PrivateRoute>
             }
           />

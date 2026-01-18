@@ -1,6 +1,7 @@
 import React from "react";
 import NavItem from "./NavItem";
-import logoIby_maior from "../../assets/logoIby_maior.png";
+import logoPort from "../../assets/LogoPort.png";
+import logoIby from "../../assets/logoIby_maior.png";
 import { Link } from "react-router-dom";
 import { defaultSections as defaultSectionsConfig } from "./navConfig";
 
@@ -8,7 +9,7 @@ import { useAuth } from "../../context/authContext";
 
 export default function Navbar({
     sections = defaultSectionsConfig,
-    logoSrc = logoIby_maior,
+    logoSrc = logoPort,
 } = {}) {
     const { logout, isGestor } = useAuth();
 
@@ -35,7 +36,7 @@ export default function Navbar({
         .filter(Boolean);
 
     return (
-        <aside className={`sticky top-0 h-screen w-64 bg-[#F1F2F7] border-r shadow-sm p-4 flex flex-col self-start`}>
+        <aside className={`sticky top-0 h-screen w-64 bg-[#d4d4d4] border-r shadow-sm p-4 flex flex-col self-start`}>
             <img src={logoSrc} alt="logo" className="w-50 mb-4" />
 
             <nav className={"flex flex-col mt-4"}>
@@ -44,7 +45,7 @@ export default function Navbar({
                         key={section.id || section.title || `section-${sectionIndex}`}
                     >
                         {section.title ? (
-                            <span className="text-[#082431] text-sm tracking-widest self-start font-poppins mb-2 ml-8 block">{section.title}</span>
+                            <span className="text-[#031933] text-sm tracking-widest self-start font-poppins mb-2 ml-8 block">{section.title}</span>
                         ) : null}
                         <ul
                             className="flex flex-col gap-y-2 pl-9 items-start"
@@ -80,6 +81,10 @@ export default function Navbar({
                     Sair
                 </button>
             </nav>
+            <div className="flex flex-col items-center mt-auto pb-4">
+                <span className="text-[0.6rem] text-gray-500 font-poppins">Desenvolvido por</span>
+                <img src={logoIby} alt="IBy Logo" className="w-16 mt-1" />
+            </div>
         </aside>
     );
 }

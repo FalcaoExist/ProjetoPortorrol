@@ -36,7 +36,7 @@ export const BaseDataGrid = ({
 
     return (
         <Box sx={{
-            height: 400,
+            height: props.autoHeight ? 'auto' : 400,
             width: '100%',
             fontFamily: 'Poppins',
             color: '#111827',

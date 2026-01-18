@@ -28,11 +28,16 @@ const StatusCell = ({ value }) => {
     );
 };
 
-export default function StockTable({ rows = [] }) {
+export default function StockTable({ 
+    rows = [], 
+    isRequisitionMode, 
+    rowSelectionModel, 
+    onRowSelectionModelChange 
+}) {
     const columns = useMemo(() => [
         {
             field: "codigo",
-            headerName: "Código",
+            headerName: "Referência",
             minWidth: 100,
             flex: 0.8,
             headerAlign: "left",
@@ -103,6 +108,10 @@ export default function StockTable({ rows = [] }) {
                 rows={rows}
                 columns={columns}
                 headerStyle="alternative"
+                checkboxSelection={isRequisitionMode}
+                rowSelectionModel={rowSelectionModel}
+                onRowSelectionModelChange={onRowSelectionModelChange}
+                getRowId={(row) => row.id}
             />
         </Box>
     );

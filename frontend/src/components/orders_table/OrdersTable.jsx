@@ -69,7 +69,7 @@ export default function OrdersTable({ rows = [], updateData }) {
 
     const columns = useMemo(() => [
         { field: "numero_pedido", headerName: "Número do pedido", minWidth: 150, flex: 1 },
-        { field: "item", headerName: "Item", minWidth: 180, flex: 1.5, valueGetter: () => "ANEL FRB 100/11,5" },
+        { field: "item", headerName: "Item", minWidth: 180, flex: 1.5 },
         { field: "fornecedor", headerName: "Fornecedor", minWidth: 150, flex: 1 },
         { field: "quantidade", headerName: "Quantidade", type: "number", minWidth: 100, flex: 0.7, align: "left", headerAlign: "left" },
         { field: "filial", headerName: "Filial", minWidth: 150, flex: 1 },

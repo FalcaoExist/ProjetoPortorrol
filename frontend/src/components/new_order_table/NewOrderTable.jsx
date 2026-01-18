@@ -2,14 +2,13 @@ import React, { useMemo } from 'react';
 import { BaseDataGrid } from '../common/BaseDataGrid';
 import { IconButton } from '@mui/material';
 import { FaTrash } from 'react-icons/fa';
-
-const filialOptions = ["Porto Alegre", "Joinville", "São Paulo"];
+import { filialOptions } from '../../hooks/mockData';
 
 export default function NewOrderTable({ rows = [], handleRowUpdate, handleDelete }) {
 
     const processRowUpdate = async (newRow, oldRow) => {
         const updatedRow = await handleRowUpdate(newRow);
-        return updatedRow;
+        return updatedRow ?? oldRow;
     };
 
     const columns = useMemo(() => [
@@ -59,11 +58,13 @@ export default function NewOrderTable({ rows = [], handleRowUpdate, handleDelete
             minWidth: 150,
             flex: 1,
             editable: true,
-            type: 'singleSelect',
+            type: "singleSelect",
             valueOptions: filialOptions,
-            align: 'left',
-            headerAlign: 'left',
+            align: "left",
+            headerAlign: "left",
+            renderCell: (params) => params.value ?? "",
         },
+
         {
             field: "valor",
             headerName: "Valor (R$)",
@@ -71,44 +72,87 @@ export default function NewOrderTable({ rows = [], handleRowUpdate, handleDelete
             minWidth: 120,
             flex: 0.8,
             editable: true,
-            align: 'left',
-            headerAlign: 'left',
-            valueFormatter: ({ value }) => {
-                if (typeof value !== 'number') return '';
-                return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-            }
-        },
-        {
-            field: "previsao_entrega",
-            headerName: "Previsão de entrega",
-            type: 'date',
-            minWidth: 180,
-            flex: 1,
-            editable: true,
-            align: 'left',
-            headerAlign: 'left',
-            valueFormatter: (params) => {
-                if (!params.value) return '';
-                const date = new Date(params.value);
-                if (date instanceof Date && !isNaN(date)) {
-                    const year = date.getUTCFullYear();
-                    const month = (date.getUTCMonth() + 1).toString().padStart(2, '0');
-                    const day = date.getUTCDate().toString().padStart(2, '0');
-                    return `${day}/${month}/${year}`;
-                }
-                return '';
+            align: "left",
+            headerAlign: "left",
+
+            valueParser: (value) => {
+                if (value === "" || value == null) return null;
+                const n = Number(value);
+                return isNaN(n) ? null : n;
             },
+
+            renderCell: (params) => {
+                if (typeof params.value !== "number") return "";
+                return params.value.toLocaleString("pt-BR", {
+                    style: "currency",
+                    currency: "BRL",
+                });
+            },
+        },
+
+        {
+    field: "previsao_entrega",
+    headerName: "Previsão de entrega",
+    minWidth: 180,
+    flex: 1,
+    editable: true,
+    align: "left",
+    headerAlign: "left",
+
+    renderCell: (params) => {
+        if (!params.value) return "";
+        const date = new Date(params.value);
+        if (isNaN(date.getTime())) return "";
+        const userTimezoneOffset = date.getTimezoneOffset() * 60000;
+        const correctedDate = new Date(date.getTime() + userTimezoneOffset);
+        return correctedDate.toLocaleDateString("pt-BR");
+    },
+
+    renderEditCell: (params) => {
+        const { id, field, value, api } = params;
+
+        const handleChange = async (e) => {
+            const newValue = e.target.value || null;
+
+            await api.setEditCellValue(
+                { id, field, value: newValue },
+                { debounceMs: 0 }
+            );
+
+            api.stopCellEditMode({ id, field });
+        };
+
+        let formattedValue = value;
+        if (value instanceof Date) {
+            formattedValue = value.toISOString().split("T")[0];
+        } else if (typeof value === "string" && value.includes("T")) {
+            formattedValue = value.split("T")[0];
+        }
+
+
+        return (
+            <input
+                type="date"
+                value={formattedValue ?? ""}
+                onChange={handleChange}
+                className="w-full h-full bg-transparent outline-none border-none text-left"
+            />
+        );
+    },
         },
     ], [handleDelete]);
 
     return (
-        <BaseDataGrid
-            rows={rows}
-            columns={columns}
-            processRowUpdate={processRowUpdate}
-            onProcessRowUpdateError={(error) => console.error(error)}
-            experimentalFeatures={{ newEditingApi: true }}
-            autoHeight
-        />
+        <div className="flex flex-col items-center w-full">
+            <div className="w-full">
+                <BaseDataGrid
+                    rows={rows}
+                    columns={columns}
+                    processRowUpdate={processRowUpdate}
+                    onProcessRowUpdateError={(error) => console.error(error)}
+                    experimentalFeatures={{ newEditingApi: true }}
+                />
+            </div>
+        </div>
     );
 }

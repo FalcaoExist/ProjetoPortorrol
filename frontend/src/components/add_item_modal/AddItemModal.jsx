@@ -5,7 +5,7 @@ import SearchBar from '../common/SearchBar';
 import SelectFilter from '../common/SelectFilter';
 import { BaseDataGrid } from '../common/BaseDataGrid';
 
-import { initialStockData } from '../../data/mockData';
+import { initialStockData } from '../../hooks/mockData';
 
 const statusOptions = ["Ok", "Subdimensionado", "Ruptura iminente", "Excesso"];
 const fornecedorOptions = ["NSK", "Timken", "FRM", "BGL", "IKO", "SAV"];

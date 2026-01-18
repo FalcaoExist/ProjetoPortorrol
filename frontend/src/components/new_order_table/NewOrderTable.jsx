@@ -103,7 +103,9 @@ export default function NewOrderTable({ rows = [], handleRowUpdate, handleDelete
         if (!params.value) return "";
         const date = new Date(params.value);
         if (isNaN(date.getTime())) return "";
-        return date.toLocaleDateString("pt-BR");
+        const userTimezoneOffset = date.getTimezoneOffset() * 60000;
+        const correctedDate = new Date(date.getTime() + userTimezoneOffset);
+        return correctedDate.toLocaleDateString("pt-BR");
     },
 
     renderEditCell: (params) => {
@@ -120,15 +122,23 @@ export default function NewOrderTable({ rows = [], handleRowUpdate, handleDelete
             api.stopCellEditMode({ id, field });
         };
 
+        let formattedValue = value;
+        if (value instanceof Date) {
+            formattedValue = value.toISOString().split("T")[0];
+        } else if (typeof value === "string" && value.includes("T")) {
+            formattedValue = value.split("T")[0];
+        }
+
+
         return (
-                    <input
-                        type="date"
-                        value={value ?? ""}
-                        onChange={handleChange}
-                        className="w-full h-full bg-transparent outline-none border-none text-left"
-                    />
-                );
-            },
+            <input
+                type="date"
+                value={formattedValue ?? ""}
+                onChange={handleChange}
+                className="w-full h-full bg-transparent outline-none border-none text-left"
+            />
+        );
+    },
         },
     ], [handleDelete]);
 

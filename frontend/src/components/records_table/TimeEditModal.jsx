@@ -8,9 +8,10 @@ export default function TimeEditModal({
   onClose = () => {},
   initialTime = "05:00",
 }) {
-  if (!isOpen) return null;
-
+  
   const [time, setTime] = useState(initialTime);
+  
+  if (!isOpen) return null;
 
   const handleSave = () => {
     onSave(time);

@@ -74,6 +74,34 @@ export const downloadCSV = (csv, filename) => {
   URL.revokeObjectURL(url);
 };
 
+export const exportRowsCSV = (rows, prefix = "EXPORT") => {
+  const csv = generateCSV(rows);
+  const safePrefix = String(prefix).toUpperCase().replace(/[^A-Z0-9_-]/g, "_");
+  const filename = `PORTORROL_IBY_EXPORTACAO_${safePrefix}_${formatTimestampForFilename(new Date())}.csv`;
+  downloadCSV(csv, filename);
+};
+export const buildStockRows = (data) => {
+  const rows = [];
+  rows.push(["Código", "Item", "Categoria", "Unidades", "Fornecedor", "Filial", "Dias de Cobertura"]);
+  data.forEach((r) => {
+    rows.push([
+      r.codigo || "",
+      r.item || "",
+      r.categoria || "",
+      r.unidades != null ? r.unidades : "",
+      r.fornecedor || "",
+      r.filial || "",
+      r.dias_cobertura != null ? r.dias_cobertura : "",
+    ]);
+  });
+  return rows;
+};
+
+export const exportStockCSV = (data) => {
+  const rows = buildStockRows(data);
+  exportRowsCSV(rows, "ESTOQUE");
+};
+
 const pad = (n) => String(n).padStart(2, "0");
 const formatTimestampForFilename = (d) => {
   return `${pad(d.getDate())}-${pad(d.getMonth() + 1)}-${d.getFullYear()}_${pad(

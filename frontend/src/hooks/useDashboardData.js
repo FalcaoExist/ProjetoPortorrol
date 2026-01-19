@@ -1,22 +1,22 @@
 import { useState } from "react";
 
 export default function useDashboardData() {
-  const [branch, setBranch] = useState("Todos");
-  const [supplier, setSupplier] = useState("Todos");
+  const [branch, setBranch] = useState("filial");
+  const [supplier, setSupplier] = useState("fornecedor");
   const [sku, setSku] = useState(null);
 
   const branchOptions = [
     { value: "Todos", label: "Todos" },
-    { value: "Porto Alegre", label: "Porto Alegre" },
-    { value: "Joinville", label: "Joinville" },
-    { value: "São Paulo", label: "São Paulo" },
+    { value: "filial", label: "Filial" },
+    { value: "filial_a", label: "Filial A" },
+    { value: "filial_b", label: "Filial B" },
   ];
 
   const supplierOptions = [
     { value: "Todos", label: "Todos" },
-    { value: "NSK", label: "NSK" },
-    { value: "Timken", label: "Timken" },
-    { value: "FRM", label: "FRM" },
+    { value: "fornecedor", label: "Fornecedor" },
+    { value: "fornecedor_x", label: "Fornecedor X" },
+    { value: "fornecedor_y", label: "Fornecedor Y" },
   ];
 
   const months = [

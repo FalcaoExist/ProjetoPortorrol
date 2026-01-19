@@ -1,7 +1,6 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { useLocation } from "react-router-dom";
-import httpClient from "../services/validators/api/httpClient"; // Certifique-se que o caminho está correto
-
+import httpClient from "../services/validators/api/httpClient"; 
 export function useOrders() {
     const location = useLocation();
     
@@ -9,12 +8,11 @@ export function useOrders() {
     const [loading, setLoading] = useState(true);
 
     const [searchQuery, setSearchQuery] = useState("");
-    const [statusFilter, setStatusFilter] = useState(""); // Filtro do dropdown
+    const [statusFilter, setStatusFilter] = useState(""); 
     const [orderDate, setOrderDate] = useState("");
     const [modalOpen, setModalOpen] = useState(false);
     const [selectedOrderItems, setSelectedOrderItems] = useState([]);
 
-    // --- 1. BUSCA DADOS REAIS E APLICA REGRA "APROVADO/ATRASADO" ---
     const fetchOrders = useCallback(async () => {
         setLoading(true);
         try {
@@ -23,19 +21,14 @@ export function useOrders() {
             const hoje = new Date();
 
             const formattedData = data.map(item => {
-                // REGRA SIMPLIFICADA:
-                // Padrão é "Aprovado". Só muda se a data estourou.
                 let statusBinario = "Aprovado";
 
-                // Se tiver data de entrega prevista
                 if (item.data_entrega) {
                     const dataEntrega = new Date(item.data_entrega);
-                    // Ajusta fuso horário se necessário ou compara datas simples
-                    dataEntrega.setHours(23, 59, 59); // Considera até o fim do dia
+                    dataEntrega.setHours(23, 59, 59);
 
                     const isBackendFinished = item.status === 'COMPLETED' || item.status === 'APPROVED';
                     
-                    // Se a data passou E o backend diz que não terminou = ATRASADO
                     if (dataEntrega < hoje && !isBackendFinished) {
                         statusBinario = "Atrasado";
                     }
@@ -49,11 +42,8 @@ export function useOrders() {
                     quantidade: item.quantity,
                     filial: "Matriz",               
                     valor: item.total_value,
-                    // Data do Pedido (Created At)
                     data_pedido: item.created_at ? item.created_at.split('T')[0] : "",
-                    // Previsão
                     previsao_entrega: item.data_entrega,
-                    // Status Final (Apenas Aprovado ou Atrasado)
                     status: statusBinario 
                 };
             });
@@ -66,16 +56,12 @@ export function useOrders() {
         }
     }, []);
 
-    // Inicialização
     useEffect(() => {
         fetchOrders();
     }, [fetchOrders]);
 
-    // --- 2. Atualização via Redirecionamento (MANTIDO) ---
     useEffect(() => {
         if (location.state?.newOrders) {
-            // Se vierem novos pedidos via navegação, adicionamos à lista
-            // assumindo que eles nascem como "Aprovado" (pois acabaram de ser criados)
             const newOrders = location.state.newOrders.map(o => ({
                 ...o,
                 status: "Aprovado" 
@@ -93,7 +79,6 @@ export function useOrders() {
         }
     }, [location.state]);
 
-    // --- 3. Modais (MANTIDO) ---
     const handleOpenModal = (items) => {
         if (typeof items === 'string') {
             const orderId = items;
@@ -110,9 +95,7 @@ export function useOrders() {
         setSelectedOrderItems([]);
     };
 
-    // --- 4. Agrupamento e Filtragem (MANTIDO) ---
     const groupedAndFilteredOrders = useMemo(() => {
-        // Agrupa por Número do Pedido
         const grouped = ordersData.reduce((acc, item) => {
             if (!acc[item.numero_pedido]) {
                 acc[item.numero_pedido] = {
@@ -131,7 +114,6 @@ export function useOrders() {
         }, {});
 
         return Object.values(grouped).map(order => {
-            // Se UM item estiver atrasado, o pedido todo é "Atrasado"
             const hasDelayedItem = order.items.some(item => item.status === "Atrasado");
             const orderStatus = hasDelayedItem ? "Atrasado" : "Aprovado";
             
@@ -145,7 +127,6 @@ export function useOrders() {
             const numPedido = String(order.numero_pedido || "").toLowerCase();
             const fornec = String(order.fornecedor || "").toLowerCase();
 
-            // Filtros de Texto, Status e Data
             return (
                 (searchQuery === "" || numPedido.includes(searchLower) || fornec.includes(searchLower)) &&
                 (statusFilter === "" || statusFilter === "Todos" || order.status === statusFilter) &&
@@ -154,7 +135,6 @@ export function useOrders() {
         });
     }, [ordersData, searchQuery, statusFilter, orderDate]);
 
-    // --- 5. Atualização Local (MANTIDO) ---
     const handleUpdateData = (id, field, value) => {
         setOrdersData(currentData =>
             currentData.map(row =>

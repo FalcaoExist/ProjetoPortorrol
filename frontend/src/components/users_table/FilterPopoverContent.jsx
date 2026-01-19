@@ -27,11 +27,15 @@ function SelectFilterControl({ value, options = [], onChange }) {
             className="w-full rounded border border-gray-300 px-3 py-2 text-sm text-gray-700 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 font-poppins bg-white cursor-pointer transition-shadow"
         >
             <option value="">Todos</option>
-            {options.map((option) => (
-                <option key={option} value={option}>
-                    {option}
-                </option>
-            ))}
+            {options.map((option, idx) => {
+                const optValue = typeof option === 'object' && option !== null ? option.value : option;
+                const optLabel = typeof option === 'object' && option !== null ? option.label : option;
+                return (
+                    <option key={`${optValue}-${idx}`} value={optValue}>
+                        {optLabel}
+                    </option>
+                );
+            })}
         </select>
     );
 }
@@ -42,22 +46,24 @@ function MultiSelectFilterControl({ value = [], options = [], onChange }) {
     const selectedValues = Array.isArray(value) ? value : [];
 
     const toggleOption = (option) => {
-        const newValues = selectedValues.includes(option)
-            ? selectedValues.filter((v) => v !== option) // Remove
-            : [...selectedValues, option]; // Adiciona
+        const optValue = typeof option === 'object' && option !== null ? option.value : option;
+        const newValues = selectedValues.includes(optValue)
+            ? selectedValues.filter((v) => v !== optValue) // Remove
+            : [...selectedValues, optValue]; // Adiciona
         onChange(newValues);
     };
 
     return (
         <div className="max-h-48 overflow-y-auto border border-gray-300 rounded p-1 bg-gray-50">
-            {options.length > 0 ? options.map((option) => {
+            {options.length > 0 ? options.map((option, idx) => {
                 // Ignora opções vazias se houver
                 if (!option) return null;
-                
-                const isSelected = selectedValues.includes(option);
+                const optValue = typeof option === 'object' && option !== null ? option.value : option;
+                const optLabel = typeof option === 'object' && option !== null ? option.label : option;
+                const isSelected = selectedValues.includes(optValue);
                 return (
                     <div
-                        key={option}
+                        key={`${optValue}-${idx}`}
                         onClick={() => toggleOption(option)}
                         className={`
                             px-3 py-2 cursor-pointer flex items-center gap-3 text-sm font-poppins rounded-md transition-colors select-none
@@ -70,7 +76,7 @@ function MultiSelectFilterControl({ value = [], options = [], onChange }) {
                         `}>
                             {isSelected && <FiCheck size={10} className="text-white" />}
                         </div>
-                        <span className="truncate">{option}</span>
+                        <span className="truncate">{optLabel}</span>
                     </div>
                 );
             }) : (

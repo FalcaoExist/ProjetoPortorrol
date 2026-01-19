@@ -96,21 +96,11 @@ export const traduzirErroUpload = (error) => {
 
     // Erro 500: Servidor
 
+  // Erro 500: Servidor
     if (status >= 500) {
-
         return " Erro interno no servidor. Tente novamente mais tarde.";
-
-    
-
-
+    }
 
     // --- FALLBACK FINAL (A BLINDAGEM) ---
-
-    // Se chegou aqui, é um erro que não mapeamos. 
-
-    // Em vez de mostrar o inglês (detalheTecnico), mostramos isso:
-
     return ` Erro desconhecido (${status}). Verifique se o arquivo está correto.`;
-
-}; 
-}
+};

@@ -2,8 +2,6 @@
 import React from 'react';
 
 export const statusOptions = ["Aprovado", "Atrasado"];
-export const fornecedorOptions = ["NSK", "Timken", "FRM", "BGL", "IKO", "SAV"];
-export const filialOptions = ["Porto Alegre", "Joinville", "São Paulo"];
 
 export const getStatusStyles = (status) => {
     if (status === "Aprovado") return { bgColor: "bg-green-200", textColor: "text-green-800" };

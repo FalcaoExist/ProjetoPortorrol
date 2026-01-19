@@ -14,10 +14,8 @@ export default function Orders() {
         setSearchQuery,
         statusFilter,
         setStatusFilter,
-        fornecedor,
-        setFornecedor,
-        filial,
-        setFilial,
+        orderDate,
+        setOrderDate,
         modalOpen,
         selectedOrderItems,
         handleOpenModal,
@@ -43,10 +41,8 @@ export default function Orders() {
                                 onSearchChange={(e) => setSearchQuery(e.target.value)}
                                 statusFilter={statusFilter}
                                 onStatusChange={(e) => setStatusFilter(e.target.value)}
-                                fornecedor={fornecedor}
-                                onFornecedorChange={(e) => setFornecedor(e.target.value)}
-                                filial={filial}
-                                onFilialChange={(e) => setFilial(e.target.value)}
+                                orderDate={orderDate}
+                                onOrderDateChange={(e) => setOrderDate(e.target.value)}
                             />
                         </div>
 

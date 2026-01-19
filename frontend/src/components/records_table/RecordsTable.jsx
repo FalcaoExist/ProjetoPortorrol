@@ -1,60 +1,41 @@
-import { useMemo, useState, useEffect } from "react";
-import { useMediaQuery } from "@mui/material";
-import { useEntityFilters } from "../../hooks/useEntityFilters";
+import { useMemo, useState } from "react";
+import { useMediaQuery, Chip, Tooltip, Typography, Dialog, DialogTitle, DialogContent, DialogActions, Button, Stack } from "@mui/material";
 import { useColumnPopover } from "../../hooks/useColumnPopover";
 import { BaseDataGrid } from "../common/BaseDataGrid";
 import CustomFilterHeader from "../users_table/CustomFilterHeader";
 
-const DEFAULT_ACTION_OPTIONS = ["Novo pedido", "Relatórios", "Exclusão", "Login", "Logout"];
+import useRecords from "../../hooks/useRecords";
+import {
+  DEFAULT_ACTION_OPTIONS,
+  SEVERITY_COLOR_MAP,
+  SEVERITY_OPTIONS,
+  SEVERITY_LABEL_MAP,
+  MAX_DESCRIPTION_LENGTH,
+} from "./constants";
 
-// Regras de filtragem para a tabela de registros
-const FILTER_CONFIG = {
-  timestamp: {
-    shouldApply: (value) => value && (value.from || value.to),
-    predicate: (row, value) => {
-      const rowDate = new Date(row.timestamp);
-      // Normaliza as datas de filtro para o início do dia
-      const fromDate = value.from ? new Date(value.from + "T00:00:00") : null;
-      const toDate = value.to ? new Date(value.to + "T23:59:59") : null;
-      
-      if (fromDate && rowDate < fromDate) return false;
-      if (toDate && rowDate > toDate) return false;
-      return true;
-    },
-  },
-  action: {
-    shouldApply: (value) =>
-      Array.isArray(value) ? value.length > 0 : Boolean(value),
-    predicate: (row, value) => {
-      const selected = Array.isArray(value)
-        ? value
-        : value
-        ? [value]
-        : [];
-      if (!selected.length) return true;
-      return selected.includes(row.action);
-    },
-  },
-};
+function truncateText(text, maxLength = MAX_DESCRIPTION_LENGTH) {
+  if (!text) return "-";
+  if (text.length <= maxLength) return text;
+  return text.slice(0, maxLength) + "…";
+}
 
 export default function RecordsTable({ records = [] }) {
-  const [rows, setRows] = useState([]);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [selectedLog, setSelectedLog] = useState(null);
+  const openDetails = (row) => {
+    setSelectedLog(row);
+    setDetailsOpen(true);
+  };
+  const closeDetails = () => {
+    setDetailsOpen(false);
+    setSelectedLog(null);
+  };
+
   const isCompactLayout = useMediaQuery("(max-width:1279px)");
   const { anchorEl, activeColumnId, openPopover, closePopover } = useColumnPopover();
-  const { filters, handleFilterChange, applyFilters } = useEntityFilters({ config: FILTER_CONFIG });
-  const actionFilterOptions = useMemo(() => {
-    const uniqueFromRecords = Array.from(
-      new Set(rows.map((row) => row.action).filter(Boolean))
-    );
-    if (uniqueFromRecords.length) return uniqueFromRecords;
-    return DEFAULT_ACTION_OPTIONS;
-  }, [rows]);
 
-  useEffect(() => {
-    setRows(records);
-  }, [records]);
-
-  const filteredRows = useMemo(() => applyFilters(rows), [applyFilters, rows]);
+  const { formattedRows, allActionOptions: computedActionOptions, filters, handleFilterChange } = useRecords(records);
+  const allActionOptions = computedActionOptions || DEFAULT_ACTION_OPTIONS;
 
   const columns = useMemo(
     () => [
@@ -83,14 +64,14 @@ export default function RecordsTable({ records = [] }) {
             anchorEl={anchorEl}
             handleHeaderClick={openPopover}
             handleClose={closePopover}
-            filterType="date" // Requer um novo tipo de controle no popover
+            filterType="date"
             filters={filters}
             handleFilterChange={handleFilterChange}
           />
         ),
       },
       {
-        field: "action",
+        field: "actionLabel",
         headerName: "Ação",
         minWidth: isCompactLayout ? 120 : 150,
         flex: 0.7,
@@ -106,9 +87,41 @@ export default function RecordsTable({ records = [] }) {
             handleClose={closePopover}
             filterType="multiSelect"
             placeholder="Filtrar ações"
-            options={actionFilterOptions}
+            options={allActionOptions}
             filters={filters}
             handleFilterChange={handleFilterChange}
+          />
+        ),
+      },
+      {
+        field: "severity",
+        headerName: "Severidade",
+        minWidth: 130,
+        flex: 0.6,
+        headerAlign: "center",
+        align: "center",
+        sortable: false,
+        renderHeader: () => (
+          <CustomFilterHeader
+            columnId="severity"
+            label="Severidade"
+            activeColumnId={activeColumnId}
+            anchorEl={anchorEl}
+            handleHeaderClick={openPopover}
+            handleClose={closePopover}
+            filterType="multiSelect"
+            placeholder="Filtrar severidade"
+            options={SEVERITY_OPTIONS}
+            filters={filters}
+            handleFilterChange={handleFilterChange}
+          />
+        ),
+        renderCell: (params) => (
+          <Chip
+            label={SEVERITY_LABEL_MAP[params.value] ?? params.value}
+            color={SEVERITY_COLOR_MAP[params.value] ?? "default"}
+            size="small"
+            variant="outlined"
           />
         ),
       },
@@ -120,10 +133,99 @@ export default function RecordsTable({ records = [] }) {
         headerAlign: "center",
         align: "center",
         sortable: false,
+        renderCell: (params) => {
+          const fullText = params.value;
+          const truncated = truncateText(fullText);
+
+          if (!fullText || fullText.length <= MAX_DESCRIPTION_LENGTH) {
+            return truncated;
+          }
+
+          return (
+            <Tooltip title="Clique para ver detalhes" arrow>
+              <Typography
+                variant="body2"
+                sx={{
+                  cursor: "pointer",
+                  whiteSpace: "nowrap",
+                  color: "primary.main",
+                }}
+                onClick={() => openDetails(params.row)}
+              >
+                {truncated}
+              </Typography>
+            </Tooltip>
+          );
+        },
       },
     ],
-    [anchorEl, activeColumnId, filters, handleFilterChange, openPopover, closePopover, isCompactLayout, actionFilterOptions]
+    [anchorEl, activeColumnId, filters, handleFilterChange, openPopover, closePopover, isCompactLayout, allActionOptions]
   );
 
-  return <BaseDataGrid rows={filteredRows} columns={columns} />;
+  return (
+    <>
+      <BaseDataGrid
+        rows={formattedRows}
+        columns={columns}
+      />
+
+      <Dialog
+        open={detailsOpen}
+        onClose={closeDetails}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>Detalhes do Registro</DialogTitle>
+
+        <DialogContent dividers>
+          {selectedLog && (
+            <Stack spacing={2}>
+              <Typography>
+                <strong>Usuário:</strong> {selectedLog.user}
+              </Typography>
+
+              <Typography>
+                <strong>Data/Hora:</strong>{" "}
+                {new Date(selectedLog.timestamp).toLocaleString("pt-BR")}
+              </Typography>
+
+              <Stack direction="row" spacing={2} alignItems="center">
+                <Typography>
+                  <strong>Ação:</strong> {selectedLog.actionLabel}
+                </Typography>
+
+                <Chip
+                  label={SEVERITY_LABEL_MAP[selectedLog.severity] ?? selectedLog.severity}
+                  color={SEVERITY_COLOR_MAP[selectedLog.severity] ?? "default"}
+                  size="small"
+                  variant="outlined"
+                />
+              </Stack>
+
+              <Typography>
+                <strong>Descrição completa:</strong>
+              </Typography>
+
+              <Typography
+                variant="body2"
+                sx={{
+                  backgroundColor: "#f5f5f5",
+                  padding: 2,
+                  borderRadius: 1,
+                  fontFamily: "monospace",
+                  whiteSpace: "pre-wrap",
+                }}
+              >
+                {selectedLog.description}
+              </Typography>
+            </Stack>
+          )}
+        </DialogContent>
+
+        <DialogActions>
+          <Button onClick={closeDetails}>Fechar</Button>
+        </DialogActions>
+      </Dialog>
+    </>
+  );
 }

@@ -1,42 +1,22 @@
-import { useState, useMemo, useRef, useEffect } from "react";
+import { useState,  useRef, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/authContext";
+import { useStock } from "../hooks/useStock";
+import { importStockFromFile, exportStockData } from "../services/stockService";
+import { initialStockData, statusOptions, fornecedorOptions, filialOptions } from "../hooks/mockData";
+
 import Header from "../components/header/Header";
 import Navbar from "../components/nav_bar/NavBar";
 import SearchBar from "../components/common/SearchBar";
 import SelectFilter from "../components/common/SelectFilter";
 import StockTable from "../components/stock_table/StockTable";
-import ibyLogo from "../assets/iby.png";
-
-// Opções para os filtros
-const statusOptions = ["OK", "Subdimensionado", "Ruptura iminente", "Excesso"];
-const fornecedorOptions = ["NSK", "Timken", "FRM", "BGL", "IKO", "SAV"];
-const filialOptions = ["Porto Alegre", "Joinville", "São Paulo"];
-
-// Mock data para a tabela de estoque
-const initialStockData = [
-    { id: 1, codigo: "ROL-001", item: "ANel FRB 100/11,5", categoria: "Rolamento x", unidades: 150, fornecedor: "NSK", filial: "Porto Alegre", dias_cobertura: 25 },
-    { id: 2, codigo: "ROL-002", item: "ANel FRB 100/11,5", categoria: "Rolamento x", unidades: 80, fornecedor: "Timken", filial: "Joinville", dias_cobertura: 45 },
-    { id: 3, codigo: "RET-001", item: "ANel FRB 100/11,5", categoria: "Rolamento x", unidades: 300, fornecedor: "FRM", filial: "São Paulo", dias_cobertura: 75 },
-];
-
-const getStatusText = (diasDeCobertura) => {
-    if (diasDeCobertura <= 30) return "Ruptura iminente";
-    if (diasDeCobertura <= 60) return "Subdimensionado";
-    if (diasDeCobertura <= 100) return "OK";
-    return "Excesso";
-};
+import NewOrderTable from "../components/new_order_table/NewOrderTable";
+import ConfirmationModal from "../components/common/ConfirmationModal";
 
 export default function Stock() {
     const { user } = useAuth();
-    const [stockData, setStockData] = useState(initialStockData);
+    const navigate = useNavigate();
 
-    // Estados para os filtros
-    const [searchQuery, setSearchQuery] = useState("");
-    const [statusFilter, setStatusFilter] = useState("");
-    const [fornecedor, setFornecedor] = useState("");
-    const [filial, setFilial] = useState("");
-
-    // Lê possíveis filtros vindos da URL (ex: /stock?sku=...&status=...&supplier=...&branch=...)
     useEffect(() => {
         try {
             const params = new URLSearchParams(window.location.search);
@@ -55,56 +35,33 @@ export default function Stock() {
     }, []);
 
     const fileInputRef = useRef(null);
+    const [isConfirmOrderModalOpen, setIsConfirmOrderModalOpen] = useState(false);
+    const [isImportConfirmModalOpen, setIsImportConfirmModalOpen] = useState(false);
+    const [selectedFile, setSelectedFile] = useState(null);
 
-    const filteredRows = useMemo(() => {
-        return stockData.filter(row => {
-            const statusText = getStatusText(row.dias_cobertura);
-            return (
-                // Filtro de busca
-                (searchQuery === "" || row.item.toLowerCase().includes(searchQuery.toLowerCase()) || row.codigo.toLowerCase().includes(searchQuery.toLowerCase())) &&
-                // Filtro de status
-                (statusFilter === "" || statusText === statusFilter) &&
-                // Filtro de fornecedor
-                (fornecedor === "" || row.fornecedor === fornecedor) &&
-                // Filtro de filial
-                (filial === "" || row.filial === filial)
-            );
-        });
-    }, [stockData, searchQuery, statusFilter, fornecedor, filial]);
-
-    // const handleExportPDF = () => {
-    //     const doc = new jsPDF();
-    //     doc.addImage(ibyLogo, 'PNG', 10, 10, 20, 20);
-    //     doc.setFontSize(20);
-    //     doc.text("Planilha de estoque", 40, 22);
-    //     doc.setFontSize(10);
-    //     doc.text(`Data de emissão: ${new Date().toLocaleDateString()}`, 40, 28);
-        
-    //     const tableColumn = ["Código", "Item", "Categoria", "Unidades", "Fornecedor", "Filial", "Dias Cobertura", "Status"];
-    //     const tableRows = [];
-
-    //     filteredRows.forEach(row => {
-    //         const rowData = [
-    //             row.codigo,
-    //             row.item,
-    //             row.categoria,
-    //             row.unidades,
-    //             row.fornecedor,
-    //             row.filial,
-    //             row.dias_cobertura,
-    //             getStatusText(row.dias_cobertura)
-    //         ];
-    //         tableRows.push(rowData);
-    //     });
-
-    //     doc.autoTable({
-    //         head: [tableColumn],
-    //         body: tableRows,
-    //         startY: 40,
-    //     });
-
-    //     doc.save("relatorio_estoque.pdf");
-    // };
+    const {
+        isNewOrderVisible,
+        newOrderRows,
+        rowSelectionModel,
+        setRowSelectionModel,
+        filteredRows,
+        searchQuery,
+        setSearchQuery,
+        statusFilter,
+        setStatusFilter,
+        fornecedor,
+        setFornecedor,
+        filial,
+        setFilial,
+        isDeleteModalOpen,
+        setIsDeleteModalOpen,
+        handleShowNewOrder,
+        handleCloseNewOrder,
+        handleNewOrderRowUpdate,
+        handleDeleteClick,
+        confirmDelete,
+        handleCreateOrder
+    } = useStock(initialStockData);
 
     const handleImportClick = () => {
         fileInputRef.current.click();
@@ -113,8 +70,33 @@ export default function Stock() {
     const handleFileChange = (event) => {
         const file = event.target.files[0];
         if (file) {
-            console.log(`Arquivo selecionado: ${file.name}`);
-            // A lógica para processar o arquivo (ex: ler um CSV) pode ser adicionada aqui.
+            setSelectedFile(file);
+            setIsImportConfirmModalOpen(true);
+        }
+        event.target.value = '';
+    };
+
+    const handleConfirmImport = async () => {
+        if (selectedFile) {
+            try {
+                const result = await importStockFromFile(selectedFile);
+                alert(result.message); 
+            } catch (error) {
+                console.error("Erro ao importar arquivo:", error);
+                alert(`Erro ao importar: ${error.message}`);
+            } finally {
+                setSelectedFile(null);
+            }
+        }
+    };
+
+    const handleExportClick = async () => {
+        try {
+            const result = await exportStockData(filteredRows);
+            alert(result.message);
+        } catch (error) {
+            console.error("Erro ao exportar dados:", error);
+            alert(`Erro ao exportar: ${error.message}`);
         }
     };
 
@@ -124,10 +106,10 @@ export default function Stock() {
 
             <main className="min-w-0">
                 <div className="flex flex-col">
-                    <Header pageTitle={"Stock"} userName={user?.name || "Usuário"} />
+                    <Header pageTitle={"Estoque"} userName={user?.name || "Usuário"} />
 
                     <section className="px-4 py-6 md:px-8 lg:px-12">
-                        {/* Container para os filtros */}
+                        
                         <div className="flex flex-wrap items-center gap-4 mb-6">
                             <SearchBar
                                 value={searchQuery}
@@ -157,31 +139,108 @@ export default function Stock() {
                             />
                         </div>
 
-                        <StockTable rows={filteredRows} />
-                        <div className="flex justify-end gap-4 mt-4">
-                            <button
-                                onClick={handleImportClick}
-                                className="px-4 py-2 font-normal text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
-                            >
-                                IMPORTAR
-                            </button>
-                            <button
-                                // onClick={handleExportPDF}
-                                className="px-4 py-2 font-normal text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
-                            >
-                                EXPORTAR
-                            </button>
-                            <input 
-                                type="file"
-                                ref={fileInputRef}
-                                onChange={handleFileChange}
-                                style={{ display: 'none' }}
-                                accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel"
-                            />
+                        <StockTable 
+                            rows={filteredRows}
+                            isRequisitionMode={isNewOrderVisible}
+                            rowSelectionModel={rowSelectionModel}
+                            onRowSelectionModelChange={setRowSelectionModel}
+                        />
+                        <div className="flex items-center justify-between mt-4">
+                            <div className="flex gap-4">
+                                <button
+                                    onClick={handleShowNewOrder}
+                                    className="bg-[#f43629] hover:bg-white text-white hover:text-black shadow-lg font-poppins uppercase text-sm p-2 rounded-md"
+                                >
+                                    Criar nova requisição
+                                </button>
+                                {isNewOrderVisible && (
+                                    <button
+                                        onClick={handleCloseNewOrder}
+                                        className="px-4 py-2 font-normal text-gray-700 bg-gray-200 hover:bg-gray-300 font-poppins uppercase text-sm p-2 rounded-md"
+                                    >
+                                        Fechar
+                                    </button>
+                                )}
+                            </div>
+                            <div className="flex gap-4">
+                                <button
+                                    onClick={handleImportClick}
+                                    className="px-4 py-2 font-normal text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
+                                >
+                                    IMPORTAR
+                                </button>
+                                <button
+                                    onClick={handleExportClick}
+                                    className="px-4 py-2 font-normal text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
+                                >
+                                    EXPORTAR
+                                </button>
+
+                                <input 
+                                    type="file"
+                                    ref={fileInputRef}
+                                    onChange={handleFileChange}
+                                    style={{ display: 'none' }}
+                                    accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel"
+                                />
+                            </div>
                         </div>
+
+                        {isNewOrderVisible && (
+                            <div className="mt-6">
+                                <h2 className="text-xl font-semibold mb-4">Itens da Requisição</h2>
+                                <NewOrderTable 
+                                    rows={newOrderRows} 
+                                    handleRowUpdate={handleNewOrderRowUpdate} 
+                                    handleDelete={handleDeleteClick} 
+                                />
+                                <div className="flex justify-end mt-4">
+                                    <button
+                                        onClick={() => setIsConfirmOrderModalOpen(true)}
+                                        className="bg-[#f43629] hover:bg-white text-white hover:text-black shadow-lg font-poppins uppercase text-sm p-2 rounded-md"
+                                    >
+                                        Criar pedido
+                                    </button>
+                                </div>
+                            </div>
+                        )}
                     </section>
                 </div>
             </main>
+            <ConfirmationModal
+                isOpen={isDeleteModalOpen}
+                onClose={() => setIsDeleteModalOpen(false)}
+                onConfirm={confirmDelete}
+                title="Deseja excluir item do pedido?"
+                message="O item será removido da lista."
+                confirmButtonText="Excluir"
+                confirmButtonClassName="px-6 py-2.5 rounded-xl text-white font-medium shadow-lg transition-all bg-[#f43629] hover:bg-white hover:text-black disabled:opacity-60"
+            />
+            <ConfirmationModal
+                isOpen={isConfirmOrderModalOpen}
+                onClose={() => setIsConfirmOrderModalOpen(false)}
+                onConfirm={() => {
+                    handleCreateOrder(navigate);
+                }}
+                title="Confirmar Novo Pedido"
+                message="Você gostaria de fazer um novo pedido?"
+                confirmButtonText="Sim"
+                cancelButtonText="Cancelar"
+                confirmButtonClassName="px-6 py-2.5 rounded-xl text-white font-medium shadow-lg transition-all bg-[#f43629] hover:bg-white hover:text-black disabled:opacity-60"
+            />
+            <ConfirmationModal
+                isOpen={isImportConfirmModalOpen}
+                onClose={() => {
+                    setSelectedFile(null);
+                    setIsImportConfirmModalOpen(false);
+                }}
+                onConfirm={handleConfirmImport}
+                title="Confirmar Importação"
+                message={`Você tem certeza que deseja importar o arquivo ${selectedFile?.name}?`}
+                confirmButtonText="Importar"
+                cancelButtonText="Cancelar"
+                confirmButtonClassName="px-6 py-2.5 rounded-xl text-white font-medium shadow-lg transition-all bg-[#f43629] hover:bg-white hover:text-black disabled:opacity-60"
+            />
         </div>
     );
 }

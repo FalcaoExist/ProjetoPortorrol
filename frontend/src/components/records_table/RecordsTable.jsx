@@ -1,57 +1,17 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState } from "react";
 import { useMediaQuery, Chip, Tooltip, Typography, Dialog, DialogTitle, DialogContent, DialogActions, Button, Stack } from "@mui/material";
-import { useEntityFilters } from "../../hooks/useEntityFilters";
 import { useColumnPopover } from "../../hooks/useColumnPopover";
 import { BaseDataGrid } from "../common/BaseDataGrid";
 import CustomFilterHeader from "../users_table/CustomFilterHeader";
-import { formatAuditAction, formatAuditDescription, formatAuditSeverity } from "../../utils/auditLogFormatter";
 
-const DEFAULT_ACTION_OPTIONS = ["Novo pedido", "Relatórios", "Exclusão", "Login", "Logout"];
-const SEVERITY_COLOR_MAP = { INFO: "default", WARNING: "warning", ERROR: "error"};
-const SEVERITY_OPTIONS = ["INFO", "WARNING", "ERROR"];
-const [detailsOpen, setDetailsOpen] = useState(false);
-const [selectedLog, setSelectedLog] = useState(null);
-
-// Regras de filtragem para a tabela de registros
-const FILTER_CONFIG = {
-  timestamp: {
-    shouldApply: (value) => value && (value.from || value.to),
-    predicate: (row, value) => {
-      const rowDate = new Date(row.timestamp);
-      // Normaliza as datas de filtro para o início do dia
-      const fromDate = value.from ? new Date(value.from + "T00:00:00") : null;
-      const toDate = value.to ? new Date(value.to + "T23:59:59") : null;
-      
-      if (fromDate && rowDate < fromDate) return false;
-      if (toDate && rowDate > toDate) return false;
-      return true;
-    },
-  },
-  action: {
-    shouldApply: (value) =>
-      Array.isArray(value) ? value.length > 0 : Boolean(value),
-    predicate: (row, value) => {
-      const selected = Array.isArray(value)
-        ? value
-        : value
-        ? [value]
-        : [];
-      if (!selected.length) return true;
-      return selected.includes(row.actionLabel);
-    },
-  },
-  severity: {
-    shouldApply: (value) =>
-      Array.isArray(value) ? value.length > 0 : Boolean(value),
-    predicate: (row, value) => {
-      const selected = Array.isArray(value) ? value : [value];
-      if (!selected.length) return true;
-      return selected.includes(row.severity);
-    },
-  },
-};
-
-const MAX_DESCRIPTION_LENGTH = 90;
+import useRecords from "../../hooks/useRecords";
+import {
+  DEFAULT_ACTION_OPTIONS,
+  SEVERITY_COLOR_MAP,
+  SEVERITY_OPTIONS,
+  SEVERITY_LABEL_MAP,
+  MAX_DESCRIPTION_LENGTH,
+} from "./constants";
 
 function truncateText(text, maxLength = MAX_DESCRIPTION_LENGTH) {
   if (!text) return "-";
@@ -60,7 +20,8 @@ function truncateText(text, maxLength = MAX_DESCRIPTION_LENGTH) {
 }
 
 export default function RecordsTable({ records = [] }) {
-  const [rows, setRows] = useState([]);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [selectedLog, setSelectedLog] = useState(null);
   const openDetails = (row) => {
     setSelectedLog(row);
     setDetailsOpen(true);
@@ -69,33 +30,12 @@ export default function RecordsTable({ records = [] }) {
     setDetailsOpen(false);
     setSelectedLog(null);
   };
+
   const isCompactLayout = useMediaQuery("(max-width:1279px)");
   const { anchorEl, activeColumnId, openPopover, closePopover } = useColumnPopover();
-  const { filters, handleFilterChange, applyFilters } = useEntityFilters({ config: FILTER_CONFIG });
-  const actionFilterOptions = useMemo(() => {
-    const uniqueLabels = Array.from(
-      new Set(
-        formattedRows.map((row) => row.actionLabel).filter(Boolean)
-      )
-    );
-    if (uniqueLabels.length) return uniqueLabels;
-    return DEFAULT_ACTION_OPTIONS;
-  }, [formattedRows]);
 
-  useEffect(() => {
-    setRows(records);
-  }, [records]);
-
-  const filteredRows = useMemo(() => applyFilters(rows), [applyFilters, rows]);
-
-  const formattedRows = useMemo(() => {
-    return filteredRows.map((row) => ({
-      ...row,
-      actionLabel: formatAuditAction(row.action),
-      description: formatAuditDescription(row.action, row.description),
-      severity: formatAuditSeverity(row.action),
-    }));
-  }, [filteredRows]);
+  const { formattedRows, allActionOptions: computedActionOptions, filters, handleFilterChange } = useRecords(records);
+  const allActionOptions = computedActionOptions || DEFAULT_ACTION_OPTIONS;
 
   const columns = useMemo(
     () => [
@@ -124,7 +64,7 @@ export default function RecordsTable({ records = [] }) {
             anchorEl={anchorEl}
             handleHeaderClick={openPopover}
             handleClose={closePopover}
-            filterType="date" // Requer um novo tipo de controle no popover
+            filterType="date"
             filters={filters}
             handleFilterChange={handleFilterChange}
           />
@@ -147,7 +87,7 @@ export default function RecordsTable({ records = [] }) {
             handleClose={closePopover}
             filterType="multiSelect"
             placeholder="Filtrar ações"
-            options={actionFilterOptions}
+            options={allActionOptions}
             filters={filters}
             handleFilterChange={handleFilterChange}
           />
@@ -178,7 +118,7 @@ export default function RecordsTable({ records = [] }) {
         ),
         renderCell: (params) => (
           <Chip
-            label={params.value}
+            label={SEVERITY_LABEL_MAP[params.value] ?? params.value}
             color={SEVERITY_COLOR_MAP[params.value] ?? "default"}
             size="small"
             variant="outlined"
@@ -219,7 +159,7 @@ export default function RecordsTable({ records = [] }) {
         },
       },
     ],
-    [anchorEl, activeColumnId, filters, handleFilterChange, openPopover, closePopover, isCompactLayout, actionFilterOptions]
+    [anchorEl, activeColumnId, filters, handleFilterChange, openPopover, closePopover, isCompactLayout, allActionOptions]
   );
 
   return (
@@ -255,10 +195,8 @@ export default function RecordsTable({ records = [] }) {
                 </Typography>
 
                 <Chip
-                  label={selectedLog.severity}
-                  color={
-                    SEVERITY_COLOR_MAP[selectedLog.severity] ?? "default"
-                  }
+                  label={SEVERITY_LABEL_MAP[selectedLog.severity] ?? selectedLog.severity}
+                  color={SEVERITY_COLOR_MAP[selectedLog.severity] ?? "default"}
                   size="small"
                   variant="outlined"
                 />

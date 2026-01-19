@@ -1,50 +1,27 @@
+
 import React from 'react';
 
-// Opções para filtros, se necessário
-export const statusOptions = ["Aprovado", "Pendente", "Cancelado", "Atrasado"];
+export const statusOptions = ["Aprovado", "Atrasado"];
 
 export const getStatusStyles = (status) => {
-    // Normaliza para maiúsculo para garantir, ou compara direto
-    const s = String(status).toUpperCase();
-
-    if (s === "APPROVED" || s === "COMPLETED" || s === "APROVADO") {
-        return { bgColor: "bg-green-200", textColor: "text-green-800", label: "Aprovado" };
-    }
-    if (s === "CANCELLED" || s === "ATRASADO") {
-        return { bgColor: "bg-red-200", textColor: "text-red-800", label: "Cancelado/Atrasado" };
-    }
-    if (s === "PENDING" || s === "DRAFT") {
-        return { bgColor: "bg-yellow-100", textColor: "text-yellow-800", label: "Pendente" };
-    }
-    
-    // Padrão (Gray)
-    return { bgColor: "bg-gray-200", textColor: "text-gray-800", label: status };
+    if (status === "Aprovado") return { bgColor: "bg-green-200", textColor: "text-green-800" };
+    if (status === "Atrasado") return { bgColor: "bg-red-200", textColor: "text-red-800" };
+    return { bgColor: "bg-gray-200", textColor: "text-gray-800" };
 };
 
 export const StatusCell = ({ value }) => {
-    const style = getStatusStyles(value);
-    
+    const styles = getStatusStyles(value);
     return (
-        <div className={`inline-block px-2 py-1 text-center rounded-full text-xs font-semibold ${style.bgColor} ${style.textColor}`}>
-            {style.label}
+        <div className={`inline-block px-2 py-1 text-center rounded-full text-xs font-semibold ${styles.bgColor} ${styles.textColor}`}>
+            {value}
         </div>
     );
 };
 
 export const getMainOrdersColumns = (handleOpenModal) => [
+    { field: "numero_pedido", headerName: "Número do pedido", minWidth: 200, flex: 1.5 },
     { 
-        field: "order_id", // Adaptado para o backend
-        headerName: "Número do pedido", 
-        minWidth: 250, // Aumentei um pouco pois UUID é longo
-        flex: 1.5,
-        renderCell: (params) => (
-             <span title={params.value} className="text-xs font-mono text-gray-600">
-                 {params.value}
-             </span>
-        )
-    },
-    { 
-        field: "created_at", // Adaptado para o backend
+        field: "data_pedido", 
         headerName: "Data do pedido", 
         minWidth: 180, 
         flex: 1,
@@ -53,7 +30,6 @@ export const getMainOrdersColumns = (handleOpenModal) => [
             if (!params.value) return null;
             const date = new Date(params.value);
             if (isNaN(date.getTime())) return null; 
-            // Sua lógica original de fuso horário
             const timeZoneOffset = date.getTimezoneOffset() * 60000;
             return new Date(date.valueOf() + timeZoneOffset);
         }
@@ -75,9 +51,8 @@ export const getMainOrdersColumns = (handleOpenModal) => [
         sortable: false,
         renderCell: (params) => (
             <button
-                // Passa o ID para o modal filtrar os itens
-                onClick={() => handleOpenModal(params.row.order_id)}
-                className="px-4 py-1 font-normal text-sm text-gray-700 bg-gray-100 border border-gray-300 rounded hover:bg-gray-200 transition-colors"
+                onClick={() => handleOpenModal(params.row.items)}
+                className="px-4 py-0 font-normal text-gray-700 rounded-md"
             >
                 Ver Itens
             </button>

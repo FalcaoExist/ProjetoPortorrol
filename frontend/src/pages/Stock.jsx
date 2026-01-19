@@ -209,6 +209,7 @@ export default function Stock() {
                 message="Você gostaria de fazer um novo pedido?"
                 confirmButtonText="Sim"
                 cancelButtonText="Cancelar"
+                confirmButtonClassName="px-6 py-2.5 rounded-xl text-white font-medium shadow-lg transition-all bg-[#f43629] hover:bg-white hover:text-black disabled:opacity-60"
             />
             <ConfirmationModal
                 isOpen={isImportConfirmModalOpen}

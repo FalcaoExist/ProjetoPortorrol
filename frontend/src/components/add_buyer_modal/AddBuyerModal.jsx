@@ -119,7 +119,7 @@ export default function AddBuyerModal({
               onClick={handleSubmit}
               disabled={loading || status.type === "success" || checkingEmail}
               className={`px-6 py-2.5 rounded-xl text-white font-medium shadow-lg transition-all flex items-center gap-2 font-poppins
-                ${status.type === "success" ? "bg-green-600 hover:bg-green-700" : "bg-[#5A44B0] hover:bg-[#4a3794] hover:shadow-xl"} disabled:opacity-70 disabled:cursor-not-allowed`}
+                ${status.type === "success" ? "bg-green-600 hover:bg-green-700" : "bg-[#f43629] hover:bg-white hover:text-black"} disabled:opacity-70 disabled:cursor-not-allowed`}
             >
               {loading ? "Salvando..." : status.type === "success" ? "Salvo!" : "Cadastrar"}
             </button>

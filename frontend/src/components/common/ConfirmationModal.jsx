@@ -9,6 +9,7 @@ export default function ConfirmationModal({
   confirmButtonText = "Confirmar",
   cancelButtonText = "Cancelar",
   loading = false,
+  confirmButtonClassName = "px-6 py-2.5 rounded-xl text-white font-medium shadow-lg transition-all bg-[#5A44B0] hover:bg-[#4e3a9a] disabled:opacity-60",
 }) {
   if (!isOpen) return null;
 
@@ -45,7 +46,7 @@ export default function ConfirmationModal({
             type="button"
             onClick={handleConfirm}
             disabled={loading}
-            className="px-6 py-2.5 rounded-xl text-white font-medium shadow-lg transition-all bg-[#5A44B0] hover:bg-[#4e3a9a] disabled:opacity-60"
+            className={confirmButtonClassName}
           >
             {loading ? "Processando..." : confirmButtonText}
           </button>

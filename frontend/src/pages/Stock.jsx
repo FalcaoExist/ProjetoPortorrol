@@ -19,6 +19,8 @@ export default function Stock() {
     const fileInputRef = useRef(null);
 
     const [isConfirmOrderModalOpen, setIsConfirmOrderModalOpen] = useState(false);
+    const [isImportConfirmModalOpen, setIsImportConfirmModalOpen] = useState(false);
+    const [selectedFile, setSelectedFile] = useState(null);
 
     const {
         isNewOrderVisible,
@@ -48,18 +50,27 @@ export default function Stock() {
         fileInputRef.current.click();
     };
 
-    const handleFileChange = async (event) => {
+    const handleFileChange = (event) => {
         const file = event.target.files[0];
         if (file) {
+            setSelectedFile(file);
+            setIsImportConfirmModalOpen(true);
+        }
+        event.target.value = '';
+    };
+
+    const handleConfirmImport = async () => {
+        if (selectedFile) {
             try {
-                const result = await importStockFromFile(file);
+                const result = await importStockFromFile(selectedFile);
                 alert(result.message); 
             } catch (error) {
                 console.error("Erro ao importar arquivo:", error);
                 alert(`Erro ao importar: ${error.message}`);
+            } finally {
+                setSelectedFile(null);
             }
         }
-        event.target.value = '';
     };
 
     const handleExportClick = async () => {
@@ -186,18 +197,31 @@ export default function Stock() {
                 title="Deseja excluir item do pedido?"
                 message="O item será removido da lista."
                 confirmButtonText="Excluir"
+                confirmButtonClassName="px-6 py-2.5 rounded-xl text-white font-medium shadow-lg transition-all bg-[#f43629] hover:bg-white hover:text-black disabled:opacity-60"
             />
             <ConfirmationModal
                 isOpen={isConfirmOrderModalOpen}
                 onClose={() => setIsConfirmOrderModalOpen(false)}
                 onConfirm={() => {
                     handleCreateOrder(navigate);
-                    setIsConfirmOrderModalOpen(false);
                 }}
                 title="Confirmar Novo Pedido"
                 message="Você gostaria de fazer um novo pedido?"
                 confirmButtonText="Sim"
                 cancelButtonText="Cancelar"
+            />
+            <ConfirmationModal
+                isOpen={isImportConfirmModalOpen}
+                onClose={() => {
+                    setSelectedFile(null);
+                    setIsImportConfirmModalOpen(false);
+                }}
+                onConfirm={handleConfirmImport}
+                title="Confirmar Importação"
+                message={`Você tem certeza que deseja importar o arquivo ${selectedFile?.name}?`}
+                confirmButtonText="Importar"
+                cancelButtonText="Cancelar"
+                confirmButtonClassName="px-6 py-2.5 rounded-xl text-white font-medium shadow-lg transition-all bg-[#f43629] hover:bg-white hover:text-black disabled:opacity-60"
             />
         </div>
     );

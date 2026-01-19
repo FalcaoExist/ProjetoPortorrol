@@ -1,8 +1,8 @@
 import { useState } from "react";
 
 export default function useDashboardData() {
-  const [branch, setBranch] = useState("filial");
-  const [supplier, setSupplier] = useState("fornecedor");
+  const [branch, setBranch] = useState("Todos");
+  const [supplier, setSupplier] = useState("Todos");
   const [sku, setSku] = useState(null);
 
   const branchOptions = [

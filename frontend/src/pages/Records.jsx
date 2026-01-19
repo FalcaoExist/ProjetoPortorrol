@@ -1,9 +1,11 @@
 import { useState, useEffect, useMemo } from "react";
+import { FiEdit } from "react-icons/fi";
 
 import Navbar from "../components/nav_bar/NavBar";
 import Header from "../components/header/Header";
 import UserFilter from "../components/user_filter/UserFilter";
 import RecordsTable from "../components/records_table/RecordsTable";
+import TimeEditModal from "../components/records_table/TimeEditModal";
 import { useAuth } from "../context/authContext";
 import { getAuditLogs } from "../services/auditService";
 
@@ -16,6 +18,8 @@ export default function Records() {
     const [usersList, setUsersList] = useState([ALL_USERS_OPTION]);
     const [selectedUser, setSelectedUser] = useState(ALL_USERS_OPTION);
     const [loading, setLoading] = useState(true);
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [importTime, setImportTime] = useState("05:00");
 
     useEffect(() => {
         if (!isGestor) {
@@ -79,6 +83,10 @@ export default function Records() {
         }
     }
 
+    const handleSaveTime = (newTime) => {
+        setImportTime(newTime);
+    };
+
     const filteredRecords = useMemo(() => {
         if (!selectedUser || selectedUser.id === ALL_USERS_OPTION.id) return records;
         return records.filter((rec) => rec.user === selectedUser.name);
@@ -121,8 +129,31 @@ export default function Records() {
                     ) : (
                         <RecordsTable records={filteredRecords} />
                     )}
+
+                    <div className="mt-8 pt-6 border-t border-gray-200">
+                        <h2 className="text-xl font-semibold font-poppins text-gray-800 mb-4">
+                            Gestão da importação de dados
+                        </h2>
+                        <div className="flex items-center text-gray-600 font-poppins">
+                            <span>Horário de importação automática:</span>
+                            <span className="font-semibold mx-2">{importTime}</span>
+                            <button
+                                onClick={() => setIsModalOpen(true)}
+                                className="text-gray-500 hover:text-gray-700 transition-colors"
+                                aria-label="Editar horário"
+                            >
+                                <FiEdit className="ml-2" />
+                            </button>
+                        </div>
+                    </div>
                 </section>
             </main>
+            <TimeEditModal
+                isOpen={isModalOpen}
+                onClose={() => setIsModalOpen(false)}
+                onSave={handleSaveTime}
+                initialTime={importTime}
+            />
         </div>
     );
 }

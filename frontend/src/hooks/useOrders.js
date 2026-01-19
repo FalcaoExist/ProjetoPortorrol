@@ -13,8 +13,7 @@ export function useOrders() {
     const [ordersData, setOrdersData] = useState(initialOrdersData);
     const [searchQuery, setSearchQuery] = useState("");
     const [statusFilter, setStatusFilter] = useState("");
-    const [fornecedor, setFornecedor] = useState("");
-    const [filial, setFilial] = useState("");
+    const [orderDate, setOrderDate] = useState("");
     const [modalOpen, setModalOpen] = useState(false);
     const [selectedOrderItems, setSelectedOrderItems] = useState([]);
 
@@ -60,25 +59,20 @@ export function useOrders() {
         return Object.values(grouped).map(order => {
             const hasDelayedItem = order.items.some(item => item.status === "Atrasado");
             const orderStatus = hasDelayedItem ? "Atrasado" : "Aprovado";
-            const uniqueFornecedores = [...new Set(order.items.map(item => item.fornecedor))];
-            const uniqueFiliais = [...new Set(order.items.map(item => item.filial))];
-
+            
             return {
                 ...order,
                 status: orderStatus,
-                fornecedores: uniqueFornecedores,
-                filiais: uniqueFiliais,
             };
         }).filter(order => {
             const searchLower = searchQuery.toLowerCase();
             return (
                 (searchQuery === "" || order.numero_pedido.toLowerCase().includes(searchLower)) &&
                 (statusFilter === "" || order.status === statusFilter) &&
-                (fornecedor === "" || order.fornecedores.includes(fornecedor)) &&
-                (filial === "" || order.filiais.includes(filial))
+                (orderDate === "" || order.data_pedido === orderDate)
             );
         });
-    }, [ordersData, searchQuery, statusFilter, fornecedor, filial]);
+    }, [ordersData, searchQuery, statusFilter, orderDate]);
 
     const handleUpdateData = (id, field, value) => {
         setOrdersData(currentData =>
@@ -94,10 +88,8 @@ export function useOrders() {
         setSearchQuery,
         statusFilter,
         setStatusFilter,
-        fornecedor,
-        setFornecedor,
-        filial,
-        setFilial,
+        orderDate,
+        setOrderDate,
         modalOpen,
         selectedOrderItems,
         handleOpenModal,

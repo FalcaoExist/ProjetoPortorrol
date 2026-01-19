@@ -73,9 +73,7 @@ export default function NewOrderTable({
             headerAlign: "left",
             renderCell: (params) => params.value ?? "",
         },
-        
-        // --- AQUI ESTÁ A CORREÇÃO DOS CENTAVOS ---
-        {
+                {
             field: "valor",
             headerName: "Valor (R$)",
             type: "number",
@@ -85,20 +83,15 @@ export default function NewOrderTable({
             align: "left",
             headerAlign: "left",
 
-            // O segredo está aqui: Antes de salvar, troca vírgula por ponto
             valueParser: (value) => {
                 if (value === "" || value == null) return null;
-                
-                // Converte para string, troca ',' por '.' e transforma em Float
-                const stringValue = String(value).replace(',', '.');
-                const numberValue = parseFloat(stringValue);
-
-                return isNaN(numberValue) ? null : numberValue;
+                const n = Number(value);
+                return isNaN(n) ? null : n;
             },
 
-            // Formata para mostrar R$ bonito na tabela
+
             renderCell: (params) => {
-                if (params.value == null) return "";
+                if (typeof params.value !== "number") return "";
                 return params.value.toLocaleString("pt-BR", {
                     style: "currency",
                     currency: "BRL",

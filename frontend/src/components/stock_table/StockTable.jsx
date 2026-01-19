@@ -1,4 +1,3 @@
-// O alinhamento da tabela ajustado para a esquerda, exceto na coluna 'Status', que foi mantida centralizada para melhor visualização.
 // frontend/src/components/estoque_table/EstoqueTable.jsx
 import React, { useMemo } from "react";
 import { Box } from "@mui/material";
@@ -32,7 +31,8 @@ export default function StockTable({
     rows = [], 
     isRequisitionMode, 
     rowSelectionModel, 
-    onRowSelectionModelChange 
+    onRowSelectionModelChange,
+    loading 
 }) {
     const columns = useMemo(() => [
         {
@@ -107,11 +107,27 @@ export default function StockTable({
             <BaseDataGrid
                 rows={rows}
                 columns={columns}
+                loading={loading}
                 headerStyle="alternative"
+                
+                // Lógica de Seleção
                 checkboxSelection={isRequisitionMode}
                 rowSelectionModel={rowSelectionModel}
                 onRowSelectionModelChange={onRowSelectionModelChange}
-                getRowId={(row) => row.id}
+                
+                // --- CORREÇÃO IMPORTANTE ---
+                // Permite seleção múltipla via código (useStock) mesmo sem checkboxes visíveis
+                // Isso resolve o erro "rowSelectionModel can only contain 1 item"
+                disableMultipleRowSelection={false}
+
+                // ID Composto para evitar erro de duplicidade (key prop)
+                getRowId={(row) => {
+                    if (row.filial) {
+                        return `${row.id}-${row.filial}`;
+                    }
+                    // Fallback seguro
+                    return `${row.id}-${Math.random().toString(36).substr(2, 9)}`;
+                }}
             />
         </Box>
     );

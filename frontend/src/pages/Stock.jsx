@@ -3,7 +3,10 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/authContext";
 import { useStock } from "../hooks/useStock";
 import { importStockFromFile, exportStockData } from "../services/stockService";
-import { initialStockData, statusOptions, fornecedorOptions, filialOptions } from "../hooks/mockData";
+
+// Opções estáticas (Status e Filial não mudam, então definimos aqui para não precisar de mock)
+const statusOptions = ["Ok", "Subdimensionado", "Ruptura iminente", "Excesso"];
+const filialOptions = ["Porto Alegre", "Joinville", "São Paulo"];
 
 import Header from "../components/header/Header";
 import Navbar from "../components/nav_bar/NavBar";
@@ -43,11 +46,16 @@ export default function Stock() {
         handleNewOrderRowUpdate,
         handleDeleteClick,
         confirmDelete,
-        handleCreateOrder
-    } = useStock(initialStockData);
+        handleCreateOrder,
+        // Novos dados vindos do Hook (Banco de Dados)
+        supplierOptions, 
+        loading 
+    } = useStock(); 
 
     const handleImportClick = () => {
-        fileInputRef.current.click();
+        if (fileInputRef.current) {
+            fileInputRef.current.click();
+        }
     };
 
     const handleFileChange = (event) => {
@@ -63,12 +71,13 @@ export default function Stock() {
         if (selectedFile) {
             try {
                 const result = await importStockFromFile(selectedFile);
-                alert(result.message); 
+                alert(result.message || "Importação realizada com sucesso!"); 
             } catch (error) {
                 console.error("Erro ao importar arquivo:", error);
                 alert(`Erro ao importar: ${error.message}`);
             } finally {
                 setSelectedFile(null);
+                setIsImportConfirmModalOpen(false);
             }
         }
     };
@@ -76,7 +85,7 @@ export default function Stock() {
     const handleExportClick = async () => {
         try {
             const result = await exportStockData(filteredRows);
-            alert(result.message);
+            // alert(result.message);
         } catch (error) {
             console.error("Erro ao exportar dados:", error);
             alert(`Erro ao exportar: ${error.message}`);
@@ -106,12 +115,13 @@ export default function Stock() {
                                 onChange={(e) => setStatusFilter(e.target.value)}
                                 options={statusOptions}
                             />
+                            {/* AQUI: Agora usa a lista real do banco, não o mock */}
                             <SelectFilter
                                 label="Fornecedor"
                                 name="fornecedor"
                                 value={fornecedor}
                                 onChange={(e) => setFornecedor(e.target.value)}
-                                options={fornecedorOptions}
+                                options={supplierOptions} 
                             />
                             <SelectFilter
                                 label="Filial"
@@ -122,12 +132,16 @@ export default function Stock() {
                             />
                         </div>
 
+                        {/* AQUI: Adicionei 'key' e 'loading' para estabilidade, sem mudar o visual */}
                         <StockTable 
+                            key={isNewOrderVisible ? "selection-mode" : "view-mode"}
                             rows={filteredRows}
+                            loading={loading} 
                             isRequisitionMode={isNewOrderVisible}
                             rowSelectionModel={rowSelectionModel}
                             onRowSelectionModelChange={setRowSelectionModel}
                         />
+
                         <div className="flex items-center justify-between mt-4">
                             <div className="flex gap-4">
                                 <button
@@ -176,6 +190,7 @@ export default function Stock() {
                                     rows={newOrderRows} 
                                     handleRowUpdate={handleNewOrderRowUpdate} 
                                     handleDelete={handleDeleteClick} 
+                                    supplierOptions={supplierOptions}
                                 />
                                 <div className="flex justify-end mt-4">
                                     <button

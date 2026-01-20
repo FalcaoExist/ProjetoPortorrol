@@ -1,3 +1,5 @@
+import { exportStockCSV } from "./csvExporter";
+
 export const importStockFromFile = async (file) => {
     if (!file) {
         throw new Error("Nenhum arquivo fornecido.");
@@ -18,21 +20,13 @@ export const importStockFromFile = async (file) => {
     });
 };
 
+
 export const exportStockData = async (data) => {
     if (!data || data.length === 0) {
         throw new Error("Nenhum dado fornecido para exportação.");
     }
 
-    console.log("Iniciando exportação de dados do estoque...");
-    
-    // Simula a criação de um arquivo CSV/XLSX
-    return new Promise(resolve => {
-        setTimeout(() => {
-            console.log("Dados exportados com sucesso (simulado).");
-            resolve({
-                message: "Dados do estoque exportados com sucesso.",
-                // file: blob
-            });
-        }, 1000);
-    });
+    exportStockCSV(data);
+
+    return Promise.resolve({ message: "Dados do estoque exportados e download iniciado." });
 };

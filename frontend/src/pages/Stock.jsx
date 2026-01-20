@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useState,  useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/authContext";
 import { useStock } from "../hooks/useStock";
@@ -16,8 +16,25 @@ import ConfirmationModal from "../components/common/ConfirmationModal";
 export default function Stock() {
     const { user } = useAuth();
     const navigate = useNavigate();
-    const fileInputRef = useRef(null);
 
+    useEffect(() => {
+        try {
+            const params = new URLSearchParams(window.location.search);
+            const sku = params.get('sku');
+            const status = params.get('status');
+            const supplier = params.get('supplier');
+            const branch = params.get('branch');
+
+            if (sku) setSearchQuery(decodeURIComponent(sku));
+            if (status) setStatusFilter(decodeURIComponent(status));
+            if (supplier) setFornecedor(decodeURIComponent(supplier));
+            if (branch) setFilial(decodeURIComponent(branch));
+        } catch (err) {
+            // noop
+        }
+    }, []);
+
+    const fileInputRef = useRef(null);
     const [isConfirmOrderModalOpen, setIsConfirmOrderModalOpen] = useState(false);
     const [isImportConfirmModalOpen, setIsImportConfirmModalOpen] = useState(false);
     const [selectedFile, setSelectedFile] = useState(null);

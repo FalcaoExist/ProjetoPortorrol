@@ -1,6 +1,6 @@
-from typing import List, Optional
+from typing import List, Optional, Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile, Path
 
 from app.core.dependencies import (
     get_audit_service,
@@ -12,6 +12,7 @@ from app.core.dependencies import (
 from app.core.interfaces import IUserRepository
 from app.services.audit_service import AuditService
 from app.services.auth_service import AuthService
+from app.services.import_pedidos_service import ImportPedidosService
 from app.services.service_models import UserCreateRequest, UserUpdateRequest
 from app.services.user_service import UserService
 
@@ -26,7 +27,6 @@ from .schemas import (
 )
 
 router = APIRouter()
-
 
 # --- LOGIN ---
 # >>> ALTERAÇÃO: agora captura IP e envia para AuthService
@@ -185,3 +185,13 @@ def change_own_password(
         performed_by=current_user["user_id"]  # o próprio usuário
     )
     return {"success": True, "message": "Senha alterada com sucesso!"}
+
+# IMPORTAR PEDIDOS DOS FORNECEDORES NSK E TIMKEN
+@router.post("/imports/pedidos/{fornecedor}")
+async def import_pedidos(
+    fornecedor: Annotated[str, Path(...)],
+    file: Annotated[UploadFile, File(...)]
+):
+    service = ImportPedidosService()
+    imported = await service.importar(fornecedor, file)
+    return {"success": True, "imported": imported}

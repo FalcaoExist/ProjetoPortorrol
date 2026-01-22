@@ -1,7 +1,9 @@
 import React from 'react';
 import { DEFAULT_SEGMENT_METADATA } from './segmentMetadata';
+import { useNavigate } from 'react-router-dom';
 
-export default function StockRangeGraph({ data, totalItems, segmentMetadata = DEFAULT_SEGMENT_METADATA }){
+export default function StockRangeGraph({ data, totalItems, segmentMetadata = DEFAULT_SEGMENT_METADATA, branch, supplier }){
+  const navigate = useNavigate();
   // Permite sobrescrever/estender o metadata via prop
   const mergedMetadata = { ...DEFAULT_SEGMENT_METADATA, ...segmentMetadata };
 
@@ -58,10 +60,22 @@ export default function StockRangeGraph({ data, totalItems, segmentMetadata = DE
           return (
             <div
               key={segment.key}
-              className="group h-full inline-block relative shadow-[inset_0_1px_0_rgba(0,0,0,0.06)] transition-all duration-500 ease-out rounded-full"
+              className="group h-full inline-block relative shadow-[inset_0_1px_0_rgba(0,0,0,0.06)] transition-all duration-500 ease-out rounded-full cursor-pointer"
               style={style}
               role="img"
               aria-label={tooltipText}
+              onClick={() => {
+                try {
+                  const params = new URLSearchParams();
+                  const statusValue = segment.label || segment.key;
+                  params.set('status', statusValue);
+                  if (supplier && supplier !== 'Todos') params.set('supplier', supplier);
+                  if (branch && branch !== 'Todos') params.set('branch', branch);
+                  navigate(`/stock?${params.toString()}`);
+                } catch (err) {
+                  window.location.href = '/stock';
+                }
+              }}
             >
               <div className="absolute bottom-[calc(100%_+_8px)] left-1/2 -translate-x-1/2 bg-[rgba(0,0,0,0.82)] text-white px-2 py-[6px] rounded-[6px] text-[0.85em] whitespace-nowrap opacity-0 pointer-events-none transition-opacity duration-150 ease-in-out z-20 group-hover:opacity-100">
                 {tooltipText}

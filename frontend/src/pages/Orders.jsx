@@ -20,6 +20,8 @@ export default function Orders() {
         setStatusFilter,
         orderDate,
         setOrderDate,
+        responsavelFilter,
+        setResponsavelFilter,
         modalOpen,
         selectedOrderItems,
         handleOpenModal,
@@ -81,7 +83,9 @@ export default function Orders() {
                                 statusFilter={statusFilter}
                                 onStatusChange={(e) => setStatusFilter(e.target.value)}
                                 orderDate={orderDate}
-                                onOrderDateChange={(e) => setSetOrderDate(e.target.value)}
+                                onOrderDateChange={(e) => setOrderDate(e.target.value)}
+                                responsavelFilter={responsavelFilter}
+                                onResponsavelChange={(e) => setResponsavelFilter(e.target.value)}
                             />
                         </div>
 

@@ -11,6 +11,8 @@ export default function OrdersFilter({
   onStatusChange,
   orderDate,
   onOrderDateChange,
+  responsavelFilter,
+  onResponsavelChange,
 }) {
   return (
     <div className="flex flex-wrap items-center gap-4">
@@ -18,6 +20,11 @@ export default function OrdersFilter({
         value={searchQuery}
         onChange={onSearchChange}
         placeholder="Buscar por número do pedido..."
+      />
+      <SearchBar
+        value={responsavelFilter}
+        onChange={onResponsavelChange}
+        placeholder="Buscar por responsável..."
       />
       <SelectFilter
         label="Status"

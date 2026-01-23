@@ -20,6 +20,7 @@ export const StatusCell = ({ value }) => {
 
 export const getMainOrdersColumns = (handleOpenModal) => [
     { field: "numero_pedido", headerName: "Número do pedido", minWidth: 200, flex: 1.5 },
+    { field: "responsavel", headerName: "Responsável", minWidth: 150, flex: 1 },
     { 
         field: "data_pedido", 
         headerName: "Data do pedido", 

@@ -14,6 +14,7 @@ export function useOrders() {
     const [searchQuery, setSearchQuery] = useState("");
     const [statusFilter, setStatusFilter] = useState("");
     const [orderDate, setOrderDate] = useState("");
+    const [responsavelFilter, setResponsavelFilter] = useState("");
     const [modalOpen, setModalOpen] = useState(false);
     const [selectedOrderItems, setSelectedOrderItems] = useState([]);
 
@@ -59,20 +60,24 @@ export function useOrders() {
         return Object.values(grouped).map(order => {
             const hasDelayedItem = order.items.some(item => item.status === "Atrasado");
             const orderStatus = hasDelayedItem ? "Atrasado" : "Aprovado";
+            const responsavel = order.items[0]?.responsavel || "";
             
             return {
                 ...order,
                 status: orderStatus,
+                responsavel: responsavel,
             };
         }).filter(order => {
             const searchLower = searchQuery.toLowerCase();
+            const responsavelLower = responsavelFilter.toLowerCase();
             return (
                 (searchQuery === "" || order.numero_pedido.toLowerCase().includes(searchLower)) &&
                 (statusFilter === "" || order.status === statusFilter) &&
-                (orderDate === "" || order.data_pedido === orderDate)
+                (orderDate === "" || order.data_pedido === orderDate) &&
+                (responsavelFilter === "" || (order.responsavel && order.responsavel.toLowerCase().includes(responsavelLower)))
             );
         });
-    }, [ordersData, searchQuery, statusFilter, orderDate]);
+    }, [ordersData, searchQuery, statusFilter, orderDate, responsavelFilter]);
 
     const handleUpdateData = (id, field, value) => {
         setOrdersData(currentData =>
@@ -90,6 +95,8 @@ export function useOrders() {
         setStatusFilter,
         orderDate,
         setOrderDate,
+        responsavelFilter,
+        setResponsavelFilter,
         modalOpen,
         selectedOrderItems,
         handleOpenModal,

@@ -188,7 +188,7 @@ def change_own_password(
 
 # IMPORTAR PEDIDOS DOS FORNECEDORES NSK E TIMKEN
 @router.post("/imports/pedidos/{supplier}")
-async def import_pedidos(
+async def import_orders(
     supplier: Annotated[str, Path(...)],
     file: Annotated[UploadFile, File(...)]
 ):

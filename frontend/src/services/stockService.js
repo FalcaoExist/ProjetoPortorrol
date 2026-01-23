@@ -20,7 +20,6 @@ export const importStockFromFile = async (file) => {
     });
 };
 
-
 export const exportStockData = async (data) => {
     if (!data || data.length === 0) {
         throw new Error("Nenhum dado fornecido para exportação.");

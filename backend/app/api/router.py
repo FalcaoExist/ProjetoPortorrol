@@ -12,7 +12,7 @@ from app.core.dependencies import (
 from app.core.interfaces import IUserRepository
 from app.services.audit_service import AuditService
 from app.services.auth_service import AuthService
-from app.services.import_pedidos_service import ImportPedidosService
+from app.services.import_orders_service import ImportOrdersService
 from app.services.service_models import UserCreateRequest, UserUpdateRequest
 from app.services.user_service import UserService
 
@@ -187,11 +187,11 @@ def change_own_password(
     return {"success": True, "message": "Senha alterada com sucesso!"}
 
 # IMPORTAR PEDIDOS DOS FORNECEDORES NSK E TIMKEN
-@router.post("/imports/pedidos/{fornecedor}")
+@router.post("/imports/pedidos/{supplier}")
 async def import_pedidos(
-    fornecedor: Annotated[str, Path(...)],
+    supplier: Annotated[str, Path(...)],
     file: Annotated[UploadFile, File(...)]
 ):
-    service = ImportPedidosService()
-    imported = await service.importar(fornecedor, file)
+    service = ImportOrdersService()
+    imported = await service.import_file(supplier, file)
     return {"success": True, "imported": imported}

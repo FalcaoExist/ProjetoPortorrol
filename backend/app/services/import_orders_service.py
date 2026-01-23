@@ -1,5 +1,5 @@
 import pandas as pd
-from app.repositories.pedidos_repository import PedidosRepository
+from app.repositories.orders_repository import OrdersRepository
 
 # helpers (obrigatórios para JSON / Supabase)
 
@@ -39,17 +39,17 @@ def clean_record(record: dict) -> dict:
 
     return cleaned
 
-class ImportPedidosService:
+class ImportOrdersService:
 
-    async def importar(self, fornecedor: str, file):
+    async def import_file(self, supplier: str, file):
         df = pd.read_excel(file.file)
-        fornecedor = fornecedor.lower()
+        supplier = supplier.lower()
 
-        if fornecedor == "nsk":
+        if supplier == "nsk":
             records = self._map_nsk(df)
             table = "orders_nsk"
 
-        elif fornecedor == "timken":
+        elif supplier == "timken":
             records = self._map_timken(df)
             table = "orders_timken"
 
@@ -65,7 +65,7 @@ class ImportPedidosService:
         if not records:
             raise ValueError("Arquivo não contém registros válidos para importação")
     
-        repo = PedidosRepository(table)
+        repo = OrdersRepository(table)
         return repo.insert_many(records)
     
     # NSK

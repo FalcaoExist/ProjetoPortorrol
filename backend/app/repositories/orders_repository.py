@@ -1,7 +1,7 @@
 from app.core.supabase_client import supabase
 
 
-class PedidosRepository:
+class OrdersRepository:
 
     def __init__(self, table: str):
         self.table = table

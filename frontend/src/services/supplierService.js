@@ -17,3 +17,4 @@ export async function getSuppliers() {
     return [];
   }
 }
+export default getSuppliers;

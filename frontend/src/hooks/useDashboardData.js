@@ -1,119 +1,179 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import dashboardService from "../services/dashboardService";
+// CORREÇÃO 1: 'import * as' permite usar supplierService.getSuppliers()
+import * as supplierService from "../services/supplierService";
+
+// Configuração Central de Cores e Labels
+const STATUS_INDICATORS = {
+  RUPTURA: { color: "#e54c4c", label: "Ruptura" },          // Vermelho (< 30 dias)
+  SUBDIMENSIONADO: { color: "#f1c40f", label: "Subdimen." },  // Amarelo (30-60 dias)
+  OK: { color: "#e0e0e0", label: "Normal" },                  // Cinza (60-120 dias)
+  EXCESSO: { color: "#4a89f3", label: "Excesso" }             // Azul (> 120 dias)
+};
 
 export default function useDashboardData() {
-  const [branch, setBranch] = useState("filial");
-  const [supplier, setSupplier] = useState("fornecedor");
+  // Filtros
+  const [branch, setBranch] = useState("");
+  const [supplier, setSupplier] = useState("");
   const [sku, setSku] = useState(null);
 
-  const branchOptions = [
-    { value: "filial", label: "Filial" },
-    { value: "filial_a", label: "Filial A" },
-    { value: "filial_b", label: "Filial B" },
-  ];
+  // Opções para Selects
+  const [branchOptions, setBranchOptions] = useState([]);
+  const [supplierOptions, setSupplierOptions] = useState([]);
+  const [skuOptions, setSkuOptions] = useState([]);
 
-  const supplierOptions = [
-    { value: "fornecedor", label: "Fornecedor" },
-    { value: "fornecedor_x", label: "Fornecedor X" },
-    { value: "fornecedor_y", label: "Fornecedor Y" },
-  ];
+  // Dados dos Gráficos
+  const [dataOverstock, setDataOverstock] = useState([]);
+  const [dataCritic, setDataCritic] = useState([]);
+  const [monthsData, setMonthsData] = useState([]);
+  
+  // Pizza (Estoque Geral)
+  const [stockOverview, setStockOverview] = useState({
+    data: { ok: 0, excesso: 0, rupturaIminente: 0, subdimensionado: 0 },
+    total: 0
+  });
 
-  const months = [
-    { month: "Jan/24", value: 220 },
-    { month: "Fev/24", value: 370 },
-    { month: "Mar/24", value: 400 },
-    { month: "Abr/24", value: 350 },
-    { month: "Mai/24", value: 330 },
-    { month: "Jun/24", value: 420 },
-    { month: "Jul/24", value: 600 },
-    { month: "Ago/24", value: 700 },
-    { month: "Set/24", value: 800 },
-    { month: "Out/24", value: 650 },
-    { month: "Nov/24", value: 752 },
-    { month: "Dez/24", value: 500 },
-    { month: "Jan/25", value: 300 },
-    { month: "Fev/25", value: 410 },
-    { month: "Mar/25", value: 420 },
-    { month: "Abr/25", value: 390 },
-    { month: "Mai/25", value: 350 },
-    { month: "Jun/25", value: 480 },
-    { month: "Jul/25", value: 700 },
-    { month: "Ago/25", value: 820 },
-    { month: "Set/25", value: 870 },
-    { month: "Out/25", value: 690 },
-    { month: "Nov/25", value: 752 },
-    { month: "Dez/25", value: 510 },
-  ];
+  // KPIs
+  const [kpis, setKpis] = useState({
+    coverageDays: 0,
+    savingPotential: 0 
+  });
 
-  const data = [
-    { name: 'Page A', qtd: 120 },
-    { name: 'Page B', qtd: 250 },
-    { name: 'Page C', qtd: 320 },
-    { name: 'Page D', qtd: 350 },
-    { name: 'Page E', qtd: 350 },
-    { name: 'Page F', qtd: 350 },
-    { name: 'Page G', qtd: 400 },
-    { name: 'Page M', qtd: 520 },
-    { name: 'Page H', qtd: 410 },
-    { name: 'Page L', qtd: 500 },
-    { name: 'Page I', qtd: 420 },
-    { name: 'Page J', qtd: 440 },
-    { name: 'Page K', qtd: 480 },
-    { name: 'Page T', qtd: 700 },
-    { name: 'Page N', qtd: 520 },
-    { name: 'Page O', qtd: 550 },
-    { name: 'Page P', qtd: 580 },
-    { name: 'Page Q', qtd: 600 },
-    { name: 'Page R', qtd: 630 },
-    { name: 'Page S', qtd: 660 },
-  ];
+  // Carga Inicial e Filtros
+  useEffect(() => {
+    async function loadInitialData() {
+      try {
+        // 1. Carregar Opções de Filtros (se vazio)
+        if (branchOptions.length === 0) {
+            const filiais = (await dashboardService.getFiliais()) || [];
+            const uniqueFiliais = Array.from(new Map(filiais.map(item => [item.nome, item])).values());
+            const options = uniqueFiliais.map(f => ({ value: f.nome, label: f.nome }));
+            options.unshift({ value: "", label: "Todas" });
+            setBranchOptions(options);
+        }
 
-  const dataCritic = [
-    { name: 'Page A', qtd: 12 },
-    { name: 'Page B', qtd: 25 },
-    { name: 'Page C', qtd: 32 },
-    { name: 'Page D', qtd: 35 },
-    { name: 'Page E', qtd: 35 },
-    { name: 'Page F', qtd: 35 },
-    { name: 'Page G', qtd: 40 },
-    { name: 'Page M', qtd: 52 },
-    { name: 'Page H', qtd: 41 },
-    { name: 'Page L', qtd: 50 },
-    { name: 'Page I', qtd: 42 },
-    { name: 'Page J', qtd: 44 },
-    { name: 'Page K', qtd: 48 },
-    { name: 'Page T', qtd: 70 },
-    { name: 'Page N', qtd: 52 },
-    { name: 'Page O', qtd: 55 },
-    { name: 'Page P', qtd: 58 },
-    { name: 'Page Q', qtd: 60 },
-    { name: 'Page R', qtd: 63 },
-    { name: 'Page S', qtd: 66 },
-  ];
+        if (supplierOptions.length === 0) {
+            // CORREÇÃO 2: Chamada direta para getSuppliers
+            const fornecedores = (await supplierService.getSuppliers()) || [];
+            
+            // CORREÇÃO 3: Tratamento híbrido (String ou Objeto)
+            // Se o backend retornar ["Timken", "NSK"], usamos 's' direto.
+            // Se retornar [{name: "Timken"}], usamos 's.name'.
+            const nomesUnicos = [...new Set(fornecedores.map(s => {
+                if (typeof s === 'string') return s;
+                return s?.name || s?.nome; // Tenta name ou nome
+            }))].filter(Boolean).sort();
 
-  const STATUS_INDICATORS = {
-    excesso: 18,
-    rupturaIminente: 32,
-    subdimensionado: 25,
-    ok: 55,
+            const optionsSuppliers = nomesUnicos.map(nome => ({ value: nome, label: nome }));
+            optionsSuppliers.unshift({ value: "", label: "Todos" });
+            setSupplierOptions(optionsSuppliers);
+        }
+
+        // 2. Buscar Dados Principais
+        const response = await dashboardService.getSkus(null, branch, supplier);
+        const allSkus = Array.isArray(response) ? response : [];
+
+        // --- PROCESSAMENTO DOS DADOS ---
+
+        // A) Gráfico de Excesso (Azul)
+        const excessos = allSkus.filter(i => i.status === "EXCESSO");
+        excessos.sort((a, b) => b.estoque_soma - a.estoque_soma);
+        
+        setDataOverstock(excessos.map(item => ({
+          name: item.codigo,
+          qtd: item.estoque_soma, 
+          dias: item.atendimento,
+          ...item
+        })).slice(0, 15));
+
+        // B) Gráfico de Críticos (Ruptura)
+        const rupturas = allSkus.filter(i => i.status === "RUPTURA");
+        rupturas.sort((a, b) => a.estoque_soma - b.estoque_soma);
+
+        setDataCritic(rupturas.map(item => ({
+          name: item.codigo,
+          qtd: item.demanda_soma, 
+          estoque_real: item.estoque_soma,
+          dias: item.atendimento,
+          ...item
+        })).slice(0, 15));
+
+        // C) Gráfico de Pizza (Contagem Geral)
+        const counts = { ok: 0, excesso: 0, rupturaIminente: 0, subdimensionado: 0 };
+        allSkus.forEach(item => {
+            const st = item.status; 
+            if (st === 'OK') counts.ok++;
+            else if (st === 'EXCESSO') counts.excesso++;
+            else if (st === 'RUPTURA') counts.rupturaIminente++;
+            else if (st === 'SUBDIMENSIONADO') counts.subdimensionado++;
+        });
+        setStockOverview({ data: counts, total: allSkus.length });
+
+        // D) KPI: Dias de Cobertura Geral
+        const totalEstoque = allSkus.reduce((acc, item) => acc + Number(item.estoque_soma || 0), 0);
+        const totalDemanda = allSkus.reduce((acc, item) => acc + Number(item.demanda_soma || 0), 0);
+        
+        let diasCobertura = 0;
+        if (totalDemanda > 0) {
+            diasCobertura = Math.round((totalEstoque / totalDemanda) * 30);
+        } else if (totalEstoque > 0) {
+            diasCobertura = 9999; 
+        }
+
+        setKpis({ coverageDays: diasCobertura, savingPotential: 0 });
+
+      } catch (error) {
+        console.error("Erro dashboard:", error);
+      }
+    }
+    loadInitialData();
+  }, [branch, supplier]); 
+
+  // Busca de SKU
+  const onSkuSearch = async (query) => {
+    if (!query || query.length < 1) return; 
+    
+    try {
+        const results = await dashboardService.searchSkus(query);
+        const options = results.map(r => ({ 
+          label: `${r.codigo} - ${r.nome_produto}`, 
+          value: r.id, 
+          ...r 
+        }));
+        setSkuOptions(options);
+    } catch (error) {
+        console.error("Erro na busca:", error);
+    }
   };
 
-  const skuOptions = Array.from(
-    new Set([...data.map((d) => d.name), ...dataCritic.map((d) => d.name)])
-  ).map((name) => ({ label: name, value: name }));
+  // Carregar Histórico
+  useEffect(() => {
+    async function loadHistory() {
+      try {
+        const id = sku && sku.value ? sku.value : null;
+        const history = await dashboardService.getHistory(id);
+        setMonthsData(history || []);
+      } catch (error) {
+        console.error("Erro ao carregar histórico:", error);
+        setMonthsData([]); 
+      }
+    }
+    loadHistory();
+  }, [sku]);
 
   return {
-    branch,
-    setBranch,
-    supplier,
-    setSupplier,
-    sku,
-    setSku,
+    branch, setBranch,
+    supplier, setSupplier,
+    sku, setSku,
     branchOptions,
     supplierOptions,
-    months,
-    data,
-    dataCritic,
-    STATUS_INDICATORS,
     skuOptions,
+    months: monthsData,
+    data: dataOverstock,
+    dataCritic: dataCritic,
+    stockOverview, 
+    kpis, 
+    STATUS_INDICATORS,
+    onSkuSearch
   };
 }

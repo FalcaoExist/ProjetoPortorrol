@@ -1,4 +1,5 @@
 import httpClient from './validators/api/httpClient';
+import { exportStockCSV } from "./csvExporter";
 
 const mapStockToFrontend = (item) => {
     let rawSupplier = item.primary_supplier || item.supplier_name || item.fornecedor || item.supplier;
@@ -91,5 +92,11 @@ export const importStockFromFile = async (file) => {
 };
 
 export const exportStockData = async (data) => {
-    return new Promise(resolve => setTimeout(() => resolve({ success: true, message: "Mock Export" }), 1000));
+    if (!data || data.length === 0) {
+        throw new Error("Nenhum dado fornecido para exportação.");
+    }
+
+    exportStockCSV(data);
+
+    return Promise.resolve({ message: "Dados do estoque exportados e download iniciado." });
 };

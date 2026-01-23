@@ -1,10 +1,12 @@
 from datetime import date, datetime
+from enum import Enum
 from typing import List, Optional
 from uuid import UUID
 
 from pydantic import BaseModel, EmailStr
 
 
+# --- Schemas de Usuário e Login ---
 class UserResponse(BaseModel):
     user_id: str
     name: str
@@ -27,7 +29,6 @@ class LoginRequest(BaseModel):
 
 class LoginResponse(BaseModel):
     success: bool
-    # Permite que 'user' seja nulo em caso de erro no login
     user: Optional[dict] = None
     message: str
 
@@ -51,9 +52,48 @@ class UserUpdateResponse(BaseModel):
     message: str
 
 class ChangePasswordRequest(BaseModel):
-    old_password: str
+    current_password: str
     new_password: str
-    
+
+# --- CORREÇÃO AQUI: Adicionado SUBDIMENSIONADO ---
+class StatusProduto(str, Enum):
+    RUPTURA = "RUPTURA"
+    SUBDIMENSIONADO = "SUBDIMENSIONADO" 
+    OK = "OK"
+    EXCESSO = "EXCESSO"
+
+class ConfigUpdate(BaseModel):
+    valor: str
+
+class SkuAnaliseResponse(BaseModel):
+    sku_id: int
+    codigo: str
+    nome_produto: str
+    marca: str
+    classificacao: str
+    atendimento: float
+    status: StatusProduto
+    sugestao_compra: int
+    estoque_soma: int
+    demanda_soma: float
+    filial_nome: Optional[str] = "Geral"
+
+class FilialResponse(BaseModel):
+    id: str
+    nome: str
+
+# --- Schemas de Fornecedor e Pedido ---
+class FornecedorCreate(BaseModel):
+    name: str
+    lead_time_days: Optional[int] = 30
+    external_id: Optional[str] = None
+
+class FornecedorResponse(BaseModel):
+    supplier_id: UUID
+    name: str
+    lead_time_days: Optional[int]
+    is_active: bool
+
 class PedidoCreate(BaseModel):
     sku_codigo: str          
     fornecedor_nome: str     
@@ -62,7 +102,6 @@ class PedidoCreate(BaseModel):
     previsao_entrega: Optional[date] = None
 
 class PedidoResponse(BaseModel):
-    id: UUID
     order_id: UUID
     status: str
     created_at: datetime
@@ -109,3 +148,4 @@ class FornecedorResponse(BaseModel):
     name: str
     lead_time_days: Optional[int]
     is_active: bool
+    data_entrega: Optional[date] = None

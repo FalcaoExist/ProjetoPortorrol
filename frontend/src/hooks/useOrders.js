@@ -1,25 +1,72 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { useLocation } from "react-router-dom";
-
-const initialOrdersData = [
-    { id: 1, numero_pedido: "PED-001", item: "ANEL FRB 100/11,5", fornecedor: "NSK", quantidade: 100, filial: "Porto Alegre", valor: 5000, previsao_entrega: "2024-10-20", status: "Aprovado", data_entrega: null, data_pedido: "2024-07-20" },
-    { id: 4, numero_pedido: "PED-001", item: "ROLAMENTO 6203", fornecedor: "NSK", quantidade: 20, filial: "Porto Alegre", valor: 1000, previsao_entrega: "2024-10-20", status: "Aprovado", data_entrega: null, data_pedido: "2024-07-20" },
-    { id: 2, numero_pedido: "PED-002", item: "ANEL FRB 100/11,5", fornecedor: "Timken", quantidade: 50, filial: "Joinville", valor: 2500, previsao_entrega: "2024-09-15", status: "Atrasado", data_entrega: null, data_pedido: "2024-08-10" },
-    { id: 3, numero_pedido: "PED-003", item: "ANEL FRB 100/11,5", fornecedor: "FRM", quantidade: 200, filial: "São Paulo", valor: 10000, previsao_entrega: "2024-11-01", status: "Aprovado", data_entrega: null, data_pedido: "2024-08-25" },
-];
-
+import httpClient from "../services/validators/api/httpClient"; 
 export function useOrders() {
     const location = useLocation();
-    const [ordersData, setOrdersData] = useState(initialOrdersData);
+    
+    const [ordersData, setOrdersData] = useState([]);
+    const [loading, setLoading] = useState(true);
+
     const [searchQuery, setSearchQuery] = useState("");
-    const [statusFilter, setStatusFilter] = useState("");
+    const [statusFilter, setStatusFilter] = useState(""); 
     const [orderDate, setOrderDate] = useState("");
     const [modalOpen, setModalOpen] = useState(false);
     const [selectedOrderItems, setSelectedOrderItems] = useState([]);
 
+    const fetchOrders = useCallback(async () => {
+        setLoading(true);
+        try {
+            const response = await httpClient.get("/orders");
+            const data = response.data || [];
+            const hoje = new Date();
+
+            const formattedData = data.map(item => {
+                let statusBinario = "Aprovado";
+
+                if (item.data_entrega) {
+                    const dataEntrega = new Date(item.data_entrega);
+                    dataEntrega.setHours(23, 59, 59);
+
+                    const isBackendFinished = item.status === 'COMPLETED' || item.status === 'APPROVED';
+                    
+                    if (dataEntrega < hoje && !isBackendFinished) {
+                        statusBinario = "Atrasado";
+                    }
+                }
+
+                return {
+                    id: item.id,
+                    numero_pedido: item.order_id,   
+                    item: item.item_name,           
+                    fornecedor: item.supplier_name, 
+                    quantidade: item.quantity,
+                    filial: "Matriz",               
+                    valor: item.total_value,
+                    data_pedido: item.created_at ? item.created_at.split('T')[0] : "",
+                    previsao_entrega: item.data_entrega,
+                    status: statusBinario 
+                };
+            });
+
+            setOrdersData(formattedData);
+        } catch (error) {
+            console.error("Erro ao buscar pedidos:", error);
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        fetchOrders();
+    }, [fetchOrders]);
+
     useEffect(() => {
         if (location.state?.newOrders) {
-            const newOrders = location.state.newOrders;
+            const newOrders = location.state.newOrders.map(o => ({
+                ...o,
+                status: "Aprovado" 
+            }));
+
             setOrdersData(prevOrders => {
                 const existingIds = new Set(prevOrders.map(o => o.id));
                 const uniqueNewOrders = newOrders.filter(o => !existingIds.has(o.id));
@@ -33,7 +80,13 @@ export function useOrders() {
     }, [location.state]);
 
     const handleOpenModal = (items) => {
-        setSelectedOrderItems(items);
+        if (typeof items === 'string') {
+            const orderId = items;
+            const itemsDoPedido = ordersData.filter(o => o.numero_pedido === orderId);
+            setSelectedOrderItems(itemsDoPedido);
+        } else {
+            setSelectedOrderItems(items);
+        }
         setModalOpen(true);
     };
 
@@ -46,12 +99,16 @@ export function useOrders() {
         const grouped = ordersData.reduce((acc, item) => {
             if (!acc[item.numero_pedido]) {
                 acc[item.numero_pedido] = {
-                    id: item.numero_pedido,
+                    id: item.numero_pedido, 
                     numero_pedido: item.numero_pedido,
                     data_pedido: item.data_pedido,
+                    fornecedor: item.fornecedor, 
+                    valor: 0, 
+                    status: item.status, 
                     items: [],
                 };
             }
+            acc[item.numero_pedido].valor += (Number(item.valor) || 0);
             acc[item.numero_pedido].items.push(item);
             return acc;
         }, {});
@@ -63,12 +120,16 @@ export function useOrders() {
             return {
                 ...order,
                 status: orderStatus,
+                valor: order.valor 
             };
         }).filter(order => {
             const searchLower = searchQuery.toLowerCase();
+            const numPedido = String(order.numero_pedido || "").toLowerCase();
+            const fornec = String(order.fornecedor || "").toLowerCase();
+
             return (
-                (searchQuery === "" || order.numero_pedido.toLowerCase().includes(searchLower)) &&
-                (statusFilter === "" || order.status === statusFilter) &&
+                (searchQuery === "" || numPedido.includes(searchLower) || fornec.includes(searchLower)) &&
+                (statusFilter === "" || statusFilter === "Todos" || order.status === statusFilter) &&
                 (orderDate === "" || order.data_pedido === orderDate)
             );
         });
@@ -84,12 +145,10 @@ export function useOrders() {
 
     return {
         ordersData,
-        searchQuery,
-        setSearchQuery,
-        statusFilter,
-        setStatusFilter,
-        orderDate,
-        setOrderDate,
+        loading,
+        searchQuery, setSearchQuery,
+        statusFilter, setStatusFilter,
+        orderDate, setOrderDate,
         modalOpen,
         selectedOrderItems,
         handleOpenModal,

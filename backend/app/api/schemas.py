@@ -110,3 +110,42 @@ class PedidoResponse(BaseModel):
     quantity: int
     total_value: float
     data_entrega: Optional[date] = None
+    
+class StockItemResponse(BaseModel):
+    id: int # sku_id
+    codigo: str
+    item: str # nome do produto
+    categoria: Optional[str] = "Geral"
+    unidades: int
+    fornecedor: Optional[str] = "N/A"
+    filial: Optional[str] = "Matriz"
+    dias_cobertura: Optional[int] = 0
+    valor: Optional[float] = 0.0
+
+class OrderItemRequest(BaseModel):
+    sku_id: int
+    quantity: int
+    unit_cost: float
+    expected_delivery_date: Optional[str] = None 
+    supplier_name: Optional[str] = None
+
+class BatchOrderRequest(BaseModel):
+    items: List[OrderItemRequest]
+
+class BatchOrderResponse(BaseModel):
+    success: bool
+    message: str
+    orders_created: int
+    
+class FornecedorCreate(BaseModel):
+    name: str
+    lead_time_days: Optional[int] = 30
+    external_id: Optional[str] = None
+
+    
+class FornecedorResponse(BaseModel):
+    supplier_id: UUID
+    name: str
+    lead_time_days: Optional[int]
+    is_active: bool
+    data_entrega: Optional[date] = None

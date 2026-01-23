@@ -7,8 +7,9 @@ import { getMainOrdersColumns } from "./ordersConfig.jsx";
 import { exportRowsCSV } from "../services/csvExporter";
 import OrderDetailsModal from "../components/OrderDetailsModal.jsx";
 import OrdersFilter from "../components/OrdersFilter.jsx";
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import * as XLSX from "xlsx";
+import ConfirmationModal from "../components/common/ConfirmationModal";
 
 export default function Orders() {
     const { user } = useAuth();
@@ -29,6 +30,9 @@ export default function Orders() {
 
     const mainOrdersColumns = getMainOrdersColumns(handleOpenModal);
     const fileInputRef = useRef(null);
+    const [isImportConfirmModalOpen, setIsImportConfirmModalOpen] = useState(false);
+    const [selectedFile, setSelectedFile] = useState(null);
+
 
     const handleImportClick = () => {
         fileInputRef.current.click();
@@ -37,6 +41,14 @@ export default function Orders() {
     const handleFileChange = (e) => {
         const file = e.target.files[0];
         if (file) {
+            setSelectedFile(file);
+            setIsImportConfirmModalOpen(true);
+        }
+        e.target.value = '';
+    };
+
+    const handleConfirmImport = () => {
+        if (selectedFile) {
             const reader = new FileReader();
             reader.onload = (event) => {
                 const data = new Uint8Array(event.target.result);
@@ -47,7 +59,9 @@ export default function Orders() {
                 console.log(json);
                 // TODO: Process the imported data and add it to the orders table
             };
-            reader.readAsArrayBuffer(file);
+            reader.readAsArrayBuffer(selectedFile);
+            setSelectedFile(null);
+            setIsImportConfirmModalOpen(false);
         }
     };
 
@@ -67,7 +81,7 @@ export default function Orders() {
                                 statusFilter={statusFilter}
                                 onStatusChange={(e) => setStatusFilter(e.target.value)}
                                 orderDate={orderDate}
-                                onOrderDateChange={(e) => setOrderDate(e.target.value)}
+                                onOrderDateChange={(e) => setSetOrderDate(e.target.value)}
                             />
                         </div>
 
@@ -132,6 +146,20 @@ export default function Orders() {
                 onClose={handleCloseModal}
                 items={selectedOrderItems}
                 updateData={handleUpdateData}
+            />
+
+            <ConfirmationModal
+                isOpen={isImportConfirmModalOpen}
+                onClose={() => {
+                    setSelectedFile(null);
+                    setIsImportConfirmModalOpen(false);
+                }}
+                onConfirm={handleConfirmImport}
+                title="Confirmar Importação"
+                message={`Você tem certeza que deseja importar o arquivo ${selectedFile?.name}?`}
+                confirmButtonText="Importar"
+                cancelButtonText="Cancelar"
+                confirmButtonClassName="px-6 py-2.5 rounded-xl text-white font-medium shadow-lg transition-all bg-[#f43629] hover:bg-white hover:text-black disabled:opacity-60"
             />
         </div>
     );

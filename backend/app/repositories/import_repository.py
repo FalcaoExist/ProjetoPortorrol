@@ -5,67 +5,54 @@ import pandas as pd
 from app.core.supabase_client import supabase
 
 
-def tratar_valor(valor, tipo=float, default=0):
+def parse_value(value, type_cast=float, default=0):
     """
     Função Mestre: Trata float, int e corrige formatação BR/US.
     """
-    if pd.isna(valor) or str(valor).strip() == "":
+    if pd.isna(value) or str(value).strip() == "":
         return default
-    
     try:
-        s = str(valor).strip()
-        # Limpeza pesada
+        s = str(value).strip()
         s = s.replace('R$', '').replace(' ', '').replace('"', '').replace("'", "")
-
-        if not s: return default
-
-        # Lógica de Pontuação (Milhar vs Decimal)
+        if not s:
+            return default
         if s.count(',') > 1:
-            s = s.replace(',', '') # Remove milhar "1,000,000"
+            s = s.replace(',', '')
         else:
-            s = s.replace('.', '').replace(',', '.') # Padrão BR "1.000,00" -> "1000.00"
-
+            s = s.replace('.', '').replace(',', '.')
         val_float = float(s)
-        
-        # SE O TIPO FOR INT, REMOVE O PONTO DECIMAL EXPLICITAMENTE
-        if tipo == int:
+        if type_cast == int:
             return int(val_float)
-            
         return val_float
-
     except Exception:
         return default
 
-def tratar_porcentagem(valor):
+def parse_percentage(value):
     try:
-        if pd.isna(valor) or str(valor).strip() == "": return 0.0
-        s = str(valor).strip().replace('%', '').replace('"', '').replace("'", "").replace(' ', '')
-        
+        if pd.isna(value) or str(value).strip() == "":
+            return 0.0
+        s = str(value).strip().replace('%', '').replace('"', '').replace("'", "").replace(' ', '')
         if '.' in s and ',' in s:
             s = s.replace('.', '').replace(',', '.')
         else:
             s = s.replace(',', '.')
-            
         return float(s)
     except:
         return 0.0
 
-def obter_valor_por_nome(row, lista_nomes_possiveis):
-    if isinstance(lista_nomes_possiveis, str):
-        lista_nomes_possiveis = [lista_nomes_possiveis]
-
-    mapa_colunas = {str(c).strip().upper(): c for c in row.index}
-
-    for nome_alvo in lista_nomes_possiveis:
-        chave = str(nome_alvo).strip().upper()
-        if chave in mapa_colunas:
-            coluna_real = mapa_colunas[chave]
-            return row[coluna_real]
-            
-    return 0 
+def get_value_by_name(row, possible_names):
+    if isinstance(possible_names, str):
+        possible_names = [possible_names]
+    column_map = {str(c).strip().upper(): c for c in row.index}
+    for target_name in possible_names:
+        key = str(target_name).strip().upper()
+        if key in column_map:
+            real_col = column_map[key]
+            return row[real_col]
+    return 0
 
 
-def registrar_log_erro(linha, motivo, user_id=None, row_data=None):
+def log_error(line, reason, user_id=None, row_data=None):
     try:
         dados_str = str(row_data)
         if hasattr(row_data, 'to_dict'):
@@ -76,142 +63,117 @@ def registrar_log_erro(linha, motivo, user_id=None, row_data=None):
         payload = {
             "action": "ERRO_IMPORTACAO",
             "entity": "DATA_ROW",
-            "entity_id": str(linha),
+            "entity_id": str(line),
             "user_id": user_id,
             "extra": {
-                "motivo": str(motivo),
+                "motivo": str(reason),
                 "dados": dados_str
             }
         }
-        if not user_id: del payload["user_id"]
-        
+        if not user_id:
+            del payload["user_id"]
         supabase.table("audit_logs").insert(payload).execute()
     except:
         print(f"Falha ao registrar log de erro na linha {linha}")
 
-def registrar_log_global(nome_arquivo, erro_msg, user_id):
+def log_global(file_name, error_msg, user_id):
     try:
         payload = {
             "action": "FALHA_ARQUIVO_TOTAL",
             "entity": "IMPORT_FILE",
-            "entity_id": nome_arquivo,
+            "entity_id": file_name,
             "user_id": user_id,
             "extra": {
-                "erro_critico": str(erro_msg),
+                "erro_critico": str(error_msg),
                 "status": "ABORTADO"
             }
         }
-        if not user_id: del payload["user_id"]
-
+        if not user_id:
+            del payload["user_id"]
         supabase.table("audit_logs").insert(payload).execute()
     except Exception as e:
         print(f"CRÍTICO: Falha ao salvar log global: {e}")
 
 
-def salvar_sku(row):
-    codigo = str(obter_valor_por_nome(row, ['CODIGO', 'REFERENCIA', 'SKU']) or row.iloc[1]).strip()
-    
-    if not codigo or codigo.lower() in ['nan', 'sku', 'codigo', 'code', '0']:
+def save_sku(row):
+    code = str(get_value_by_name(row, ['CODIGO', 'REFERENCIA', 'SKU']) or row.iloc[1]).strip()
+    if not code or code.lower() in ['nan', 'sku', 'codigo', 'code', '0']:
         return None
-
-    nome = str(obter_valor_por_nome(row, ['NOME_PRODUTO', 'DESCRIÇÃO', 'DESCRICAO']) or row.iloc[0]).strip()
-    marca = str(obter_valor_por_nome(row, ['MARCA', 'FABRICANTE']) or row.iloc[2]).strip()
-    classificacao = str(obter_valor_por_nome(row, ['CLASSIFICACAO', 'CURVA']) or "REGULAR").strip()
-
-    dados_produto = {
-        "nome_produto": nome,
-        "codigo": codigo,
-        "marca": marca,
-        "classificacao": classificacao
+    name = str(get_value_by_name(row, ['NOME_PRODUTO', 'DESCRIÇÃO', 'DESCRICAO']) or row.iloc[0]).strip()
+    brand = str(get_value_by_name(row, ['MARCA', 'FABRICANTE']) or row.iloc[2]).strip()
+    classification = str(get_value_by_name(row, ['CLASSIFICACAO', 'CURVA']) or "REGULAR").strip()
+    product_data = {
+        "nome_produto": name,
+        "codigo": code,
+        "marca": brand,
+        "classificacao": classification
     }
-
     try:
-        res = supabase.table("tb_skus").upsert(dados_produto, on_conflict="codigo").execute()
-        if res.data: return res.data[0]['id']
-        
-        busca = supabase.table("tb_skus").select("id").eq("codigo", codigo).execute()
-        if busca.data: return busca.data[0]['id']
-        
+        res = supabase.table("tb_skus").upsert(product_data, on_conflict="codigo").execute()
+        if res.data:
+            return res.data[0]['id']
+        search = supabase.table("tb_skus").select("id").eq("codigo", code).execute()
+        if search.data:
+            return search.data[0]['id']
     except Exception as e:
-        print(f"Erro SKU {codigo}: {e}")
-    
+        print(f"Erro SKU {code}: {e}")
     return None
 
-def salvar_analise(row, sku_id):
+def save_analysis(row, sku_id):
 
     try:
         supabase.table("tb_analise_compra").delete().eq("sku_id", sku_id).execute()
-
-        dados = {
+        data = {
             "sku_id": sku_id,
-            
-            # --- DEMANDAS (Agora INT, pois o banco é int4) ---
-            "demanda_jv":   tratar_valor(obter_valor_por_nome(row, ["DEMANDA_10", "DEMANDA_JV"]), tipo=int),
-            "demanda_sp":   tratar_valor(obter_valor_por_nome(row, ["DEMANDA_70", "DEMANDA_SP"]), tipo=int),
-            "demanda_poa":  tratar_valor(obter_valor_por_nome(row, ["DEMANDA_90", "DEMANDA_POA"]), tipo=int),
-            "demanda_soma": tratar_valor(obter_valor_por_nome(row, ["DEMANDA_SOMA", "TOTAL_DEMANDA"]), tipo=int),
-            
-            # --- SUGESTÃO (INT) ---
-            "sugestao_compra": tratar_valor(obter_valor_por_nome(row, ["SUGESTAO_COMPRA_30_DIAS", "SUGESTAO"]), tipo=int),
-            
-            # --- ESTOQUES (INT) ---
-            "estoque_jv":   tratar_valor(obter_valor_por_nome(row, ["ESTOQUE_10", "ESTOQUE_JV"]), tipo=int),
-            "estoque_sp":   tratar_valor(obter_valor_por_nome(row, ["ESTOQUE_70", "ESTOQUE_SP"]), tipo=int),
-            "estoque_poa":  tratar_valor(obter_valor_por_nome(row, ["ESTOQUE_90", "ESTOQUE_POA"]), tipo=int),
-            "estoque_soma": tratar_valor(obter_valor_por_nome(row, ["ESTOQUE_SOMA", "TOTAL_ESTOQUE"]), tipo=int),
-            
-            # --- PENDÊNCIAS (INT) ---
-            "pendencia_jv":   tratar_valor(obter_valor_por_nome(row, ["PENDENTE_10", "PENDENCIA_JV"]), tipo=int),
-            "pendencia_sp":   tratar_valor(obter_valor_por_nome(row, ["PENDENTE_70", "PENDENCIA_SP"]), tipo=int),
-            "pendencia_poa":  tratar_valor(obter_valor_por_nome(row, ["PENDENTE_90", "PENDENCIA_POA"]), tipo=int),
-            "pendencia_soma": tratar_valor(obter_valor_por_nome(row, ["PENDENTE_SOMA", "TOTAL_PENDENCIA"]), tipo=int),
-            
-            # --- FALTAS (INT) ---
-            "falta_jv":   tratar_valor(obter_valor_por_nome(row, ["FALTA_10", "RUPTURA_JV"]), tipo=int),
-            "falta_sp":   tratar_valor(obter_valor_por_nome(row, ["FALTA_70", "RUPTURA_SP"]), tipo=int),
-            "falta_poa":  tratar_valor(obter_valor_por_nome(row, ["FALTA_90", "RUPTURA_POA"]), tipo=int),
-            "falta_soma": tratar_valor(obter_valor_por_nome(row, ["FALTA_SOMA", "TOTAL_FALTA"]), tipo=int),
+            "demanda_jv":   parse_value(get_value_by_name(row, ["DEMANDA_10", "DEMANDA_JV"]), type_cast=int),
+            "demanda_sp":   parse_value(get_value_by_name(row, ["DEMANDA_70", "DEMANDA_SP"]), type_cast=int),
+            "demanda_poa":  parse_value(get_value_by_name(row, ["DEMANDA_90", "DEMANDA_POA"]), type_cast=int),
+            "demanda_soma": parse_value(get_value_by_name(row, ["DEMANDA_SOMA", "TOTAL_DEMANDA"]), type_cast=int),
+            "sugestao_compra": parse_value(get_value_by_name(row, ["SUGESTAO_COMPRA_30_DIAS", "SUGESTAO"]), type_cast=int),
+            "estoque_jv":   parse_value(get_value_by_name(row, ["ESTOQUE_10", "ESTOQUE_JV"]), type_cast=int),
+            "estoque_sp":   parse_value(get_value_by_name(row, ["ESTOQUE_70", "ESTOQUE_SP"]), type_cast=int),
+            "estoque_poa":  parse_value(get_value_by_name(row, ["ESTOQUE_90", "ESTOQUE_POA"]), type_cast=int),
+            "estoque_soma": parse_value(get_value_by_name(row, ["ESTOQUE_SOMA", "TOTAL_ESTOQUE"]), type_cast=int),
+            "pendencia_jv":   parse_value(get_value_by_name(row, ["PENDENTE_10", "PENDENCIA_JV"]), type_cast=int),
+            "pendencia_sp":   parse_value(get_value_by_name(row, ["PENDENTE_70", "PENDENCIA_SP"]), type_cast=int),
+            "pendencia_poa":  parse_value(get_value_by_name(row, ["PENDENTE_90", "PENDENCIA_POA"]), type_cast=int),
+            "pendencia_soma": parse_value(get_value_by_name(row, ["PENDENCIA_SOMA", "TOTAL_PENDENCIA"]), type_cast=int),
+            "falta_jv":   parse_value(get_value_by_name(row, ["FALTA_10", "RUPTURA_JV"]), type_cast=int),
+            "falta_sp":   parse_value(get_value_by_name(row, ["FALTA_70", "RUPTURA_SP"]), type_cast=int),
+            "falta_poa":  parse_value(get_value_by_name(row, ["FALTA_90", "RUPTURA_POA"]), type_cast=int),
+            "falta_soma": parse_value(get_value_by_name(row, ["FALTA_SOMA", "TOTAL_FALTA"]), type_cast=int),
             "falta_soma_total": 0,
-
-            # --- NÍVEIS (FLOAT) ---
-            "atendimento": tratar_porcentagem(obter_valor_por_nome(row, ["ATENDIMENTO", "NIVEL_SERVICO"])),
-            "frequencia":  tratar_porcentagem(obter_valor_por_nome(row, ["FREQUENCIA", "FREQ"])),
+            "atendimento": parse_percentage(get_value_by_name(row, ["ATENDIMENTO", "NIVEL_SERVICO"])),
+            "frequencia":  parse_percentage(get_value_by_name(row, ["FREQUENCIA", "FREQ"])),
         }
-
-        # Tenta Inserir
-        supabase.table("tb_analise_compra").insert(dados).execute()
-        
+        supabase.table("tb_analise_compra").insert(data).execute()
     except Exception as e:
-        print(f"Erro Analise SKU {sku_id}: {e}")
+        print(f"Analysis error SKU {sku_id}: {e}")
         try:
-            registrar_log_erro(sku_id, f"Erro Fatal Insert Analise: {str(e)}", None, str(dados))
-        except: pass
+            log_error(sku_id, f"Fatal Insert Analysis Error: {str(e)}", None, str(data))
+        except:
+            pass
 
-def salvar_historico(row, sku_id):
+def save_history(row, sku_id):
     try:
         supabase.table("tb_historico_vendas").delete().eq("sku_id", sku_id).execute()
-
-        idx_inicial = -1
-        colunas = row.index.tolist()
-        
-        for i, nome_col in enumerate(colunas):
-            s_col = str(nome_col).upper()
+        start_idx = -1
+        columns = row.index.tolist()
+        for i, col_name in enumerate(columns):
+            s_col = str(col_name).upper()
             if "QTD" in s_col and ("/" in s_col or "_" in s_col):
-                if i+1 < len(colunas) and "VALOR" in str(colunas[i+1]).upper():
-                    idx_inicial = i
+                if i+1 < len(columns) and "VALOR" in str(columns[i+1]).upper():
+                    start_idx = i
                     break
-        
-        if idx_inicial == -1: idx_inicial = 4
-
+        if start_idx == -1:
+            start_idx = 4
         batch = []
-        idx_atual = idx_inicial
-        
+        current_idx = start_idx
         for seq in range(1, 26):
-            if idx_atual + 1 >= len(row): break
-
-            q = tratar_valor(row.iloc[idx_atual], tipo=int)
-            v = tratar_valor(row.iloc[idx_atual+1], tipo=float)
-
+            if current_idx + 1 >= len(row):
+                break
+            q = parse_value(row.iloc[current_idx], type_cast=int)
+            v = parse_value(row.iloc[current_idx+1], type_cast=float)
             if q != 0 or v != 0:
                 batch.append({
                     "sku_id": sku_id,
@@ -219,12 +181,9 @@ def salvar_historico(row, sku_id):
                     "quantidade": q,
                     "valor": v
                 })
-            
-            idx_atual += 2
-
+            current_idx += 2
         if batch:
             supabase.table("tb_historico_vendas").insert(batch).execute()
-
     except Exception as e:
         print(f"Erro Histórico SKU {sku_id}: {e}")
 
@@ -244,24 +203,19 @@ def process_import_file(file_content, user_id=None):
         for index, row in df.iterrows():
             try:
                 # Tenta salvar o SKU
-                sku_id = salvar_sku(row)
-                
+                sku_id = save_sku(row)
                 if sku_id:
-                    salvar_analise(row, sku_id)
-                    salvar_historico(row, sku_id)
+                    save_analysis(row, sku_id)
+                    save_history(row, sku_id)
                     total_sucessos += 1
                 else:
-                    # CORREÇÃO 1: Registrar log quando o SKU falha (retorna None)
                     total_erros += 1
-                    msg_erro = "SKU não identificado, inválido ou erro ao salvar produto (verifique logs do console)"
-                    
-                    # Tenta pegar qual seria o código para facilitar o log
-                    cod_tentativa = str(obter_valor_por_nome(row, ['CODIGO', 'REFERENCIA', 'SKU']) or "DESCONHECIDO")
-                    msg_erro += f" - Código tentado: {cod_tentativa}"
-
-                    registrar_log_erro(
-                        linha=index + 2,
-                        motivo=msg_erro,
+                    error_msg = "SKU não identificado, inválido ou erro ao salvar produto (verifique logs do console)"
+                    attempted_code = str(get_value_by_name(row, ['CODIGO', 'REFERENCIA', 'SKU']) or "DESCONHECIDO")
+                    error_msg += f" - Código tentado: {attempted_code}"
+                    log_error(
+                        line=index + 2,
+                        reason=error_msg,
                         user_id=user_id,
                         row_data=row
                     )
@@ -270,9 +224,9 @@ def process_import_file(file_content, user_id=None):
                 # CORREÇÃO 2: Este bloco pega erros gerais do loop (ex: falha no salvar_analise que não foi tratada)
                 print(f"Erro linha {index}: {e}")
                 total_erros += 1
-                registrar_log_erro(
-                    linha=index + 2,
-                    motivo=str(e),
+                log_error(
+                    line=index + 2,
+                    reason=str(e),
                     user_id=user_id,
                     row_data=row
                 )
@@ -281,5 +235,5 @@ def process_import_file(file_content, user_id=None):
 
     except Exception as e:
         print(f"CRÍTICO - Falha ao abrir CSV: {e}")
-        registrar_log_global("UPLOAD_CSV", str(e), user_id)
+        log_global("UPLOAD_CSV", str(e), user_id)
         raise e

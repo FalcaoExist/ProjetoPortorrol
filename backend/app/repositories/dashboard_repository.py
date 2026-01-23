@@ -13,36 +13,35 @@ class DashboardRepository:
             print(f"!!! ERRO LISTAGEM GERAL !!!: {e}")
             return []
 
-    # --- CORREÇÃO 1: BUSCA SEGURA (SEM SQL) ---
-    def buscar_por_termo(self, termo: str):
+    # --- SAFE SEARCH (NO RAW SQL) ---
+    def search_by_term(self, term: str):
         try:
-            termo_limpo = termo.strip()
-            print(f"--- Buscando por: {termo_limpo} ---")
-            
-            # Passo A: Busca exata ou parcial pelo CÓDIGO
-            res_codigo = supabase.table("tb_skus")\
+            cleaned_term = term.strip()
+            print(f"--- Searching for: {cleaned_term} ---")
+
+            # Step A: Exact/partial match on CODE
+            res_code = supabase.table("tb_skus")\
                 .select("id, codigo, nome_produto, marca")\
-                .ilike("codigo", f"%{termo_limpo}%")\
+                .ilike("codigo", f"%{cleaned_term}%")\
                 .limit(10)\
                 .execute().data
-                
-            # Passo B: Busca parcial pelo NOME
-            res_nome = supabase.table("tb_skus")\
+
+            # Step B: Partial match on NAME
+            res_name = supabase.table("tb_skus")\
                 .select("id, codigo, nome_produto, marca")\
-                .ilike("nome_produto", f"%{termo_limpo}%")\
+                .ilike("nome_produto", f"%{cleaned_term}%")\
                 .limit(10)\
                 .execute().data
-            
-            # Passo C: Junta os dois e remove duplicatas (baseado no ID)
-            # Usamos um dicionário onde a chave é o ID para garantir unicidade
-            combinado = {item['id']: item for item in (res_codigo + res_nome)}
-            
-            return list(combinado.values())
-            
+
+            # Step C: Combine and deduplicate by ID
+            combined = {item['id']: item for item in (res_code + res_name)}
+
+            return list(combined.values())
+
         except Exception as e:
             print(f"Erro busca SKU: {e}")
             return []
-            
+
     def get_history_by_sku(self, sku_id: int):
         try:
             return supabase.table("tb_historico_vendas")\
@@ -67,41 +66,38 @@ class DashboardRepository:
                 .select("periodo_sequencia, quantidade")\
                 .limit(50000)\
                 .execute()
-            
+
             rows = response.data
             if not rows:
                 return []
 
-            # 2. Agregação em Memória (Dicionário)
-            agregado = {}
+            # 2. In-memory aggregation
+            aggregated = {}
             for row in rows:
                 seq = row.get('periodo_sequencia')
-                qtd = row.get('quantidade')
+                qty = row.get('quantidade')
 
-                if seq is None or qtd is None:
+                if seq is None or qty is None:
                     continue
                 
                 # Garante conversão segura
                 try:
                     s = int(seq)
-                    q = float(qtd)
+                    q = float(qty)
                 except:
                     continue
 
-                if s in agregado:
-                    agregado[s] += q
-                else:
-                    agregado[s] = q
+                aggregated[s] = aggregated.get(s, 0) + q
 
-            # 3. Formata para o Dashboard
-            resultado = [
+            # 3. Format for dashboard
+            result = [
                 {"periodo_sequencia": seq, "total_quantidade": total}
-                for seq, total in agregado.items()
+                for seq, total in aggregated.items()
             ]
-            
-            # 4. Ordena e pega os últimos 24 meses
-            resultado.sort(key=lambda x: x['periodo_sequencia'])
-            return resultado[-24:]
+
+            # 4. Sort and return last 24 months
+            result.sort(key=lambda x: x['periodo_sequencia'])
+            return result[-24:]
 
         except Exception as e:
             print(f"Erro crítico no cálculo Python: {e}")
@@ -115,16 +111,16 @@ class DashboardRepository:
             print(f"Erro ao buscar filiais: {e}")
             return []
 
-    def get_configuracao(self, chave: str):
+    def get_configuration(self, key: str):
         try:
-            response = supabase.table("tb_configuracoes").select("valor").eq("chave", chave).single().execute()
+            response = supabase.table("tb_configuracoes").select("valor").eq("chave", key).single().execute()
             return response.data
         except Exception:
             return None
 
-    def update_configuracao(self, chave: str, valor: str):
+    def update_configuration(self, key: str, value: str):
         try:
-            return supabase.table("tb_configuracoes").update({"valor": valor, "updated_at": "now()"}).eq("chave", chave).execute()
+            return supabase.table("tb_configuracoes").update({"valor": value, "updated_at": "now()"}).eq("chave", key).execute()
         except Exception as e:
             print(f"Erro ao atualizar config: {e}")
             return None

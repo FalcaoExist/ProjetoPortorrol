@@ -390,15 +390,15 @@ def listar_skus_dashboard(
     Retorna a lista de SKUs com seus status calculados.
     Permite filtrar por Status, Filial e Fornecedor.
     """
-    return service.get_skus_filtrados(
-        filtro_status=status.value if status else None, 
-        filial=filial,
-        fornecedor=fornecedor
+    return service.get_filtered_skus(
+        status_filter=status.value if status else None,
+        branch=filial,
+        supplier=fornecedor
     )
     
 @router.get("/dashboard/filiais", response_model=List[FilialResponse])
 def listar_filiais_dashboard(service: DashboardService = Depends(get_dashboard_service)):
-    return service.get_filiais()
+    return service.get_branches()
 
 @router.post("/dashboard/config/lead-time")
 def atualizar_lead_time(config: ConfigUpdate, service: DashboardService = Depends(get_dashboard_service)):
@@ -408,19 +408,18 @@ def atualizar_lead_time(config: ConfigUpdate, service: DashboardService = Depend
 @router.post("/dashboard/config/orcamento")
 def atualizar_orcamento(config: ConfigUpdate, service: DashboardService = Depends(get_dashboard_service)):
     """Define o Budget disponível."""
-    return service.update_orcamento(config.valor)
+    return service.update_budget(config.valor)
 
 @router.get("/dashboard/search", response_model=List[SkuAnaliseResponse])
 def buscar_skus(
     q: str = Query(...),
     service: DashboardService = Depends(get_dashboard_service)
 ):
-    return service.buscar_produtos(q)
+    return service.search_products(q)
     """
     faz uma busca de SKUs por Nome (parcial), Código (exato) ou ID.
     Retorna uma lista de resultados.
     """
-    return service.buscar_produtos(q)
 
 @router.get("/dashboard/history")
 def get_product_history(

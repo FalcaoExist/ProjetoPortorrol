@@ -3,15 +3,15 @@ import io
 import pandas as pd
 
 from app.repositories.import_repository import (
-    registrar_log_erro,
-    registrar_log_global,
-    salvar_analise,
-    salvar_historico,
-    salvar_sku,
+    log_error,
+    log_global,
+    save_analysis,
+    save_history,
+    save_sku,
 )
 
 
-def processar_background(file_contents: bytes, filename: str, user_id: str):
+def process_background(file_contents: bytes, filename: str, user_id: str):
     """
     Esta função roda 'sozinha' após o servidor responder ao usuário.
     """
@@ -29,39 +29,35 @@ def processar_background(file_contents: bytes, filename: str, user_id: str):
 
         # 2. Validações
         if df.empty or len(df.columns) < 2:
-            registrar_log_global(filename, "Arquivo vazio ou colunas insuficientes", user_id)
+            log_global(filename, "Arquivo vazio ou colunas insuficientes", user_id)
             return
 
         # 3. Loop de Processamento (Sua lógica original)
-        sucesso = 0
-        erros = 0
+        success = 0
+        errors = 0
         
         for index, row in df.iterrows():
             try:
-                if row.isna().all(): continue
-
-                # SKU
-                sku_id = salvar_sku(row)
-                if not sku_id: continue 
-
-                # Análise e Histórico
-                salvar_analise(row, sku_id)
-                salvar_historico(row, sku_id)
-
-                sucesso += 1
+                if row.isna().all():
+                    continue
+                sku_id = save_sku(row)
+                if not sku_id:
+                    continue
+                save_analysis(row, sku_id)
+                save_history(row, sku_id)
+                success += 1
 
             except Exception as e:
-                erros += 1
-                # Registra o log passando o user_id corretamente
-                registrar_log_erro(
-                    linha=index + 2,
-                    motivo=str(e),
+                errors += 1
+                log_error(
+                    line=index + 2,
+                    reason=str(e),
                     user_id=user_id,
                     row_data=row
                 )
 
-        print(f"--- [BG] FIM. Sucesso: {sucesso} | Erros: {erros} ---")
+        print(f"--- [BG] FIM. Sucesso: {success} | Erros: {errors} ---")
 
-    except Exception as e_critico:
+    except Exception as e_critic:
         # Se o arquivo estiver corrompido ou o Pandas falhar
-        registrar_log_global(filename, f"Erro Fatal: {str(e_critico)}", user_id)
+        log_global(filename, f"Erro Fatal: {str(e_critic)}", user_id)

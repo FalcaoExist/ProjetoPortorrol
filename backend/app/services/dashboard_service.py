@@ -26,7 +26,7 @@ class DashboardService:
             return default
 
     # --- LÓGICA DE STATUS (Baseada em DIAS DE COBERTURA) ---
-    def _calcular_status(self, dias_cobertura: float) -> StatusProduto:
+    def _calculate_status(self, coverage_days: float) -> StatusProduto:
         """
         Define o status baseado nos Dias de Cobertura (Estoque / Demanda * 30):
         > 120 dias       -> EXCESSO
@@ -34,16 +34,16 @@ class DashboardService:
         30 a 59.9 dias   -> SUBDIMENSIONADO
         < 30 dias        -> RUPTURA
         """
-        if dias_cobertura > 120.0:
+        if coverage_days > 120.0:
             return StatusProduto.EXCESSO
-        elif dias_cobertura >= 60.0:
+        elif coverage_days >= 60.0:
             return StatusProduto.OK
-        elif dias_cobertura >= 30.0:
+        elif coverage_days >= 30.0:
             return StatusProduto.SUBDIMENSIONADO
         else:
             return StatusProduto.RUPTURA
 
-    def _formatar_saida(self, raw_data: list):
+    def _format_output(self, raw_data: list):
         processed_data = []
         if not raw_data:
             return []
@@ -51,36 +51,28 @@ class DashboardService:
         for item in raw_data:
             if not item:
                 continue
-            
-            # Extração segura dos dados de análise
-            raw_analise = item.get("tb_analise_compra", [])
-            analise_data = {}
 
-            if isinstance(raw_analise, list):
-                if len(raw_analise) > 0:
-                    analise_data = raw_analise[0]
-            elif isinstance(raw_analise, dict):
-                analise_data = raw_analise
-            
-            # 1. Extrair Estoque e Demanda
-            estoque = self._safe_int(analise_data.get("estoque_soma"))
-            demanda = self._safe_float(analise_data.get("demanda_soma"))
-            
-            # 2. Calcular Dias de Cobertura
-            # Fórmula: (Estoque / Demanda) * 30
-            dias_cobertura = 0.0
-            
-            if demanda > 0:
-                dias_cobertura = (estoque / demanda) * 30
-            elif estoque > 0:
-                # Se tem estoque mas demanda é 0, a cobertura é "infinita" -> Excesso
-                dias_cobertura = 999.0 
+            raw_analysis = item.get("tb_analise_compra", [])
+            analysis_data = {}
+
+            if isinstance(raw_analysis, list):
+                if len(raw_analysis) > 0:
+                    analysis_data = raw_analysis[0]
+            elif isinstance(raw_analysis, dict):
+                analysis_data = raw_analysis
+
+            stock = self._safe_int(analysis_data.get("estoque_soma"))
+            demand = self._safe_float(analysis_data.get("demanda_soma"))
+
+            coverage_days = 0.0
+            if demand > 0:
+                coverage_days = (stock / demand) * 30
+            elif stock > 0:
+                coverage_days = 999.0
             else:
-                # Sem estoque e sem demanda -> Consideramos Ruptura (0 dias)
-                dias_cobertura = 0.0
+                coverage_days = 0.0
 
-            # 3. Definir Status baseado nos dias
-            status = self._calcular_status(dias_cobertura)
+            status = self._calculate_status(coverage_days)
 
             sku_obj = {
                 "sku_id": item.get("id"),
@@ -88,47 +80,43 @@ class DashboardService:
                 "nome_produto": item.get("nome_produto") or "",
                 "marca": item.get("marca") or "",
                 "classificacao": item.get("classificacao") or "Geral",
-                # Enviamos 'dias_cobertura' no campo 'atendimento' para o front mostrar "45 dias" e não "%"
-                "atendimento": round(dias_cobertura, 1), 
+                "atendimento": round(coverage_days, 1),
                 "status": status,
-                "sugestao_compra": self._safe_int(analise_data.get("sugestao_compra")),
-                "estoque_soma": estoque,
-                "demanda_soma": demanda,
-                "filial_nome": str(analise_data.get("filial_id") or "")
+                "sugestao_compra": self._safe_int(analysis_data.get("sugestao_compra")),
+                "estoque_soma": stock,
+                "demanda_soma": demand,
+                "filial_nome": str(analysis_data.get("filial_id") or "")
             }
             processed_data.append(sku_obj)
-        
+
         return processed_data
 
     # --- MÉTODOS PRINCIPAIS ---
 
-    def get_skus_filtrados(self, filtro_status: str = None, filial: str = None, fornecedor: str = None):
+    def get_filtered_skus(self, status_filter: str = None, branch: str = None, supplier: str = None):
         raw_data = self.repo.get_all_skus_with_analysis()
-        todos_produtos = self._formatar_saida(raw_data)
-        
-        resultado = todos_produtos
+        all_products = self._format_output(raw_data)
 
-        # 1. Filtro de Status
-        if filtro_status:
-            resultado = [p for p in resultado if p["status"].value == filtro_status.upper()]
+        result = all_products
 
-        # 2. Filtro de Filial (Ignora se for vazio ou "Todas")
-        if filial and filial.strip() and filial != "Todas":
-            f_term = filial.lower().strip()
-            resultado = [p for p in resultado if f_term in p["filial_nome"].lower()]
+        if status_filter:
+            result = [p for p in result if p["status"].value == status_filter.upper()]
 
-        # 3. Filtro de Fornecedor (Ignora se for vazio ou "Todos")
-        if fornecedor and fornecedor.strip() and fornecedor != "Todos":
-            s_term = fornecedor.lower().strip()
-            resultado = [p for p in resultado if s_term in p["marca"].lower() or s_term in p["nome_produto"].lower()]
-            
-        return resultado
+        if branch and branch.strip() and branch != "Todas":
+            b_term = branch.lower().strip()
+            result = [p for p in result if b_term in p["filial_nome"].lower()]
 
-    def buscar_produtos(self, termo: str):
-        if not termo:
+        if supplier and supplier.strip() and supplier != "Todos":
+            s_term = supplier.lower().strip()
+            result = [p for p in result if s_term in p["marca"].lower() or s_term in p["nome_produto"].lower()]
+
+        return result
+
+    def search_products(self, term: str):
+        if not term:
             return []
-        raw_data = self.repo.buscar_por_termo(termo)
-        return self._formatar_saida(raw_data)
+        raw_data = self.repo.search_by_term(term)
+        return self._format_output(raw_data)
 
     def get_sku_history(self, sku_id: int = None):
         if sku_id:
@@ -144,10 +132,10 @@ class DashboardService:
         def get_date_label(seq):
             try:
                 seq_int = int(seq)
-                hoje = datetime.now()
-                meses_atras = 24 - seq_int
-                data_alvo = hoje - timedelta(days=meses_atras * 30)
-                return data_alvo.strftime("%m/%y") 
+                today = datetime.now()
+                months_back = 24 - seq_int
+                target = today - timedelta(days=months_back * 30)
+                return target.strftime("%m/%y")
             except:
                 return f"P{seq}"
 
@@ -159,17 +147,17 @@ class DashboardService:
             for item in data
         ]
 
-    def get_filiais(self):
+    def get_branches(self):
         raw_branches = self.repo.get_active_branches()
         if not raw_branches:
             return []
         return [{"id": str(b["branch_id"]), "nome": b["name"]} for b in raw_branches]
 
-    def update_lead_time(self, valor):
-        return self.repo.update_configuracao("lead_time_padrao", valor)
+    def update_lead_time(self, value):
+        return self.repo.update_configuration("lead_time_padrao", value)
 
-    def update_orcamento(self, valor):
-        return self.repo.update_configuracao("orcamento_mensal", valor)
+    def update_budget(self, value):
+        return self.repo.update_configuration("orcamento_mensal", value)
     
 def get_date_label(seq):
     try:

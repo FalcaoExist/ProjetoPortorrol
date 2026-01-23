@@ -1,3 +1,6 @@
+from typing import List, Optional, Annotated
+
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile, Path
 from itertools import groupby
 import os
 from datetime import datetime, timedelta
@@ -39,6 +42,7 @@ from app.core.supabase_client import supabase
 from app.repositories.import_repository import process_import_file
 from app.services.audit_service import AuditService
 from app.services.auth_service import AuthService
+from app.services.import_orders_service import ImportOrdersService
 from app.services.dashboard_service import DashboardService
 from app.services.service_models import UserCreateRequest, UserUpdateRequest
 from app.services.user_service import UserService
@@ -64,6 +68,18 @@ from .schemas import (
 
 load_dotenv()
 
+# --- LOGIN ---
+# >>> ALTERAÇÃO: agora captura IP e envia para AuthService
+@router.post("/login", response_model=LoginResponse)
+def login(
+    data: LoginRequest,
+    request: Request,
+    auth_service: AuthService = Depends(get_auth_service),
+):
+    # Extrai IP
+    xff = request.headers.get("x-forwarded-for")
+    if xff:
+        ip = xff.split(",")[0].strip()
 # --- CONFIGURAÇÕES DE SEGURANÇA E TOKEN (ADICIONADO) ---
 SECRET_KEY = os.getenv("SECRET_KEY", "uma_chave_super_secreta_e_segura_123")
 ALGORITHM = os.getenv("ALGORITHM", "HS256")
@@ -536,6 +552,15 @@ def change_own_password(
     )
     return {"success": True, "message": "Senha alterada com sucesso!"}
 
+# IMPORTAR PEDIDOS DOS FORNECEDORES NSK E TIMKEN
+@router.post("/imports/pedidos/{supplier}")
+async def import_orders(
+    supplier: Annotated[str, Path(...)],
+    file: Annotated[UploadFile, File(...)]
+):
+    service = ImportOrdersService()
+    imported = await service.import_file(supplier, file)
+    return {"success": True, "imported": imported}
 # Orders
 
 @router.get("/orders", response_model=List[PedidoResponse])

@@ -7,6 +7,8 @@ import { getMainOrdersColumns } from "./ordersConfig.jsx";
 import { exportRowsCSV } from "../services/csvExporter";
 import OrderDetailsModal from "../components/OrderDetailsModal.jsx";
 import OrdersFilter from "../components/OrdersFilter.jsx";
+import { useRef } from "react";
+import * as XLSX from "xlsx";
 
 export default function Orders() {
     const { user } = useAuth();
@@ -26,6 +28,28 @@ export default function Orders() {
     } = useOrders();
 
     const mainOrdersColumns = getMainOrdersColumns(handleOpenModal);
+    const fileInputRef = useRef(null);
+
+    const handleImportClick = () => {
+        fileInputRef.current.click();
+    };
+
+    const handleFileChange = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const data = new Uint8Array(event.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const sheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[sheetName];
+                const json = XLSX.utils.sheet_to_json(worksheet);
+                console.log(json);
+                // TODO: Process the imported data and add it to the orders table
+            };
+            reader.readAsArrayBuffer(file);
+        }
+    };
 
     return (
         <div className="grid min-h-screen grid-cols-[16rem_minmax(0,1fr)]">
@@ -53,7 +77,20 @@ export default function Orders() {
                             autoHeight
                         />
 
-                        <div className="flex justify-end mt-4">
+                        <div className="flex justify-end mt-4 space-x-2">
+                            <input
+                                type="file"
+                                ref={fileInputRef}
+                                style={{ display: 'none' }}
+                                onChange={handleFileChange}
+                                accept=".xlsx"
+                            />
+                            <button
+                                onClick={handleImportClick}
+                                className="px-4 py-2 font-normal text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
+                            >
+                                IMPORTAR PEDIDOS
+                            </button>
                             <button
                                 onClick={() => {
                                     // Monta linhas CSV: cabeçalho em pt-BR

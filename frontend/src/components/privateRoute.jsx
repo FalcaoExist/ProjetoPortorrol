@@ -1,26 +1,23 @@
 import React from "react";
 import { Navigate } from "react-router-dom";
-import { useAuth } from "../context/authContext";
+import { useAuth } from "../context/authContext"; 
 
 export default function PrivateRoute({ children, allowedRoles, onlyGestor = false }) {
     const { user, loading, isGestor } = useAuth();
 
+ 
     if (loading) {
-        return <div className="p-10 text-center font-poppins">Carregando...</div>; 
+        return <div className="h-screen flex items-center justify-center font-poppins">Carregando sessão...</div>; 
     }
 
-    // 1. Se não estiver logado, manda para o Login
     if (!user) {
         return <Navigate to="/" />;
     }
 
-    // 2. [SEGURANÇA] Se a rota for só para Gestor e o usuário NÃO for gestor
-    // Redireciona para a tela permitida (Fornecedores)
     if (onlyGestor && !isGestor) {
         return <Navigate to="/list_suppliers" replace />;
     }
 
-    // Suporte a lista de papéis permitidos
     if (Array.isArray(allowedRoles) && allowedRoles.length > 0) {
         const hasRequiredRole = allowedRoles.includes(user.role);
         if (!hasRequiredRole) {
@@ -28,6 +25,5 @@ export default function PrivateRoute({ children, allowedRoles, onlyGestor = fals
         }
     }
 
-    // Se passou nas verificações, renderiza a página
     return children;
 }

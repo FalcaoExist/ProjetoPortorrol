@@ -66,6 +66,8 @@ from .schemas import (
     UserUpdateResponse,
 )
 
+router = APIRouter()
+
 load_dotenv()
 
 # --- LOGIN ---

@@ -8,8 +8,8 @@ import { exportRowsCSV } from "../services/csvExporter";
 import OrderDetailsModal from "../components/OrderDetailsModal.jsx";
 import OrdersFilter from "../components/OrdersFilter.jsx";
 import { useRef, useState, useEffect } from "react";
-import * as XLSX from "xlsx";
 import ConfirmationModal from "../components/common/ConfirmationModal";
+import { importOrdersFromExcel } from "../services/ordersImporter";
 
 export default function Orders() {
     const { user, showReminder, dismissReminder } = useAuth();
@@ -55,63 +55,15 @@ export default function Orders() {
         e.target.value = '';
     };
 
-    const handleConfirmImport = () => {
+    const handleConfirmImport = async () => {
         if (selectedFile) {
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                const data = new Uint8Array(event.target.result);
-                const workbook = XLSX.read(data, { type: 'array' });
-                const sheetName = workbook.SheetNames[0];
-                const worksheet = workbook.Sheets[sheetName];
-                const json = XLSX.utils.sheet_to_json(worksheet, { cellDates: true });
-
-                // Helper: convert Excel serial (number) to ISO YYYY-MM-DD
-                const excelSerialToISO = (serial) => {
-                    if (serial == null || serial === "") return null;
-                    if (serial instanceof Date) return serial.toISOString().split('T')[0];
-                    if (typeof serial !== 'number') return null;
-                    // Excel serial to JS date (UTC). 25569 = days between 1899-12-31 and 1970-01-01
-                    const ms = Math.round((serial - 25569) * 86400 * 1000);
-                    const d = new Date(ms);
-                    // If invalid date, return null
-                    if (isNaN(d.getTime())) return null;
-                    return d.toISOString().split('T')[0];
-                };
-
-                // Columns to detect (exact or normalized)
-                const dateColumnNames = [
-                    'Requested date',
-                    'Confirmed date',
-                    'Data Entrega (DD/MM/AAAA)',
-                    'Data Solicitada (DD/MM/AAAA)',
-                    'Data Entrega',
-                    'Data Solicitada'
-                ];
-
-                const isDateColumn = (col) => {
-                    if (!col) return false;
-                    const c = col.toString().trim().toLowerCase();
-                    return dateColumnNames.some(name => name.toLowerCase() === c) ||
-                        /requested date|confirmed date|data entrega|data solicitada/.test(c);
-                };
-
-                // Convert numeric serials in detected columns to ISO strings
-                const processed = json.map(row => {
-                    const newRow = { ...row };
-                    Object.keys(newRow).forEach(k => {
-                        if (isDateColumn(k)) {
-                            const val = newRow[k];
-                            const iso = excelSerialToISO(val);
-                            if (iso) newRow[k] = iso;
-                        }
-                    });
-                    return newRow;
-                });
-
+            try {
+                const processed = await importOrdersFromExcel(selectedFile);
                 console.log('Imported (processed) rows:', processed);
                 // TODO: Process the imported data and add it to the orders table
-            };
-            reader.readAsArrayBuffer(selectedFile);
+            } catch (err) {
+                alert('Erro ao importar arquivo: ' + err.message);
+            }
             setSelectedFile(null);
             setIsImportConfirmModalOpen(false);
         }

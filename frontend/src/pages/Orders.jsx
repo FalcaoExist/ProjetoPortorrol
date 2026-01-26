@@ -57,7 +57,21 @@ export default function Orders() {
                 const workbook = XLSX.read(data, { type: 'array' });
                 const sheetName = workbook.SheetNames[0];
                 const worksheet = workbook.Sheets[sheetName];
-                const json = XLSX.utils.sheet_to_json(worksheet);
+                const json = XLSX.utils.sheet_to_json(worksheet, { cellDates: true });
+
+                // Format dates to YYYY-MM-DD
+                json.forEach(row => {
+                    Object.keys(row).forEach(key => {
+                        if (row[key] instanceof Date) {
+                            const date = row[key];
+                            const year = date.getUTCFullYear();
+                            const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+                            const day = String(date.getUTCDate()).padStart(2, '0');
+                            row[key] = `${year}-${month}-${day}`;
+                        }
+                    });
+                });
+
                 console.log(json);
                 // TODO: Process the imported data and add it to the orders table
             };

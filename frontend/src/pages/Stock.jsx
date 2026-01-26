@@ -4,6 +4,7 @@ import { useAuth } from "../context/authContext";
 import { useStock } from "../hooks/useStock";
 import { importStockFromFile, exportStockData } from "../services/stockService";
 
+
 // Opções estáticas (Status e Filial não mudam, então definimos aqui para não precisar de mock)
 const statusOptions = ["Ok", "Subdimensionado", "Ruptura iminente", "Excesso"];
 const filialOptions = ["Porto Alegre", "Joinville", "São Paulo"];
@@ -15,6 +16,9 @@ import SelectFilter from "../components/common/SelectFilter";
 import StockTable from "../components/stock_table/StockTable";
 import NewOrderTable from "../components/new_order_table/NewOrderTable";
 import ConfirmationModal from "../components/common/ConfirmationModal";
+import ExportDropdown from "../components/common/ExportDropdown";
+
+
 
 export default function Stock() {
     const { user } = useAuth();
@@ -183,12 +187,28 @@ export default function Stock() {
                                 >
                                     IMPORTAR
                                 </button>
-                                <button
-                                    onClick={handleExportClick}
-                                    className="px-4 py-2 font-normal text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
-                                >
-                                    EXPORTAR
-                                </button>
+                                <ExportDropdown
+                                    options={[{
+                                        label: "CSV",
+                                        onClick: async () => {
+                                            try {
+                                                await exportStockData(filteredRows);
+                                            } catch (error) {
+                                                console.error("Erro ao exportar dados:", error);
+                                                alert(`Erro ao exportar: ${error.message}`);
+                                            }
+                                        }
+                                    },
+                                    {
+                                        label: "Excel",
+                                        onClick: () => alert("Exportar para Excel ainda não implementado.")
+                                    },
+                                    {
+                                        label: "PDF",
+                                        onClick: () => alert("Exportar para PDF ainda não implementado.")
+                                    }
+                                    ]}
+                                />
 
                                 <input 
                                     type="file"

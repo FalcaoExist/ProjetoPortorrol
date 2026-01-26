@@ -15,7 +15,7 @@ import OverstokChart from "../components/charts/OverstokChart";
 import SkuAutocomplete from "../components/common/SKUAutocomplete";
 import useDashboardData from "../hooks/useDashboardData";
 import { exportDashboardCSV } from "../services/csvExporter";
-
+import ExportDropdown from "../components/common/ExportDropdown";
 
 export default function Home() {
   const { user } = useAuth();
@@ -42,7 +42,7 @@ export default function Home() {
   } = useDashboardData();
 
   // Exporta via serviço externo (single responsibility)
-  const handleExport = () =>
+  const handleExportCSV = () => {
     exportDashboardCSV({
       branch,
       supplier,
@@ -50,11 +50,19 @@ export default function Home() {
       months,
       data,
       dataCritic,
-      statusIndicators: STATUS_INDICATORS,
+      statusIndicators: stockOverview?.data || {},
       orders,
       budget,
       leadtimeInfo,
     });
+  };
+  // TODO: Implementar exportDashboardExcel e exportDashboardPDF
+  const handleExportExcel = () => {
+    alert("Exportar para Excel ainda não implementado.");
+  };
+  const handleExportPDF = () => {
+    alert("Exportar para PDF ainda não implementado.");
+  };
 
   return (
     <div className="grid min-h-screen grid-cols-[16rem_minmax(0,1fr)]">
@@ -158,7 +166,13 @@ export default function Home() {
             </div>
 
             <div className="flex justify-end mb-24">
-              <button onClick={handleExport} className="bg-[#EAEAEA] text-gray-500 px-16 py-2 shadow-md rounded-lg border hover:bg-white">EXPORTAR</button>
+             <ExportDropdown
+                options={[ 
+                  { label: "CSV", onClick: handleExportCSV },
+                  { label: "Excel", onClick: handleExportExcel },
+                  { label: "PDF", onClick: handleExportPDF },
+                ]}
+              />
             </div>
           </section>
         </div>

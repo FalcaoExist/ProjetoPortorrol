@@ -7,12 +7,12 @@ import { getMainOrdersColumns } from "./ordersConfig.jsx";
 import { exportRowsCSV } from "../services/csvExporter";
 import OrderDetailsModal from "../components/OrderDetailsModal.jsx";
 import OrdersFilter from "../components/OrdersFilter.jsx";
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import * as XLSX from "xlsx";
 import ConfirmationModal from "../components/common/ConfirmationModal";
 
 export default function Orders() {
-    const { user } = useAuth();
+    const { user, showReminder, dismissReminder } = useAuth();
     const {
         searchQuery,
         setSearchQuery,
@@ -29,6 +29,12 @@ export default function Orders() {
         groupedAndFilteredOrders,
         handleUpdateData,
     } = useOrders();
+
+    useEffect(() => {
+        if (showReminder) {
+            dismissReminder();
+        }
+    }, [showReminder, dismissReminder]);
 
     const mainOrdersColumns = getMainOrdersColumns(handleOpenModal);
     const fileInputRef = useRef(null);

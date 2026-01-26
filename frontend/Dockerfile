@@ -7,23 +7,14 @@ WORKDIR /app
 # Copiar package.json e package-lock.json para instalar dependências primeiro
 COPY package*.json ./
 
-FROM node:20
-
-WORKDIR /app
-
-# Copia SOMENTE os manifests do frontend
-COPY frontend/package*.json ./
-
-# Instala as dependências do frontend (xlsx incluído)
+# Instalar dependências
 RUN npm install
 
-# Agora sim copia o código do frontend
-COPY frontend/ .
+# Copiar o restante do código
+COPY . .
 
-# Porta do Vite
+# Expor a porta que será usada pelo Vite
 EXPOSE 5173
 
-# Rodar o Vite acessível externamente
+# Comando para rodar o Vite no host 0.0.0.0, garantindo acesso externo ao container
 CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "5173"]
-
-

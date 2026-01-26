@@ -7,10 +7,13 @@ import PrivateRoute from "./components/privateRoute";
 // Páginas
 import Login from "./pages/Login";
 import Home from "./pages/Home";
+import Stock from "./pages/Stock";
+import Orders from "./pages/Orders";
 import ListUsers from "./pages/ListUsers";
 import ListSuppliers from "./pages/ListSuppliers";
 import Records from "./pages/Records";
 import Profile from "./pages/Profile"
+import NewOrder from "./pages/NewOrder";
 
 export default function App() {
   return (
@@ -30,6 +33,30 @@ export default function App() {
                 <Home />
               </PrivateRoute>
             } 
+          />
+          <Route 
+            path="/stock"
+            element={
+              <PrivateRoute>
+                <Stock />
+              </PrivateRoute>
+            }
+          />
+          <Route 
+            path="/orders"
+            element={
+              <PrivateRoute>
+                <Orders />
+              </PrivateRoute>
+            }
+          />
+          <Route 
+            path="/new-order"
+            element={
+              <PrivateRoute>
+                <NewOrder />
+              </PrivateRoute>
+            }
           />
           <Route 
           path="/profile"

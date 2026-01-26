@@ -1,51 +1,79 @@
 // src/services/validators/api/httpClient.js
 
-// A URL base deve ser vazia ou '/api' para usar o proxy do Vite (definido no vite.config.js)
-// Não use 'http://localhost:3000' ou 'http://localhost:8000' aqui
-const BASE_URL = ""; 
+const API_URL = import.meta.env.VITE_API_URL || "";
 
-async function request(endpoint, options = {}) {
-  // Garante que o endpoint comece com /api se ainda não tiver
-  const url = endpoint.startsWith("/api") ? endpoint : `/api${endpoint}`;
+const customFetch = async (endpoint, options = {}) => {
+  const url = `${API_URL}${endpoint}`;
+
+  // LÓGICA DE HEADER DE USUÁRIO (Mantenha como estava)
+  let userHeader = {};
+  try {
+    const storedUser = localStorage.getItem("user_data") || localStorage.getItem("user");
+    if (storedUser) {
+      const parsed = JSON.parse(storedUser);
+      const userId = parsed.user_id || parsed.userId || parsed.id;
+      if (userId) {
+        userHeader["X-User-Id"] = userId;
+      }
+    }
+  } catch (error) {
+    console.warn("Erro ao ler localStorage:", error);
+  }
 
   const config = {
     ...options,
     headers: {
       "Content-Type": "application/json",
+      ...userHeader,
       ...options.headers,
     },
+    // 👇 ADICIONE ESTA LINHA OBRIGATORIAMENTE 👇
+    credentials: "include", 
+    // 👆 Isso permite que o Cookie de sessão vá e volte entre Frontend e Backend
   };
 
   try {
-    const response = await fetch(`${BASE_URL}${url}`, config);
+    const response = await fetch(url, config);
 
-    // Tenta fazer o parse do JSON
     let data;
-    try {
+    let rawText;
+    const contentType = response.headers.get("content-type");
+
+    if (contentType && contentType.includes("application/json")) {
+      try {
         data = await response.json();
-    } catch (e) {
-        // Se não for JSON, retorna null ou o texto
+      } catch {
         data = null;
+      }
+    } else {
+      rawText = await response.text();
     }
 
     if (!response.ok) {
-      throw {
-        status: response.status,
-        message: data?.detail || data?.message || "Erro na requisição",
-        body: data
-      };
+      // Se for 401 no endpoint /me, é apenas sessão expirada, não precisa poluir o console com erro crítico
+      if (response.status === 401 && endpoint.includes("/me")) {
+         throw new Error("Sessão expirada");
+      }
+
+      const message = (data && (data.detail || data.message)) || (rawText && rawText.trim()) || "Erro na requisição";
+      const error = new Error(message);
+      error.status = response.status;
+      error.data = data || rawText;
+      throw error;
     }
 
     return data;
+
   } catch (error) {
-    console.error(`[httpClient] Erro em ${url}:`, error);
     throw error;
   }
-}
-
-export default {
-  get: (url) => request(url, { method: "GET" }),
-  post: (url, body) => request(url, { method: "POST", body: JSON.stringify(body) }),
-  put: (url, body) => request(url, { method: "PUT", body: JSON.stringify(body) }),
-  delete: (url) => request(url, { method: "DELETE" }),
 };
+
+const httpClient = {
+  get: (url, options) => customFetch(url, { ...options, method: "GET" }),
+  post: (url, body, options) => customFetch(url, { ...options, method: "POST", body: JSON.stringify(body) }),
+  put: (url, body, options) => customFetch(url, { ...options, method: "PUT", body: JSON.stringify(body) }),
+  delete: (url, options) => customFetch(url, { ...options, method: "DELETE" }),
+};
+
+export default httpClient;

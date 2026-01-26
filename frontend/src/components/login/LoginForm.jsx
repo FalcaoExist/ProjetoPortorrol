@@ -23,7 +23,7 @@ export default function LoginForm({
       onSubmit={onSubmit}
       className="flex flex-col items-center justify-center w-full"
     >
-      <img src={logo} alt="logo" className="mb-6 w-32 h-auto" />
+      <img src={logo} alt="logo" className="mb-6 w-48 h-auto" />
 
       <div className="flex flex-col justify-center w-full mb-4">
         <label

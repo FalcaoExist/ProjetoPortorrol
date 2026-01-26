@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import logoIby from '../assets/logoIby_maior.png'
-import background from '../assets/background.png'
+import logoPort from '../assets/LogoPort.png'
+import background from '../assets/Paginicial.png'
 import LoginForm from "../components/login/LoginForm"
 import useLogin from "../hooks/useLogin.jsx";
 
@@ -23,8 +24,7 @@ export default function Login() {
             const result = await authLogin(email, password);
 
             if (result.success) {
-                // [CORREÇÃO AQUI]
-                // Verifica o cargo para decidir o destino
+                // Redirecionamento baseado no cargo (Role Based Redirection)
                 if (result.role === "gestor") {
                     navigate("/list_users");      // Gestor -> Gerenciar Compradores
                 } else {
@@ -51,7 +51,7 @@ export default function Login() {
             <div className="max-w-sm w-full p-6 bg-white bg-opacity-95 rounded-2xl shadow-2xl">
                 <LoginForm 
                     onSubmit={handleSubmit} 
-                    logo={logoIby}
+                    logo={logoPort}
                     email={email} 
                     onEmailChange={onEmailChange} 
                     password={password} 
@@ -71,6 +71,11 @@ export default function Login() {
                         <p className="text-gray-600 text-sm font-poppins">Entrando no sistema...</p>
                     </div>
                 )}
+            </div>
+
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex flex-col items-center">
+                <span className="text-[0.6rem] text-gray-500 font-poppins">Desenvolvido por IBy</span>
+                <img src={logoIby} alt="IBy Logo" className="w-16 mt-1" />
             </div>
         </div>
     )

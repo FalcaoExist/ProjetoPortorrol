@@ -108,11 +108,10 @@ export default function ListUsers() {
     const handleSavePassword = async (newPassword) => {
         try {
             await updateUser(passwordModal.userId, { password: newPassword });
-            alert("Senha alterada com sucesso!");
+            return { success: true, message: "Senha alterada com sucesso!" };
         } catch (error) {
             console.error(error);
-            alert("Erro ao alterar senha. Tente novamente.");
-            throw error;
+            return { success: false, message: error?.message || "Erro ao alterar senha. Tente novamente." };
         }
     };
 
@@ -153,7 +152,7 @@ export default function ListUsers() {
                         {isGestor && (
                             <button
                                 onClick={() => setOpenModal(true)}
-                                className="bg-[#5A44B0] hover:bg-white text-white hover:text-black shadow-lg font-poppins uppercase text-sm p-2 rounded-md mt-6 transition-colors"
+                                className="bg-[#F43629] hover:bg-white text-white hover:text-black shadow-lg font-poppins uppercase text-sm p-2 rounded-md mt-6 transition-colors"
                             >
                                 Adicionar Comprador
                             </button>

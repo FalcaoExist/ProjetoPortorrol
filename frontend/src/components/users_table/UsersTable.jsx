@@ -1,6 +1,6 @@
 import React, { useMemo } from "react";
 import { GridActionsCellItem, GridRowModes } from "@mui/x-data-grid";
-import { Popover } from "@mui/material";
+import { Popover, useMediaQuery } from "@mui/material";
 import { FiCheck, FiX, FiEdit, FiTrash2, FiLock } from "react-icons/fi";
 
 // Imports organizados
@@ -21,6 +21,7 @@ const ptBRComparator = (v1, v2) => {
 // COMPONENTE PRINCIPAL: UsersTable
 // ---------------------------------------------------------------------------
 export default function UsersTable({ users = [], onDelete, onUpdate, onChangePassword, availableSuppliers = [] }) {
+  const isCompactLayout = useMediaQuery("(max-width:1279px)");
   const {
     filteredRows,
     rowModesModel,
@@ -44,8 +45,8 @@ export default function UsersTable({ users = [], onDelete, onUpdate, onChangePas
       {
         field: "name",
         headerName: "Analista de compras",
-        flex: 1.2,
-        minWidth: 200,
+        flex: 1,
+        minWidth: isCompactLayout ? 150 : 180,
         editable: true,
         sortComparator: ptBRComparator,
         renderHeader: () => (
@@ -66,8 +67,8 @@ export default function UsersTable({ users = [], onDelete, onUpdate, onChangePas
       {
         field: "email",
         headerName: "Email",
-        flex: 1.45,
-        minWidth: 250,
+        flex: 1.2,
+        minWidth: isCompactLayout ? 180 : 210,
         editable: true,
         sortComparator: ptBRComparator,
         renderHeader: () => (
@@ -88,8 +89,8 @@ export default function UsersTable({ users = [], onDelete, onUpdate, onChangePas
       {
         field: "supplier",
         headerName: "Fornecedor",
-        flex: 1.55,
-        minWidth: 300,
+        flex: 1.1,
+        minWidth: isCompactLayout ? 180 : 220,
         editable: true,
         sortComparator: ptBRComparator,
         renderEditCell: (params) => (
@@ -115,7 +116,7 @@ export default function UsersTable({ users = [], onDelete, onUpdate, onChangePas
       {
         field: "active",
         headerName: "Status",
-        width: 120,
+        width: isCompactLayout ? 110 : 120,
         editable: true,
         type: "singleSelect",
         valueOptions: ["Ativo", "Inativo"],

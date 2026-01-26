@@ -65,20 +65,50 @@ export default function Orders() {
                 const worksheet = workbook.Sheets[sheetName];
                 const json = XLSX.utils.sheet_to_json(worksheet, { cellDates: true });
 
-                // Format dates to YYYY-MM-DD
-                json.forEach(row => {
-                    Object.keys(row).forEach(key => {
-                        if (row[key] instanceof Date) {
-                            const date = row[key];
-                            const year = date.getUTCFullYear();
-                            const month = String(date.getUTCMonth() + 1).padStart(2, '0');
-                            const day = String(date.getUTCDate()).padStart(2, '0');
-                            row[key] = `${year}-${month}-${day}`;
+                // Helper: convert Excel serial (number) to ISO YYYY-MM-DD
+                const excelSerialToISO = (serial) => {
+                    if (serial == null || serial === "") return null;
+                    if (serial instanceof Date) return serial.toISOString().split('T')[0];
+                    if (typeof serial !== 'number') return null;
+                    // Excel serial to JS date (UTC). 25569 = days between 1899-12-31 and 1970-01-01
+                    const ms = Math.round((serial - 25569) * 86400 * 1000);
+                    const d = new Date(ms);
+                    // If invalid date, return null
+                    if (isNaN(d.getTime())) return null;
+                    return d.toISOString().split('T')[0];
+                };
+
+                // Columns to detect (exact or normalized)
+                const dateColumnNames = [
+                    'Requested date',
+                    'Confirmed date',
+                    'Data Entrega (DD/MM/AAAA)',
+                    'Data Solicitada (DD/MM/AAAA)',
+                    'Data Entrega',
+                    'Data Solicitada'
+                ];
+
+                const isDateColumn = (col) => {
+                    if (!col) return false;
+                    const c = col.toString().trim().toLowerCase();
+                    return dateColumnNames.some(name => name.toLowerCase() === c) ||
+                        /requested date|confirmed date|data entrega|data solicitada/.test(c);
+                };
+
+                // Convert numeric serials in detected columns to ISO strings
+                const processed = json.map(row => {
+                    const newRow = { ...row };
+                    Object.keys(newRow).forEach(k => {
+                        if (isDateColumn(k)) {
+                            const val = newRow[k];
+                            const iso = excelSerialToISO(val);
+                            if (iso) newRow[k] = iso;
                         }
                     });
+                    return newRow;
                 });
 
-                console.log(json);
+                console.log('Imported (processed) rows:', processed);
                 // TODO: Process the imported data and add it to the orders table
             };
             reader.readAsArrayBuffer(selectedFile);

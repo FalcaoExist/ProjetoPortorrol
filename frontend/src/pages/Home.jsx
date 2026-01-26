@@ -15,6 +15,7 @@ import OverstokChart from "../components/charts/OverstokChart";
 import SkuAutocomplete from "../components/common/SKUAutocomplete";
 import useDashboardData from "../hooks/useDashboardData";
 import { exportDashboardCSV } from "../services/csvExporter";
+import xlsxExporter from "../services/xlsxExporter";
 import ExportDropdown from "../components/common/ExportDropdown";
 
 export default function Home() {
@@ -58,7 +59,18 @@ export default function Home() {
   };
   // TODO: Implementar exportDashboardExcel e exportDashboardPDF
   const handleExportExcel = () => {
-    alert("Exportar para Excel ainda não implementado.");
+    xlsxExporter.exportDashboardXLSX({
+      branch,
+      supplier,
+      sku,
+      months,
+      data,
+      dataCritic,
+      statusIndicators: stockOverview?.data || {},
+      orders,
+      budget,
+      leadtimeInfo,
+    });
   };
   const handleExportPDF = () => {
     alert("Exportar para PDF ainda não implementado.");

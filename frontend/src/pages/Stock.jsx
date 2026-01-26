@@ -103,15 +103,6 @@ export default function Stock() {
         }
     };
 
-    const handleExportClick = async () => {
-        try {
-            const result = await exportStockData(filteredRows);
-            // alert(result.message);
-        } catch (error) {
-            console.error("Erro ao exportar dados:", error);
-            alert(`Erro ao exportar: ${error.message}`);
-        }
-    };
 
     return (
         <div className="grid min-h-screen grid-cols-[16rem_minmax(0,1fr)]">
@@ -201,7 +192,14 @@ export default function Stock() {
                                     },
                                     {
                                         label: "Excel",
-                                        onClick: () => alert("Exportar para Excel ainda não implementado.")
+                                        onClick: async () => {
+                                            try {
+                                                await exportStockData(filteredRows);
+                                            } catch (err) {
+                                                console.error('Erro exportando XLSX via serviço:', err);
+                                                alert('Erro ao exportar Excel: ' + (err.message || err));
+                                            }
+                                        }
                                     },
                                     {
                                         label: "PDF",

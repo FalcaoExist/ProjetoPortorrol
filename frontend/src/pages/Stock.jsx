@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/authContext";
 import { useStock } from "../hooks/useStock";
 import { importStockFromFile, exportStockData } from "../services/stockService";
+import { exportStockCSV } from "../services/csvExporter";
 
 
 // Opções estáticas (Status e Filial não mudam, então definimos aqui para não precisar de mock)
@@ -179,35 +180,35 @@ export default function Stock() {
                                     IMPORTAR
                                 </button>
                                 <ExportDropdown
-                                    options={[{
-                                        label: "CSV",
-                                        onClick: async () => {
-                                            try {
-                                                await exportStockData(filteredRows);
-                                            } catch (error) {
-                                                console.error("Erro ao exportar dados:", error);
-                                                alert(`Erro ao exportar: ${error.message}`);
+                                    options={[
+                                        {
+                                            label: "CSV",
+                                            onClick: () => {
+                                                try {
+                                                    exportStockCSV(filteredRows);
+                                                } catch (error) {
+                                                    console.error("Erro ao exportar CSV:", error);
+                                                    alert(`Erro ao exportar: ${error.message}`);
+                                                }
                                             }
-                                        }
-                                    },
-                                    {
-                                        label: "Excel",
-                                        onClick: async () => {
-                                            try {
-                                                await exportStockData(filteredRows);
-                                            } catch (err) {
-                                                console.error('Erro exportando XLSX via serviço:', err);
-                                                alert('Erro ao exportar Excel: ' + (err.message || err));
+                                        },
+                                        {
+                                            label: "Excel",
+                                            onClick: async () => {
+                                                try {
+                                                    await exportStockData(filteredRows);
+                                                } catch (err) {
+                                                    console.error('Erro exportando XLSX via serviço:', err);
+                                                    alert('Erro ao exportar Excel: ' + (err.message || err));
+                                                }
                                             }
+                                        },
+                                        {
+                                            label: "PDF",
+                                            onClick: () => alert("Exportar para PDF ainda não implementado.")
                                         }
-                                    },
-                                    {
-                                        label: "PDF",
-                                        onClick: () => alert("Exportar para PDF ainda não implementado.")
-                                    }
                                     ]}
                                 />
-
                                 <input 
                                     type="file"
                                     ref={fileInputRef}

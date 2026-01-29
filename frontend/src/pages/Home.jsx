@@ -72,9 +72,7 @@ export default function Home() {
       leadtimeInfo,
     });
   };
-  const handleExportPDF = () => {
-    alert("Exportar para PDF ainda não implementado.");
-  };
+
 
   return (
     <div className="grid min-h-screen grid-cols-[16rem_minmax(0,1fr)]">
@@ -182,7 +180,6 @@ export default function Home() {
                 options={[ 
                   { label: "CSV", onClick: handleExportCSV },
                   { label: "Excel", onClick: handleExportExcel },
-                  { label: "PDF", onClick: handleExportPDF },
                 ]}
               />
             </div>

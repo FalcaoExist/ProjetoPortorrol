@@ -164,10 +164,6 @@ export default function Orders() {
                                         exportRowsXLSX(rows, "PEDIDOS");
                                     }
                                 },
-                                {
-                                    label: "PDF",
-                                    onClick: () => alert("Exportar para PDF ainda não implementado.")
-                                }
                                 ]}
                             />
                         </div>

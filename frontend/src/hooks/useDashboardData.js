@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import dashboardService from "../services/dashboardService";
 // CORREÇÃO 1: 'import * as' permite usar supplierService.getSuppliers()
 import * as supplierService from "../services/supplierService";
+import { useAuth } from "../context/authContext";
 
 // Configuração Central de Cores e Labels
 const STATUS_INDICATORS = {
@@ -21,6 +22,7 @@ export default function useDashboardData() {
   const [branchOptions, setBranchOptions] = useState([]);
   const [supplierOptions, setSupplierOptions] = useState([]);
   const [skuOptions, setSkuOptions] = useState([]);
+  const { user } = useAuth();
 
   // Dados dos Gráficos
   const [dataOverstock, setDataOverstock] = useState([]);
@@ -67,6 +69,16 @@ export default function useDashboardData() {
             const optionsSuppliers = nomesUnicos.map(nome => ({ value: nome, label: nome }));
             optionsSuppliers.unshift({ value: "", label: "Todos" });
             setSupplierOptions(optionsSuppliers);
+
+            // Auto-seleciona o primeiro fornecedor vindo do login (se existir e nenhum filtro estiver ativo)
+            try {
+              if ((!supplier || supplier === "") && user && Array.isArray(user.supplier) && user.supplier.length > 0) {
+                const first = user.supplier[0];
+                if (first) setSupplier(first);
+              }
+            } catch (e) {
+              // Silencioso - não queremos quebrar o dashboard
+            }
         }
 
         // 2. Buscar Dados Principais

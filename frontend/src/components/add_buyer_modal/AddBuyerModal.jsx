@@ -79,8 +79,8 @@ export default function AddBuyerModal({
               className="border border-gray-300 rounded-xl p-2 focus:outline-none focus:ring-2 focus:ring-gray-400 h-32 text-sm font-poppins bg-white"
             >
               {suppliersOptions.length > 0 ? (
-                suppliersOptions.map((opt) => (
-                  <option key={opt} value={opt} className="p-1">
+                suppliersOptions.map((opt, idx) => (
+                  <option key={`${opt}-${idx}`} value={opt} className="p-1">
                     {opt}
                   </option>
                 ))

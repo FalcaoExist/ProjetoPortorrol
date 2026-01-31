@@ -44,6 +44,7 @@ export default function useDashboardData() {
   // Carga Inicial e Filtros
   useEffect(() => {
     async function loadInitialData() {
+      let autoSelectedSupplier = false;
       try {
         // 1. Carregar Opções de Filtros (se vazio)
         if (branchOptions.length === 0) {
@@ -55,12 +56,7 @@ export default function useDashboardData() {
         }
 
         if (supplierOptions.length === 0) {
-            // CORREÇÃO 2: Chamada direta para getSuppliers
-            const fornecedores = (await supplierService.getSuppliers()) || [];
-            
-            // CORREÇÃO 3: Tratamento híbrido (String ou Objeto)
-            // Se o backend retornar ["Timken", "NSK"], usamos 's' direto.
-            // Se retornar [{name: "Timken"}], usamos 's.name'.
+            const fornecedores = (await supplierService.getSuppliers()) || [];          
             const nomesUnicos = [...new Set(fornecedores.map(s => {
                 if (typeof s === 'string') return s;
                 return s?.name || s?.nome; // Tenta name ou nome
@@ -74,12 +70,18 @@ export default function useDashboardData() {
             try {
               if ((!supplier || supplier === "") && user && Array.isArray(user.supplier) && user.supplier.length > 0) {
                 const first = user.supplier[0];
-                if (first) setSupplier(first);
+                // Normaliza para string: pode vir como string ou objeto { name/nome }
+                const normalized = typeof first === 'string' ? first : (first?.name || first?.nome || "");
+                if (normalized) {
+                  setSupplier(normalized);
+                  autoSelectedSupplier = true;
+                }
               }
             } catch (e) {
-              // Silencioso - não queremos quebrar o dashboard
+              // 
             }
         }
+        if (autoSelectedSupplier) return;
 
         // 2. Buscar Dados Principais
         const response = await dashboardService.getSkus(null, branch, supplier);
@@ -139,7 +141,7 @@ export default function useDashboardData() {
       }
     }
     loadInitialData();
-  }, [branch, supplier]); 
+  }, [branch, supplier, user]); 
 
   // Busca de SKU
   const onSkuSearch = async (query) => {

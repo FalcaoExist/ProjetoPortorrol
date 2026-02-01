@@ -87,7 +87,9 @@ export default function Home() {
               <div className="">
                <StockRangeGraph 
                     data={stockOverview ? stockOverview.data : STATUS_INDICATORS} 
-                    totalItems={stockOverview ? stockOverview.total : 0}
+                totalItems={stockOverview ? stockOverview.total : 0}
+                branch={branch}
+                supplier={supplier}
                 />
               </div>
             </div>

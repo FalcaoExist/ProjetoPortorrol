@@ -29,7 +29,14 @@ export default function Stock() {
             const branch = params.get('branch');
 
             if (sku) setSearchQuery(decodeURIComponent(sku));
-            if (status) setStatusFilter(decodeURIComponent(status));
+
+            if (status) {
+                const raw = decodeURIComponent(status);
+                // Normaliza comparando case-insensitive com as opções conhecidas
+                const matched = statusOptions.find(opt => opt.toLowerCase() === raw.toLowerCase());
+                setStatusFilter(matched || raw);
+            }
+
             if (supplier) setFornecedor(decodeURIComponent(supplier));
             if (branch) setFilial(decodeURIComponent(branch));
         } catch (err) {

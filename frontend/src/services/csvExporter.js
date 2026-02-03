@@ -63,7 +63,8 @@ export const generateCSV = (rows) =>
     .join("\n");
 
 export const downloadCSV = (csv, filename) => {
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const BOM = "\uFEFF";
+  const blob = new Blob([BOM + csv], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
@@ -81,19 +82,77 @@ export const exportRowsCSV = (rows, prefix = "EXPORT") => {
   downloadCSV(csv, filename);
 };
 export const buildStockRows = (data) => {
+  // Agrupa por referência (código) e monta colunas por filial
   const rows = [];
-  rows.push(["Código", "Item", "Categoria", "Unidades", "Fornecedor", "Filial", "Dias de Cobertura"]);
-  data.forEach((r) => {
+  rows.push([
+    "Referência",
+    "Ítem",
+    "Categoria",
+    "Unidades",
+    "Fornecedor",
+    "Porto Alegre",
+    "Joinville",
+    "São Paulo",
+    "Dias de Cobertura",
+    "Status",
+  ]);
+
+  const groups = {};
+  (data || []).forEach((r) => {
+    const key = r.codigo || String(r.id || "");
+    if (!groups[key]) {
+      groups[key] = {
+        referencia: key,
+        item: r.item || "",
+        categoria: r.categoria || "",
+        fornecedor: r.fornecedor || "",
+        portoAlegre: 0,
+        joinville: 0,
+        saoPaulo: 0,
+        totalUnidades: 0,
+        diasCoberturaValues: [],
+      };
+    }
+
+    const unidades = Number.isFinite(Number(r.unidades)) ? Number(r.unidades) : 0;
+    groups[key].totalUnidades += unidades;
+    if (r.filial && String(r.filial).toLowerCase().includes("porto")) {
+      groups[key].portoAlegre += unidades;
+    } else if (r.filial && String(r.filial).toLowerCase().includes("join")) {
+      groups[key].joinville += unidades;
+    } else if (r.filial && String(r.filial).toLowerCase().includes("são") || (r.filial && String(r.filial).toLowerCase().includes("sao"))) {
+      groups[key].saoPaulo += unidades;
+    }
+
+    if (r.dias_cobertura != null && r.dias_cobertura !== "") {
+      const v = Number(r.dias_cobertura);
+      if (!Number.isNaN(v)) groups[key].diasCoberturaValues.push(v);
+    }
+  });
+
+  const getStatusText = (dias) => {
+    if (dias <= 30) return "Ruptura iminente";
+    if (dias <= 60) return "Subdimensionado";
+    if (dias <= 100) return "Ok";
+    return "Excesso";
+  };
+
+  Object.values(groups).forEach((g) => {
+    const dias = g.diasCoberturaValues.length > 0 ? Math.min(...g.diasCoberturaValues) : "";
     rows.push([
-      r.codigo || "",
-      r.item || "",
-      r.categoria || "",
-      r.unidades != null ? r.unidades : "",
-      r.fornecedor || "",
-      r.filial || "",
-      r.dias_cobertura != null ? r.dias_cobertura : "",
+      g.referencia || "",
+      g.item || "",
+      g.categoria || "",
+      g.totalUnidades != null ? g.totalUnidades : "",
+      g.fornecedor || "",
+      g.portoAlegre || 0,
+      g.joinville || 0,
+      g.saoPaulo || 0,
+      dias,
+      dias === "" ? "" : getStatusText(dias),
     ]);
   });
+
   return rows;
 };
 

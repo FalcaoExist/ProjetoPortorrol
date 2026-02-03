@@ -62,12 +62,24 @@ useEffect(() => {
                     };
                 }
 
-                // Salva o usuário no estado
-                setUser(data.user);
-                localStorage.setItem("user_data", JSON.stringify(data.user));
-
-                // Lógica do lembrete
-                checkAndShowReminder(data.user);
+                // Após o login, recarrega /me para garantir que venham os suppliers (cookie já setado)
+                try {
+                    const me = await httpClient.get("/me");
+                    if (me && me.success) {
+                        setUser(me.user);
+                        localStorage.setItem("user_data", JSON.stringify(me.user));
+                        checkAndShowReminder(me.user);
+                    } else {
+                        setUser(data.user);
+                        localStorage.setItem("user_data", JSON.stringify(data.user));
+                        checkAndShowReminder(data.user);
+                    }
+                } catch (err) {
+                    // Se /me falhar por algum motivo, fallback para dados vindos do /login
+                    setUser(data.user);
+                    localStorage.setItem("user_data", JSON.stringify(data.user));
+                    checkAndShowReminder(data.user);
+                }
 
                 // Retorna a 'role' para que a página de Login saiba para onde redirecionar
                 return {

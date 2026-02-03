@@ -15,10 +15,24 @@ export default function StockRangeGraph({ data, totalItems, segmentMetadata = DE
 
   const segmentsForBar = [...segments].sort((a, b) => a.orderBar - b.orderBar);
   const segmentsForLegend = [...segments].sort((a, b) => a.orderLegend - b.orderLegend);
+  const overlapPx = 34; // distância de sobreposição entre segmentos
 
   // detecta se os valores passados são percentuais (somando ~100) ou absolutos
   const valuesSum = Object.values(data).reduce((s, v) => s + Number(v || 0), 0);
   const valuesArePercent = Math.abs(valuesSum - 100) < 0.5;
+  const percentWidths = segmentsForBar.map((segment) => {
+    const rawValue = Number(segment.value) || 0;
+    if (valuesArePercent) return rawValue;
+    return valuesSum > 0 ? (rawValue / valuesSum) * 100 : 0;
+  });
+  const visibleCount = percentWidths.filter((w) => w > 0).length;
+  const totalOverlapPx = Math.max(visibleCount - 1, 0) * overlapPx;
+  const prevVisibleIndex = [];
+  let lastVisible = -1;
+  percentWidths.forEach((w, i) => {
+    prevVisibleIndex[i] = lastVisible;
+    if (w > 0) lastVisible = i;
+  });
 
   return (
     <div className="flex items-center p-5 bg-transparent w-full box-border">
@@ -27,26 +41,26 @@ export default function StockRangeGraph({ data, totalItems, segmentMetadata = DE
       <div className="flex flex-auto h-9 ml-5 overflow-visible w-full items-center rounded-full">
         {segmentsForBar.map((segment, index, array) => {
           // calcula largura da barra: se os valores são absolutos, converte para % usando a soma
-          const percentWidth = valuesArePercent ? Number(segment.value) : (Number(segment.value) / valuesSum) * 100;
-          const overlapPx = 34; // distância de sobreposição entre segmentos
+          const percentWidth = percentWidths[index];
+          const extraPx = percentWidth > 0 ? (percentWidth / 100) * totalOverlapPx : 0;
           const style = {
-            width: `${percentWidth}%`,
+            width: `calc(${percentWidth}% + ${extraPx}px)`,
             backgroundColor: segment.color,
             // zIndex faz com que os segmentos renderizados primeiro fiquem por cima
             zIndex: array.length - index,
             // aplica margem negativa para sobrepor o anterior (exceto o primeiro)
-            marginLeft: index === 0 ? '0px' : `-${overlapPx}px`,
+            marginLeft: index === 0 || prevVisibleIndex[index] === -1 ? '0px' : `-${overlapPx}px`,
           };
 
           let itemCount = null;
           let percentage = null;
 
           if (valuesArePercent) {
-            percentage = Number(segment.value);
+            percentage = Number(segment.value) || 0;
             if (totalItems) itemCount = Math.round((percentage / 100) * totalItems);
           } else {
             // valores absolutos
-            itemCount = Number(segment.value);
+            itemCount = Number(segment.value) || 0;
             percentage = valuesSum > 0 ? (Number(segment.value) / valuesSum) * 100 : 0;
           }
 
@@ -85,7 +99,7 @@ export default function StockRangeGraph({ data, totalItems, segmentMetadata = DE
         })}
       </div>
 
-      <div className="flex flex-col gap-[5px] text-md  flex-none ml-[-70px]">
+      <div className="flex flex-col gap-[5px] text-md flex-none ml-6 relative z-10">
         {segmentsForLegend.map((segment) => (
           <div key={segment.key} className="flex items-center text-[#555] whitespace-nowrap">
             <span className="inline-block w-3 h-3 mr-2 rounded-[3px]" style={{ backgroundColor: segment.color }} />

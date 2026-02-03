@@ -43,20 +43,6 @@ export const getMainOrdersColumns = (handleOpenModal) => [
         renderCell: (params) => <StatusCell value={params.value} />,
     },
     {
-        field: "fornecedores",
-        headerName: "Fornecedores",
-        minWidth: 200,
-        flex: 1.5,
-        renderCell: (params) => {
-            const suppliers = [...new Set(params.row.items.map(item => item.fornecedor))].join(', ');
-            return (
-                <div title={suppliers} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {suppliers}
-                </div>
-            );
-        },
-    },
-    {
         field: 'actions',
         headerName: 'Detalhes',
         minWidth: 120,
@@ -86,6 +72,4 @@ export const modalStyle = {
     boxShadow: 24,
     p: 4,
     borderRadius: '8px',
-    maxHeight: '80vh',
-    overflowY: 'auto',
 };

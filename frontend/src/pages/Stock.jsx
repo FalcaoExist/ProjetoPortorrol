@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/authContext";
 import { useStock } from "../hooks/useStock";
 import { importStockFromFile, exportStockData } from "../services/stockService";
+import { exportStockCSV } from "../services/csvExporter";
+
 
 // Opções estáticas (Status e Filial não mudam, então definimos aqui para não precisar de mock)
 const statusOptions = ["Ok", "Subdimensionado", "Ruptura iminente", "Excesso"];
@@ -15,6 +17,9 @@ import SelectFilter from "../components/common/SelectFilter";
 import StockTable from "../components/stock_table/StockTable";
 import NewOrderTable from "../components/new_order_table/NewOrderTable";
 import ConfirmationModal from "../components/common/ConfirmationModal";
+import ExportDropdown from "../components/common/ExportDropdown";
+
+
 
 export default function Stock() {
     const { user } = useAuth();
@@ -29,7 +34,14 @@ export default function Stock() {
             const branch = params.get('branch');
 
             if (sku) setSearchQuery(decodeURIComponent(sku));
-            if (status) setStatusFilter(decodeURIComponent(status));
+
+            if (status) {
+                const raw = decodeURIComponent(status);
+                // Normaliza comparando case-insensitive com as opções conhecidas
+                const matched = statusOptions.find(opt => opt.toLowerCase() === raw.toLowerCase());
+                setStatusFilter(matched || raw);
+            }
+
             if (supplier) setFornecedor(decodeURIComponent(supplier));
             if (branch) setFilial(decodeURIComponent(branch));
         } catch (err) {
@@ -99,15 +111,6 @@ export default function Stock() {
         }
     };
 
-    const handleExportClick = async () => {
-        try {
-            const result = await exportStockData(filteredRows);
-            // alert(result.message);
-        } catch (error) {
-            console.error("Erro ao exportar dados:", error);
-            alert(`Erro ao exportar: ${error.message}`);
-        }
-    };
 
     return (
         <div className="grid min-h-screen grid-cols-[16rem_minmax(0,1fr)]">
@@ -183,13 +186,32 @@ export default function Stock() {
                                 >
                                     IMPORTAR
                                 </button>
-                                <button
-                                    onClick={handleExportClick}
-                                    className="px-4 py-2 font-normal text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
-                                >
-                                    EXPORTAR
-                                </button>
-
+                                <ExportDropdown
+                                    options={[
+                                        {
+                                            label: "CSV",
+                                            onClick: () => {
+                                                try {
+                                                    exportStockCSV(filteredRows);
+                                                } catch (error) {
+                                                    console.error("Erro ao exportar CSV:", error);
+                                                    alert(`Erro ao exportar: ${error.message}`);
+                                                }
+                                            }
+                                        },
+                                        {
+                                            label: "Excel",
+                                            onClick: async () => {
+                                                try {
+                                                    await exportStockData(filteredRows);
+                                                } catch (err) {
+                                                    console.error('Erro exportando XLSX via serviço:', err);
+                                                    alert('Erro ao exportar Excel: ' + (err.message || err));
+                                                }
+                                            }
+                                        },
+                                    ]}
+                                />
                                 <input 
                                     type="file"
                                     ref={fileInputRef}

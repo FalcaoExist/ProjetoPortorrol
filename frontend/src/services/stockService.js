@@ -1,5 +1,6 @@
 import httpClient from './validators/api/httpClient';
 import { exportStockCSV } from "./csvExporter";
+import { exportStockXLSX } from "./xlsxExporter";
 
 const mapStockToFrontend = (item) => {
     let rawSupplier = item.primary_supplier || item.supplier_name || item.fornecedor || item.supplier;
@@ -95,8 +96,14 @@ export const exportStockData = async (data) => {
     if (!data || data.length === 0) {
         throw new Error("Nenhum dado fornecido para exportação.");
     }
-
-    exportStockCSV(data);
+    // Trigger XLSX export by default
+    try {
+        exportStockXLSX(data);
+    } catch (e) {
+        // fallback to CSV if XLSX export fails
+        console.error('Erro exportando XLSX, fallback para CSV:', e);
+        exportStockCSV(data);
+    }
 
     return Promise.resolve({ message: "Dados do estoque exportados e download iniciado." });
 };

@@ -79,5 +79,14 @@ def get_current_user(
     user = repo.get_user_by_id(user_id)
     if not user:
         raise credentials_exception
-        
+    # Tenta anexar a lista de fornecedores associados ao usuário
+    try:
+        # Alguns repositórios implementam get_suppliers_for_user
+        if hasattr(repo, 'get_suppliers_for_user'):
+            suppliers = repo.get_suppliers_for_user(user_id)
+            # Normaliza para lista (pode ser vazio)
+            user['supplier'] = suppliers or []
+    except Exception:
+        print(f"Aviso: falha ao carregar suppliers para user {user_id}")
+
     return user

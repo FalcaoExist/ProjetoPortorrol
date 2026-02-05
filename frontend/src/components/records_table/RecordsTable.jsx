@@ -20,7 +20,6 @@ function truncateText(text, maxLength = MAX_DESCRIPTION_LENGTH) {
 }
 
 export default function RecordsTable({ records = [] }) {
-  console.log("RECORDS RECEIVED BY TABLE:", records[0]);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [selectedLog, setSelectedLog] = useState(null);
   const openDetails = (row) => {

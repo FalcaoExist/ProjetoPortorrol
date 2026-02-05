@@ -8,7 +8,6 @@ def process_background(file_contents: bytes, filename: str, user_id: str):
     """
     Esta função roda 'sozinha' após o servidor responder ao usuário.
     """
-    print(f"--- [BG] Iniciando processamento: {filename} ---")
     
     user_repo = SupabaseUserRepository()
 
@@ -34,9 +33,9 @@ def process_background(file_contents: bytes, filename: str, user_id: str):
                     entity_id=filename,
                     extra={"reason": "Arquivo vazio ou colunas insuficientes"}
                 )
-            except Exception:
-                pass
-            
+            except Exception as e:
+                raise RuntimeError("Falha ao registrar auditoria de arquivo inválido") from e
+
             return
 
         # 3. Loop de Processamento (Sua lógica original)
@@ -70,10 +69,12 @@ def process_background(file_contents: bytes, filename: str, user_id: str):
                         entity_id=str(index + 2),
                         extra={"reason": str(e)}
                     )
-                except Exception:
-                    pass
-
-        print(f"--- [BG] FIM. Sucesso: {success} | Erros: {errors} ---")
+                except Exception as audit_error:
+                    log_error(
+                        line=index + 2,
+                        reason=f"Falha ao registrar auditoria: {audit_error}",
+                        row_data=row
+                    )
 
         try:
             user_repo.insert_audit_log(
@@ -86,8 +87,9 @@ def process_background(file_contents: bytes, filename: str, user_id: str):
                     "errors": errors
                 }
             )
-        except Exception:
-            pass
+        except Exception as e:
+            raise RuntimeError("Falha ao registrar auditoria de sucesso da importação") from e
+
 
     except Exception as e_critic:
         log_global(filename, f"Erro Fatal: {str(e_critic)}")
@@ -100,5 +102,5 @@ def process_background(file_contents: bytes, filename: str, user_id: str):
                 entity_id=filename,
                 extra={"error": str(e_critic)}
             )
-        except Exception:
-            pass
+        except Exception as e:
+            raise RuntimeError("Falha ao registrar auditoria de erro crítico") from e

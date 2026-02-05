@@ -66,8 +66,8 @@ class ImportOrdersService:
                     entity_id=supplier,
                     extra={"reason": "Fornecedor não suportado"}
                 )
-            except Exception:
-                pass
+            except Exception as e:
+                raise RuntimeError("Falha ao registrar auditoria de fornecedor não suportado") from e
 
             raise ValueError("Fornecedor não suportado")
 
@@ -86,9 +86,9 @@ class ImportOrdersService:
                     entity_id=supplier,
                     extra={"reason": "Arquivo não contém registros válidos"}
                 )
-            except Exception:
-                pass
-            
+            except Exception as e:
+                raise RuntimeError("Falha ao registrar auditoria de arquivo sem registros") from e
+
             raise ValueError("Arquivo não contém registros válidos para importação")
     
         repo = OrdersRepository(table)
@@ -105,8 +105,9 @@ class ImportOrdersService:
                     "records_count": result
                 }
             )
-        except Exception:
-            pass
+        except Exception as e:
+            raise RuntimeError("Falha ao registrar auditoria de sucesso") from e
+
 
         return result
 

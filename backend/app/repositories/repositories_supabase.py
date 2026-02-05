@@ -292,7 +292,7 @@ class SupabaseUserRepository(IUserRepository):
             print(f"[ERRO SUPABASE - get_audit_logs] {e}")
             return []
     
-    # MÉTODO PARA LISTAR TENTAIVAS DE LOGIN
+    # MÉTODO PARA LISTAR TENTATIVAS DE LOGIN
     def get_login_attempts(self, limit: int = 200, offset: int = 0) -> List[Dict[str, Any]]:
         try:
             query = (

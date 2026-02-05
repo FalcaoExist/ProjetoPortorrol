@@ -1,5 +1,7 @@
 import pandas as pd
 from app.repositories.orders_repository import OrdersRepository
+from app.audit.audit_actions import AuditAction
+from app.repositories.repositories_supabase import SupabaseUserRepository
 
 # helpers (obrigatórios para JSON / Supabase)
 
@@ -42,6 +44,8 @@ def clean_record(record: dict) -> dict:
 class ImportOrdersService:
 
     async def import_file(self, supplier: str, file):
+        user_repo = SupabaseUserRepository()
+        
         df = pd.read_excel(file.file)
         supplier = supplier.lower()
 
@@ -54,6 +58,17 @@ class ImportOrdersService:
             table = "orders_timken"
 
         else:
+            try:
+                user_repo.insert_audit_log(
+                    performed_by="system",
+                    action=AuditAction.IMPORT_FILE_FAILURE,
+                    entity="orders_import",
+                    entity_id=supplier,
+                    extra={"reason": "Fornecedor não suportado"}
+                )
+            except Exception as e:
+                raise RuntimeError("Falha ao registrar auditoria de fornecedor não suportado") from e
+
             raise ValueError("Fornecedor não suportado")
 
         records = [
@@ -63,11 +78,39 @@ class ImportOrdersService:
         ]
 
         if not records:
+            try:
+                user_repo.insert_audit_log(
+                    performed_by="system",
+                    action=AuditAction.IMPORT_FILE_FAILURE,
+                    entity="orders_import",
+                    entity_id=supplier,
+                    extra={"reason": "Arquivo não contém registros válidos"}
+                )
+            except Exception as e:
+                raise RuntimeError("Falha ao registrar auditoria de arquivo sem registros") from e
+
             raise ValueError("Arquivo não contém registros válidos para importação")
     
         repo = OrdersRepository(table)
-        return repo.insert_many(records)
-    
+        result = repo.insert_many(records)
+
+        try:
+            user_repo.insert_audit_log(
+                performed_by="system",
+                action=AuditAction.IMPORT_SUCCESS,
+                entity="orders_import",
+                entity_id=supplier,
+                extra={
+                    "table": table,
+                    "records_count": result
+                }
+            )
+        except Exception as e:
+            raise RuntimeError("Falha ao registrar auditoria de sucesso") from e
+
+
+        return result
+
     # NSK
 
     def _map_nsk(self, df):

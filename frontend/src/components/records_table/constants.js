@@ -1,5 +1,3 @@
-import { formatAuditAction, formatAuditSeverity } from "../../utils/auditLogFormatter";
-
 export const DEFAULT_ACTION_OPTIONS = ["Novo pedido", "Relatórios", "Exclusão", "Login", "Logout"];
 export const SEVERITY_COLOR_MAP = { INFO: "default", WARNING: "warning", ERROR: "error" };
 export const SEVERITY_OPTIONS = [
@@ -38,8 +36,7 @@ export const FILTER_CONFIG = {
         ? [value]
         : [];
       if (!selected.length) return true;
-      const actionLabel = formatAuditAction(row.action);
-      return selected.includes(actionLabel);
+      return selected.includes(row.action_label);
     },
   },
   severity: {
@@ -48,8 +45,7 @@ export const FILTER_CONFIG = {
     predicate: (row, value) => {
       const selected = Array.isArray(value) ? value : [value];
       if (!selected.length) return true;
-      const severity = formatAuditSeverity(row.action);
-      return selected.includes(severity);
+      return selected.includes(row.severity);
     },
   },
 };

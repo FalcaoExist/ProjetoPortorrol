@@ -4,6 +4,7 @@ from fastapi import HTTPException, status
 
 from app.core.interfaces import IPasswordHasher, IUserRepository
 
+from app.audit.audit_actions import AuditAction
 
 class AuthService:
 
@@ -41,7 +42,7 @@ class AuthService:
         # REGISTRA TENTATIVA (SUCESSO)
         try:
             self.user_repo.insert_login_attempt(email_attempted=email.lower(), success=True, user_id=user.get("user_id"), ip_address=ip_address)
-            self.user_repo.insert_audit_log(performed_by=user.get("user_id"), action="login", entity="users", entity_id=user.get("user_id"), extra={})
+            self.user_repo.insert_audit_log(performed_by=user.get("user_id"), action=AuditAction.LOGIN, entity="users", entity_id=user.get("user_id"), extra={})
         except Exception: 
             pass
 

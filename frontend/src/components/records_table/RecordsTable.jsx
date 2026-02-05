@@ -71,7 +71,7 @@ export default function RecordsTable({ records = [] }) {
         ),
       },
       {
-        field: "actionLabel",
+        field: "action_label",
         headerName: "Ação",
         minWidth: isCompactLayout ? 120 : 150,
         flex: 0.7,
@@ -191,7 +191,7 @@ export default function RecordsTable({ records = [] }) {
 
               <Stack direction="row" spacing={2} alignItems="center">
                 <Typography>
-                  <strong>Ação:</strong> {selectedLog.actionLabel}
+                  <strong>Ação:</strong> {selectedLog.action_label}
                 </Typography>
 
                 <Chip

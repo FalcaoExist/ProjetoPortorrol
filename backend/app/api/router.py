@@ -538,7 +538,7 @@ def list_audit_logs(
     }
 
     logs = audit_service.get_logs(filters)
-    return {"success": True, "logs": logs}
+    return logs
 
 @router.put("/me/password")
 def change_own_password(

@@ -20,6 +20,7 @@ function truncateText(text, maxLength = MAX_DESCRIPTION_LENGTH) {
 }
 
 export default function RecordsTable({ records = [] }) {
+  console.log("RECORDS RECEIVED BY TABLE:", records[0]);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [selectedLog, setSelectedLog] = useState(null);
   const openDetails = (row) => {
@@ -71,7 +72,7 @@ export default function RecordsTable({ records = [] }) {
         ),
       },
       {
-        field: "actionLabel",
+        field: "action_label",
         headerName: "Ação",
         minWidth: isCompactLayout ? 120 : 150,
         flex: 0.7,
@@ -191,7 +192,7 @@ export default function RecordsTable({ records = [] }) {
 
               <Stack direction="row" spacing={2} alignItems="center">
                 <Typography>
-                  <strong>Ação:</strong> {selectedLog.actionLabel}
+                  <strong>Ação:</strong> {selectedLog.action_label}
                 </Typography>
 
                 <Chip

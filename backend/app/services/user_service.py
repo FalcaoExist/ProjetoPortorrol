@@ -1,12 +1,9 @@
 import uuid
-from typing import Any, Dict, List, Optional  # <--- ADICIONADO 'List' AQUI
-
+from typing import Any, Dict, List, Optional
 from fastapi import HTTPException, status
-
 from app.core.interfaces import IPasswordHasher, IUserRepository
-
 from .service_models import UserCreateRequest, UserUpdateRequest
-
+from app.audit.audit_actions import AuditAction
 
 class UserService:
     
@@ -41,7 +38,7 @@ class UserService:
             try:
                 self.user_repo.insert_audit_log(
                     performed_by=performed_by or new_user_id,
-                    action="create_user",
+                    action=AuditAction.CREATE_USER,
                     entity="users",
                     entity_id=new_user_id,
                     extra={"name": created_user["name"], "role": created_user["role"]}
@@ -123,7 +120,7 @@ class UserService:
             if changed_fields:
                 self.user_repo.insert_audit_log(
                     performed_by=performed_by or "system",
-                    action="update_user",
+                    action=AuditAction.UPDATE_USER,
                     entity="users",
                     entity_id=user_id,
                     extra=changed_fields
@@ -145,7 +142,7 @@ class UserService:
             try:
                 self.user_repo.insert_audit_log(
                     performed_by=performed_by or "system",
-                    action="delete_user",
+                    action=AuditAction.DELETE_USER,
                     entity="users",
                     entity_id=user_id,
                     extra={"deleted_user": user.get("email")}
@@ -180,7 +177,7 @@ class UserService:
         try:
             self.user_repo.insert_audit_log(
                 performed_by=performed_by,
-                action="update_password",
+                action=AuditAction.UPDATE_PASSWORD,
                 entity="users",
                 entity_id=user_id,
                 extra={"message": "Senha alterada pelo próprio usuário"}

@@ -51,49 +51,24 @@ def get_value_by_name(row, possible_names):
             return row[real_col]
     return 0
 
-
-def log_error(line, reason, user_id=None, row_data=None):
+def log_error(line, reason, row_data=None):
     try:
         dados_str = str(row_data)
         if hasattr(row_data, 'to_dict'):
             dados_str = str(row_data.to_dict())
-            
-        if len(dados_str) > 3000: dados_str = dados_str[:3000] + "..."
 
-        payload = {
-            "action": "ERRO_IMPORTACAO",
-            "entity": "DATA_ROW",
-            "entity_id": str(line),
-            "user_id": user_id,
-            "extra": {
-                "motivo": str(reason),
-                "dados": dados_str
-            }
-        }
-        if not user_id:
-            del payload["user_id"]
-        supabase.table("audit_logs").insert(payload).execute()
-    except:
-        print(f"Falha ao registrar log de erro na linha {linha}")
+        if len(dados_str) > 3000:
+            dados_str = dados_str[:3000] + "..."
 
-def log_global(file_name, error_msg, user_id):
-    try:
-        payload = {
-            "action": "FALHA_ARQUIVO_TOTAL",
-            "entity": "IMPORT_FILE",
-            "entity_id": file_name,
-            "user_id": user_id,
-            "extra": {
-                "erro_critico": str(error_msg),
-                "status": "ABORTADO"
-            }
-        }
-        if not user_id:
-            del payload["user_id"]
-        supabase.table("audit_logs").insert(payload).execute()
+        print(f"[IMPORT][ROW ERROR] line={line} reason={reason} data={dados_str}")
     except Exception as e:
-        print(f"CRÍTICO: Falha ao salvar log global: {e}")
+        print(f"Falha ao registrar erro técnico da linha {line}: {e}")
 
+def log_global(file_name, error_msg):
+    try:
+        print(f"[IMPORT][FILE ERROR] file={file_name} error={error_msg}")
+    except Exception as e:
+        print(f"Falha ao registrar erro técnico global: {e}")
 
 def save_sku(row):
     code = str(get_value_by_name(row, ['CODIGO', 'REFERENCIA', 'SKU']) or row.iloc[1]).strip()

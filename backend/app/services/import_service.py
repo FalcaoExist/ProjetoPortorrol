@@ -1,15 +1,8 @@
 import io
-
 import pandas as pd
-
-from app.repositories.import_repository import (
-    log_error,
-    log_global,
-    save_analysis,
-    save_history,
-    save_sku,
-)
-
+from app.repositories.import_repository import (log_error, log_global, save_analysis, save_history, save_sku)
+from app.audit.audit_actions import AuditAction
+from app.repositories.repositories_supabase import SupabaseUserRepository
 
 def process_background(file_contents: bytes, filename: str, user_id: str):
     """
@@ -17,6 +10,8 @@ def process_background(file_contents: bytes, filename: str, user_id: str):
     """
     print(f"--- [BG] Iniciando processamento: {filename} ---")
     
+    user_repo = SupabaseUserRepository()
+
     try:
         # 1. Transformar Bytes em DataFrame (Pandas)
         if filename.endswith(".csv"):
@@ -30,6 +25,18 @@ def process_background(file_contents: bytes, filename: str, user_id: str):
         # 2. Validações
         if df.empty or len(df.columns) < 2:
             log_global(filename, "Arquivo vazio ou colunas insuficientes", user_id)
+            
+            try:
+                user_repo.insert_audit_log(
+                    performed_by=user_id,
+                    action=AuditAction.IMPORT_FILE_FAILURE,
+                    entity="import",
+                    entity_id=filename,
+                    extra={"reason": "Arquivo vazio ou colunas insuficientes"}
+                )
+            except Exception:
+                pass
+            
             return
 
         # 3. Loop de Processamento (Sua lógica original)
@@ -52,12 +59,46 @@ def process_background(file_contents: bytes, filename: str, user_id: str):
                 log_error(
                     line=index + 2,
                     reason=str(e),
-                    user_id=user_id,
                     row_data=row
                 )
 
+                try:
+                    user_repo.insert_audit_log(
+                        performed_by=user_id,
+                        action=AuditAction.IMPORT_ROW_FAILURE,
+                        entity="import",
+                        entity_id=str(index + 2),
+                        extra={"reason": str(e)}
+                    )
+                except Exception:
+                    pass
+
         print(f"--- [BG] FIM. Sucesso: {success} | Erros: {errors} ---")
 
+        try:
+            user_repo.insert_audit_log(
+                performed_by=user_id,
+                action=AuditAction.IMPORT_SUCCESS,
+                entity="import",
+                entity_id=filename,
+                extra={
+                    "processed": success,
+                    "errors": errors
+                }
+            )
+        except Exception:
+            pass
+
     except Exception as e_critic:
-        # Se o arquivo estiver corrompido ou o Pandas falhar
-        log_global(filename, f"Erro Fatal: {str(e_critic)}", user_id)
+        log_global(filename, f"Erro Fatal: {str(e_critic)}")
+
+        try:
+            user_repo.insert_audit_log(
+                performed_by=user_id,
+                action=AuditAction.SYSTEM_ERROR,
+                entity="import",
+                entity_id=filename,
+                extra={"error": str(e_critic)}
+            )
+        except Exception:
+            pass

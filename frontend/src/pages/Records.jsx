@@ -35,22 +35,17 @@ export default function Records() {
         try {
             const logs = await getAuditLogs({ limit: 500 });
 
-            // Formatar logs para RecordsTable
             const mapped = logs.map((log) => ({
-                id: log.log_id || `${log.user_id}-${log.created_at}-${Math.random()}`,
-                
-                // [MUDANÇA AQUI] Usa o campo user_name vindo do backend
-                // Se não existir, usa o ID como fallback
-                user: log.user_name || log.user_id || "Sistema",
-                
-                timestamp: log.created_at,
-                action: log.action,
-                description: formatDescription(log)
+                id: log.id ?? log.log_id,              
+                user: log.user,                        
+                timestamp: log.timestamp,              
+                action_label: log.action_label,        
+                severity: log.severity,                
+                description: log.description,          
             }));
 
             setRecords(mapped);
 
-            // Gerar lista de usuários única para o filtro do topo
             const uniqueUsers = Array.from(
                 new Set(mapped.map((l) => l.user).filter(Boolean))
             ).map((name, index) => ({
@@ -71,17 +66,6 @@ export default function Records() {
     const handleUserFilterChange = (option) => {
         setSelectedUser(option ?? ALL_USERS_OPTION);
     };
-
-    function formatDescription(log) {
-        if (!log.extra) return "";
-        try {
-            if (typeof log.extra === "string") return log.extra;
-            // Remove aspas e chaves para ficar mais limpo visualmente
-            return JSON.stringify(log.extra).replace(/"/g, ' ').replace(/[{}]/g, '');
-        } catch {
-            return "";
-        }
-    }
 
     const handleSaveTime = (newTime) => {
         setImportTime(newTime);

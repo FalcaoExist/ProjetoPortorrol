@@ -1,9 +1,7 @@
 import io
-
 import pandas as pd
 
 from app.core.supabase_client import supabase
-
 
 def parse_value(value, type_cast=float, default=0):
     """
@@ -51,25 +49,6 @@ def get_value_by_name(row, possible_names):
             return row[real_col]
     return 0
 
-def log_error(line, reason, row_data=None):
-    try:
-        dados_str = str(row_data)
-        if hasattr(row_data, 'to_dict'):
-            dados_str = str(row_data.to_dict())
-
-        if len(dados_str) > 3000:
-            dados_str = dados_str[:3000] + "..."
-
-        print(f"[IMPORT][ROW ERROR] line={line} reason={reason} data={dados_str}")
-    except Exception as e:
-        print(f"Falha ao registrar erro técnico da linha {line}: {e}")
-
-def log_global(file_name, error_msg):
-    try:
-        print(f"[IMPORT][FILE ERROR] file={file_name} error={error_msg}")
-    except Exception as e:
-        print(f"Falha ao registrar erro técnico global: {e}")
-
 def save_sku(row):
     code = str(get_value_by_name(row, ['CODIGO', 'REFERENCIA', 'SKU']) or row.iloc[1]).strip()
     if not code or code.lower() in ['nan', 'sku', 'codigo', 'code', '0']:
@@ -91,7 +70,7 @@ def save_sku(row):
         if search.data:
             return search.data[0]['id']
     except Exception as e:
-        print(f"Erro SKU {code}: {e}")
+        raise RuntimeError(f"Erro ao salvar SKU {code}") from e
     return None
 
 def save_analysis(row, sku_id):
@@ -123,11 +102,7 @@ def save_analysis(row, sku_id):
         }
         supabase.table("tb_analise_compra").insert(data).execute()
     except Exception as e:
-        print(f"Analysis error SKU {sku_id}: {e}")
-        try:
-            log_error(sku_id, f"Fatal Insert Analysis Error: {str(e)}", None, str(data))
-        except:
-            pass
+        raise RuntimeError(f"Erro ao salvar análise do SKU {sku_id}") from e
 
 def save_history(row, sku_id):
     try:
@@ -160,55 +135,32 @@ def save_history(row, sku_id):
         if batch:
             supabase.table("tb_historico_vendas").insert(batch).execute()
     except Exception as e:
-        print(f"Erro Histórico SKU {sku_id}: {e}")
-
+        raise RuntimeError(f"Erro ao salvar histórico do SKU {sku_id}") from e
 
 def process_import_file(file_content, user_id=None):
-    print(">>> Iniciando leitura do CSV...")
     
     try:
         df = pd.read_csv(io.BytesIO(file_content), sep=None, engine='python', dtype=str)
         df.dropna(how='all', inplace=True)
-        
-        print(f">>> CSV Lido. Colunas: {len(df.columns)}")
         
         total_sucessos = 0
         total_erros = 0
 
         for index, row in df.iterrows():
             try:
-                # Tenta salvar o SKU
                 sku_id = save_sku(row)
-                if sku_id:
-                    save_analysis(row, sku_id)
-                    save_history(row, sku_id)
-                    total_sucessos += 1
-                else:
+                if not sku_id:
                     total_erros += 1
-                    error_msg = "SKU não identificado, inválido ou erro ao salvar produto (verifique logs do console)"
-                    attempted_code = str(get_value_by_name(row, ['CODIGO', 'REFERENCIA', 'SKU']) or "DESCONHECIDO")
-                    error_msg += f" - Código tentado: {attempted_code}"
-                    log_error(
-                        line=index + 2,
-                        reason=error_msg,
-                        user_id=user_id,
-                        row_data=row
-                    )
+                    continue
+
+                save_analysis(row, sku_id)
+                save_history(row, sku_id)
+                total_sucessos += 1
 
             except Exception as e:
-                # CORREÇÃO 2: Este bloco pega erros gerais do loop (ex: falha no salvar_analise que não foi tratada)
-                print(f"Erro linha {index}: {e}")
-                total_erros += 1
-                log_error(
-                    line=index + 2,
-                    reason=str(e),
-                    user_id=user_id,
-                    row_data=row
-                )
+                raise RuntimeError(f"Erro ao processar linha {index + 2}") from e
 
         return {"status": "success", "processed": total_sucessos, "errors": total_erros}
 
     except Exception as e:
-        print(f"CRÍTICO - Falha ao abrir CSV: {e}")
-        log_global("UPLOAD_CSV", str(e), user_id)
-        raise e
+        raise RuntimeError("Falha crítica ao abrir CSV") from e

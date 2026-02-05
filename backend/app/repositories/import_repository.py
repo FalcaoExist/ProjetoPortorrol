@@ -146,7 +146,7 @@ def process_import_file(file_content, user_id=None):
         total_sucessos = 0
         total_erros = 0
 
-        for index, row in df.iterrows():
+        for line_number, (_, row) in enumerate(df.iterrows(), start=2):
             try:
                 sku_id = save_sku(row)
                 if not sku_id:
@@ -158,7 +158,7 @@ def process_import_file(file_content, user_id=None):
                 total_sucessos += 1
 
             except Exception as e:
-                raise RuntimeError(f"Erro ao processar linha {index + 2}") from e
+                raise RuntimeError(f"Erro ao processar linha {line_number}") from e
 
         return {"status": "success", "processed": total_sucessos, "errors": total_erros}
 

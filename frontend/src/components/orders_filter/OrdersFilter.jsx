@@ -1,8 +1,8 @@
 import React from 'react';
-import SearchBar from './common/SearchBar';
-import SelectFilter from './common/SelectFilter';
-import DateFilter from './common/DateFilter';
-import { statusOptions } from '../pages/ordersConfig';
+import SearchBar from '../common/SearchBar';
+import SelectFilter from '../common/SelectFilter';
+import DateFilter from '../common/DateFilter';
+import { statusOptions } from '../../pages/ordersConfig';
 
 export default function OrdersFilter({
   searchQuery,

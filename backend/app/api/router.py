@@ -8,10 +8,10 @@ from fastapi import (
     APIRouter, BackgroundTasks, Depends, File, Header, 
     HTTPException, Query, Request, Response, UploadFile, Path
 )
-from jose import jwt
 from dotenv import load_dotenv
-
+from app.core.security import create_access_token 
 from app.core.supabase_client import supabase
+
 from app.api.schemas import (
     ConfigUpdate, FilialResponse, SkuAnaliseResponse, StatusProduto,
 )
@@ -42,17 +42,7 @@ from .schemas import (
 load_dotenv()
 router = APIRouter()
 
-SECRET_KEY = os.getenv("SECRET_KEY", "uma_chave_super_secreta_e_segura_123")
-ALGORITHM = os.getenv("ALGORITHM", "HS256")
-ACCESS_TOKEN_EXPIRE_MINUTES = 300  # 5 horas
-
 # --- HELPERS ---
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
-    to_encode = data.copy()
-    expire = datetime.utcnow() + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
-    to_encode.update({"exp": expire})
-    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-
 async def get_user_id_safe(authorization: str = Header(None)):
     if not authorization: return None
     try:
@@ -64,9 +54,7 @@ async def get_user_id_safe(authorization: str = Header(None)):
 def get_dashboard_service():
     return DashboardService()
 
-# 
-# AUTENTICAÇÃO E PERFIL
-# 
+# AUTENTICAÇÃO 
 
 @router.post("/login", response_model=LoginResponse)
 def login(
@@ -375,9 +363,7 @@ async def import_orders_file(supplier: Annotated[str, Path(...)], file: Annotate
     imported = await service.import_file(supplier, file)
     return {"success": True, "imported": imported}
 
-
 # AUDITORIA E LOGS
-
 
 @router.get("/login-attempts")
 def list_login_attempts(limit: int = 200, offset: int = 0, repo: IUserRepository = Depends(get_user_repository), current_user: dict = Depends(get_current_user)):

@@ -18,17 +18,18 @@ export function useOrders() {
         setLoading(true);
         try {
             const response = await httpClient.get("/orders");
-            const data = response.data || [];
+            const data = Array.isArray(response?.data) ? response.data : [];
+
             const hoje = new Date();
 
             const formattedData = data.map(item => {
                 let statusBinario = "Aprovado";
 
-                if (item.data_entrega) {
-                    const dataEntrega = new Date(item.data_entrega);
+                if (item?.data_entrega) {
+                    const dataEntrega = new Date(item?.data_entrega);
                     dataEntrega.setHours(23, 59, 59);
 
-                    const isBackendFinished = item.status === 'COMPLETED' || item.status === 'APPROVED';
+                    const isBackendFinished = item?.status === 'COMPLETED' || item?.status === 'APPROVED';
                     
                     if (dataEntrega < hoje && !isBackendFinished) {
                         statusBinario = "Atrasado";
@@ -36,15 +37,15 @@ export function useOrders() {
                 }
 
                 return {
-                    id: item.id,
-                    numero_pedido: item.order_id,   
-                    item: item.item_name,           
-                    fornecedor: item.supplier_name, 
-                    quantidade: item.quantity,
+                    id: item?.id,
+                    numero_pedido: item?.order_id || "",   
+                    item: item?.item_name || "",           
+                    fornecedor: item?.supplier_name || "", 
+                    quantidade: item?.quantity ?? 0,
                     filial: "Matriz",               
-                    valor: item.total_value,
-                    data_pedido: item.created_at ? item.created_at.split('T')[0] : "",
-                    previsao_entrega: item.data_entrega,
+                    valor: item?.total_value ?? 0,
+                    data_pedido: item?.created_at ? String(item?.created_at).split('T')[0] : "",
+                    previsao_entrega: item?.data_entrega ?? null,
                     status: statusBinario 
                 };
             });
@@ -69,8 +70,19 @@ export function useOrders() {
             }));
 
             setOrdersData(prevOrders => {
-                const existingIds = new Set(prevOrders.map(o => o.id));
-                const uniqueNewOrders = newOrders.filter(o => !existingIds.has(o.id));
+                const existingIds = new Set(
+                    prevOrders
+                        .map(o => o?.id)
+                        .filter(id => id != null)
+                );
+                const uniqueNewOrders = newOrders.filter(o => {
+                    const id = o?.id;
+                    if (id == null) {
+                        // Orders without an ID are not deduplicated by ID
+                        return true;
+                    }
+                    return !existingIds.has(id);
+                });
                 if (uniqueNewOrders.length > 0) {
                     return [...uniqueNewOrders, ...prevOrders];
                 }
@@ -98,24 +110,24 @@ export function useOrders() {
 
     const groupedAndFilteredOrders = useMemo(() => {
         const grouped = ordersData.reduce((acc, item) => {
-            if (!acc[item.numero_pedido]) {
-                acc[item.numero_pedido] = {
-                    id: item.numero_pedido, 
-                    numero_pedido: item.numero_pedido,
-                    data_pedido: item.data_pedido,
-                    fornecedor: item.fornecedor, 
+            if (!acc[item?.numero_pedido]) {
+                acc[item?.numero_pedido] = {
+                    id: item?.numero_pedido, 
+                    numero_pedido: item?.numero_pedido,
+                    data_pedido: item?.data_pedido,
+                    fornecedor: item?.fornecedor, 
                     valor: 0, 
-                    status: item.status, 
+                    status: item?.status, 
                     items: [],
                 };
             }
-            acc[item.numero_pedido].valor += (Number(item.valor) || 0);
-            acc[item.numero_pedido].items.push(item);
+            acc[item?.numero_pedido].valor += (Number(item?.valor) || 0);
+            acc[item?.numero_pedido].items.push(item);
             return acc;
         }, {});
 
         return Object.values(grouped).map(order => {
-            const hasDelayedItem = order.items.some(item => item.status === "Atrasado");
+            const hasDelayedItem = order.items.some(item => item?.status === "Atrasado");
             const orderStatus = hasDelayedItem ? "Atrasado" : "Aprovado";
             const responsavel = order.items[0]?.responsavel || "";
             
@@ -128,10 +140,10 @@ export function useOrders() {
             const searchLower = searchQuery.toLowerCase();
             const responsavelLower = responsavelFilter.toLowerCase();
             return (
-                (searchQuery === "" || order.numero_pedido.toLowerCase().includes(searchLower)) &&
+                (searchQuery === "" || order.numero_pedido?.toLowerCase()?.includes(searchLower)) &&
                 (statusFilter === "" || order.status === statusFilter) &&
                 (orderDate === "" || order.data_pedido === orderDate) &&
-                (responsavelFilter === "" || (order.responsavel && order.responsavel.toLowerCase().includes(responsavelLower)))
+                (responsavelFilter === "" || order.responsavel?.toLowerCase()?.includes(responsavelLower))
             );
         });
     }, [ordersData, searchQuery, statusFilter, orderDate, responsavelFilter]);

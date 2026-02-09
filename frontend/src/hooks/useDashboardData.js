@@ -127,11 +127,13 @@ export default function useDashboardData() {
         const totalEstoque = allSkus.reduce((acc, item) => acc + Number(item.estoque_soma || 0), 0);
         const totalDemanda = allSkus.reduce((acc, item) => acc + Number(item.demanda_soma || 0), 0);
         
-        let diasCobertura = 0;
+        let diasCobertura = null;
         if (totalDemanda > 0) {
-            diasCobertura = Math.round((totalEstoque / totalDemanda) * 30);
+          diasCobertura = Math.round((totalEstoque / totalDemanda) * 30);
         } else if (totalEstoque > 0) {
-            diasCobertura = 9999; 
+          diasCobertura = null;
+        } else {
+          diasCobertura = 0;
         }
 
         setKpis({ coverageDays: diasCobertura, savingPotential: 0 });

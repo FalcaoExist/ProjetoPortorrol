@@ -17,6 +17,7 @@ useEffect(() => {
                     setUser(data.user);
                 } else {
                     setUser(null);
+                    try { localStorage.removeItem("user_data"); localStorage.removeItem("user"); } catch (e) {}
                 }
             } catch (error) {
                 // Se der erro  considera deslogado
@@ -66,18 +67,32 @@ useEffect(() => {
                 try {
                     const me = await httpClient.get("/me");
                     if (me && me.success) {
-                        setUser(me.user);
-                        localStorage.setItem("user_data", JSON.stringify(me.user));
-                        checkAndShowReminder(me.user);
+                            setUser(me.user);
+                            // armazenamos apenas metadados não sensíveis para conveniência
+                            try {
+                                const meta = { id: me.user?.id ?? null, lastSeen: Date.now() };
+                                localStorage.setItem("user_meta", JSON.stringify(meta));
+                                // remove eventuais chaves antigas
+                                localStorage.removeItem("user_data");
+                                localStorage.removeItem("user");
+                            } catch (e) {
+                                console.error(e)
+                            }
+                            checkAndShowReminder(me.user);
                     } else {
                         setUser(data.user);
-                        localStorage.setItem("user_data", JSON.stringify(data.user));
+                        try {
+                            const meta = { id: data.user?.id ?? null, lastSeen: Date.now() };
+                            localStorage.setItem("user_meta", JSON.stringify(meta));
+                            localStorage.removeItem("user_data");
+                            localStorage.removeItem("user");
+                        } catch (e) {}
                         checkAndShowReminder(data.user);
                     }
                 } catch (err) {
                     // Se /me falhar por algum motivo, fallback para dados vindos do /login
                     setUser(data.user);
-                    localStorage.setItem("user_data", JSON.stringify(data.user));
+                    try { localStorage.setItem("user_meta", JSON.stringify({ id: data.user?.id ?? null, lastSeen: Date.now() })); localStorage.removeItem("user_data"); localStorage.removeItem("user"); } catch (e) {}
                     checkAndShowReminder(data.user);
                 }
 
@@ -99,8 +114,28 @@ useEffect(() => {
 
         } catch (error) {
             console.error("Erro no login context:", error);
-            // Tenta pegar a mensagem de erro que veio do httpClient
-            const msg = error.data?.message || error.data?.detail || "Erro de conexão.";
+            // Normaliza a mensagem de erro para string (backend pode retornar array/obj)
+            const extractMessage = (data) => {
+                if (!data) return null;
+                if (typeof data === 'string') return data;
+                // Pydantic/fastapi commonly returns { detail: [ { msg, loc, ...}, ... ] }
+                if (Array.isArray(data)) {
+                    // array of error objects or strings
+                    try {
+                        return data.map(d => (typeof d === 'string' ? d : (d.msg || JSON.stringify(d)))).join(' | ');
+                    } catch (e) {
+                        return String(data);
+                    }
+                }
+                if (Array.isArray(data.detail)) {
+                    return data.detail.map(d => (d.msg || JSON.stringify(d))).join(' | ');
+                }
+                if (data.message) return String(data.message);
+                if (data.detail) return String(data.detail);
+                return JSON.stringify(data);
+            };
+
+            const msg = extractMessage(error.data) || extractMessage(error.data?.detail) || "Erro de conexão.";
             return { success: false, message: msg };
         }
     };
@@ -111,6 +146,7 @@ useEffect(() => {
             console.error("Erro ao fazer logout no servidor", error);
         } finally {
             setUser(null);
+            try { localStorage.removeItem("user_meta"); localStorage.removeItem("user_data"); localStorage.removeItem("user"); } catch (e) {}
             // Redireciona
             window.location.href = "/";
         }

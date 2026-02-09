@@ -6,8 +6,8 @@ import { useOrders } from "../hooks/useOrders";
 import { getMainOrdersColumns } from "./ordersConfig.jsx";
 import { exportRowsCSV } from "../services/csvExporter";
 import { exportRowsXLSX } from "../services/xlsxExporter";
-import OrderDetailsModal from "../components/OrderDetailsModal.jsx";
-import OrdersFilter from "../components/OrdersFilter.jsx";
+import OrderDetailsModal from "../components/order_details_modal/OrderDetailsModal.jsx";
+import OrdersFilter from "../components/orders_filter/OrdersFilter.jsx";
 import { useRef, useState, useEffect } from "react";
 import ConfirmationModal from "../components/common/ConfirmationModal";
 import { importOrdersFromExcel } from "../services/ordersImporter";
@@ -42,6 +42,8 @@ export default function Orders() {
     const fileInputRef = useRef(null);
     const [isImportConfirmModalOpen, setIsImportConfirmModalOpen] = useState(false);
     const [selectedFile, setSelectedFile] = useState(null);
+    // Read max import size from env (value in MB). Default to 100 MB if not set.
+    const MAX_IMPORT_FILE_SIZE = (Number(import.meta.env.VITE_MAX_IMPORT_FILE_SIZE_MB) || 100) * 1024 * 1024;
 
 
     const handleImportClick = () => {
@@ -51,8 +53,12 @@ export default function Orders() {
     const handleFileChange = (e) => {
         const file = e.target.files[0];
         if (file) {
-            setSelectedFile(file);
-            setIsImportConfirmModalOpen(true);
+            if (file.size && file.size > MAX_IMPORT_FILE_SIZE) {
+                alert(`Arquivo muito grande. Tamanho máximo: ${Math.round(MAX_IMPORT_FILE_SIZE / 1024 / 1024)} MB.`);
+            } else {
+                setSelectedFile(file);
+                setIsImportConfirmModalOpen(true);
+            }
         }
         e.target.value = '';
     };
@@ -61,7 +67,6 @@ export default function Orders() {
         if (selectedFile) {
             try {
                 const processed = await importOrdersFromExcel(selectedFile);
-                console.log('Imported (processed) rows:', processed);
                 // TODO: Process the imported data and add it to the orders table
             } catch (err) {
                 alert('Erro ao importar arquivo: ' + err.message);

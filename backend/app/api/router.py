@@ -1,6 +1,4 @@
 from typing import List, Optional, Annotated
-import os
-from datetime import datetime, timedelta
 from uuid import uuid4
 from itertools import groupby
 
@@ -96,7 +94,7 @@ def change_own_password(
 ):
     user_service.change_password(
         user_id=current_user["user_id"],
-        old_password=data.old_password,
+        current_password=data.current_password,
         new_password=data.new_password,
         performed_by=current_user["user_id"]
     )

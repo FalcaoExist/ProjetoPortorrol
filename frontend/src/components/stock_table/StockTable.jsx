@@ -2,6 +2,7 @@
 import React, { useMemo } from "react";
 import { Box } from "@mui/material";
 import { BaseDataGrid } from "../common/BaseDataGrid";
+import { getStockRowId } from "../../utils/rowIds";
 
 // Função para determinar o status e a cor de fundo com base nos dias de cobertura
 const getStatus = (diasDeCobertura) => {
@@ -131,19 +132,9 @@ export default function StockTable({
                 rowSelectionModel={rowSelectionModel}
                 onRowSelectionModelChange={onRowSelectionModelChange}
                 
-                // --- CORREÇÃO IMPORTANTE ---
-                // Permite seleção múltipla via código (useStock) mesmo sem checkboxes visíveis
-                // Isso resolve o erro "rowSelectionModel can only contain 1 item"
                 disableMultipleRowSelection={false}
 
-                // ID Composto para evitar erro de duplicidade (key prop)
-                getRowId={(row) => {
-                    if (row.filial) {
-                        return `${row.id}-${row.filial}`;
-                    }
-                    // Fallback seguro
-                    return `${row.id}-${Math.random().toString(36).substr(2, 9)}`;
-                }}
+                getRowId={getStockRowId}
             />
         </Box>
     );

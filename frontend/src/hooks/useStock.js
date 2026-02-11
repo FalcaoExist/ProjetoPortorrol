@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { getStockData, createOrderBatch, getSuppliers } from "../services/stockService";
+import { getStockRowId } from "../utils/rowIds";
 
 // Função auxiliar para definir status textual baseado nos dias
 const getStatusText = (dias) => {
@@ -71,62 +72,6 @@ export const useStock = () => {
     }, [fetchStock, filial]);
 
     // =========================================================
-    // LÓGICA DE SINCRONIZAÇÃO (CORRIGIDA)
-    // =========================================================
-    
-    useEffect(() => {
-        // Pega os IDs selecionados na tabela principal (que agora são "ID-FILIAL")
-        const selectionSet = (rowSelectionModel && rowSelectionModel.ids) 
-            ? rowSelectionModel.ids 
-            : new Set();
-
-        setNewOrderRows(prevOrderRows => {
-            // Filtra os itens do estoque reconstruindo o ID Composto para comparar
-            const selectedRows = stockData
-                .filter(row => {
-                    // Recria o ID exatamente como a tabela StockTable faz
-                    const compositeId = row.filial 
-                        ? `${row.id}-${row.filial}` 
-                        : String(row.id);
-                    
-                    // Verifica se esse ID composto está na lista de selecionados
-                    return selectionSet.has(compositeId);
-                })
-                .map(item => {
-                    // Gera o ID único para a tabela de baixo também
-                    const uniqueRowId = item.filial ? `${item.id}-${item.filial}` : String(item.id);
-
-                    // Verifica se já existia na tabela de baixo (para manter edições de preço/qtd)
-                    const existingItem = prevOrderRows.find(nr => nr.id === uniqueRowId);
-                    
-                    if (existingItem) {
-                        return existingItem;
-                    }
-
-                    // Se é novo, cria objeto.
-                    // IMPORTANTE: Salvamos 'real_sku_id' para enviar ao backend depois
-                    return {
-                        ...item,
-                        id: uniqueRowId,       // ID único para o React (DataGrid)
-                        real_sku_id: item.id,  // ID numérico real para o Python
-                        
-                        unidades: item.unidades || 0,
-                        valor: item.valor || 0,
-                        quantidade: item.unidades > 0 ? Math.round(item.unidades * 0.5) : 100,
-                        previsao_entrega: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-                        status: "Pendente",
-                        fornecedor: item.fornecedor || "" 
-                    };
-                });
-            return selectedRows;
-        });
-
-        if (selectionSet.size > 0) {
-            setIsNewOrderVisible(true);
-        }
-    }, [rowSelectionModel, stockData]);
-
-    // =========================================================
     // FILTRAGEM LOCAL
     // =========================================================
     
@@ -150,20 +95,63 @@ export const useStock = () => {
     }, [stockData, searchQuery, statusFilter, fornecedor, filial]);
 
     // =========================================================
+    // LÓGICA DE SINCRONIZAÇÃO 
+    // =========================================================
+    
+    useEffect(() => {
+        const ids = (rowSelectionModel && rowSelectionModel.ids instanceof Set)
+            ? rowSelectionModel.ids
+            : new Set();
+        const type = rowSelectionModel?.type || 'include';
+
+        const isRowSelected = (row) => {
+            const id = getStockRowId(row);
+            if (!id) return false;
+            return type === 'exclude' ? !ids.has(id) : ids.has(id);
+        };
+
+       
+        setNewOrderRows(prevOrderRows => {
+            const selectedRows = filteredRows
+                .filter(isRowSelected)
+                .map(item => {
+                    const uniqueRowId = getStockRowId(item);
+                    const existingItem = prevOrderRows.find(nr => nr.id === uniqueRowId);
+                    if (existingItem) return existingItem;
+
+                    return {
+                        ...item,
+                        id: uniqueRowId,
+                        real_sku_id: item.id,
+                        unidades: item.unidades || 0,
+                        valor: item.valor || 0,
+                        quantidade: item.unidades > 0 ? Math.round(item.unidades * 0.5) : 100,
+                        previsao_entrega: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                        status: "Pendente",
+                        fornecedor: item.fornecedor || ""
+                    };
+                });
+            return selectedRows;
+        });
+
+        const selectedCount = type === 'exclude'
+            ? Math.max(0, filteredRows.length - ids.size)
+            : ids.size;
+        if (selectedCount > 0) {
+            setIsNewOrderVisible(true);
+        }
+    }, [rowSelectionModel, filteredRows]);
+
+    // =========================================================
     // HANDLERS
     // =========================================================
 
     const handleShowNewOrder = useCallback(() => {
-        if (!isNewOrderVisible) {
-            // Sugere itens críticos (precisamos usar o ID composto aqui também)
-            const suggestedCompositeIds = stockData
-                .filter(item => item.dias_cobertura <= 60)
-                .map(item => item.filial ? `${item.id}-${item.filial}` : String(item.id));
-            
-            setRowSelectionModel({ type: 'include', ids: new Set(suggestedCompositeIds) });
-        }
+      
         setIsNewOrderVisible(true);
-    }, [stockData, isNewOrderVisible]);
+        setRowSelectionModel({ type: 'include', ids: new Set() });
+        setNewOrderRows([]);
+    }, []);
 
     const handleCloseNewOrder = useCallback(() => {
         setIsNewOrderVisible(false);
@@ -186,9 +174,17 @@ export const useStock = () => {
     const confirmDelete = () => {
         if (!itemToDelete) return;
         setRowSelectionModel(prevModel => {
-            const newIds = new Set(prevModel.ids);
-            newIds.delete(itemToDelete);
-            return { ...prevModel, ids: newIds };
+            const prevIds = (prevModel && prevModel.ids instanceof Set) ? prevModel.ids : new Set();
+            const nextIds = new Set(prevIds);
+
+           
+            if (prevModel?.type === 'exclude') {
+                nextIds.add(itemToDelete);
+                return { type: 'exclude', ids: nextIds };
+            }
+
+            nextIds.delete(itemToDelete);
+            return { type: 'include', ids: nextIds };
         });
         setItemToDelete(null);
         setIsDeleteModalOpen(false);

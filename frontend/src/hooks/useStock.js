@@ -147,9 +147,8 @@ export const useStock = () => {
     // =========================================================
 
     const handleShowNewOrder = useCallback(() => {
-      
         setIsNewOrderVisible(true);
-        setRowSelectionModel({ type: 'include', ids: new Set() });
+        setRowSelectionModel({ type: 'exclude', ids: new Set() });
         setNewOrderRows([]);
     }, []);
 

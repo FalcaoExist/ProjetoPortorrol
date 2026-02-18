@@ -91,7 +91,7 @@ class FornecedorCreate(BaseModel):
 class FornecedorResponse(BaseModel):
     supplier_id: UUID
     name: str
-    lead_time_days: Optional[int]
+    lead_time_days: Optional[int] = None
     is_active: bool
 
 class PedidoCreate(BaseModel):
@@ -146,6 +146,6 @@ class FornecedorCreate(BaseModel):
 class FornecedorResponse(BaseModel):
     supplier_id: UUID
     name: str
-    lead_time_days: Optional[int]
+    lead_time_days: Optional[int] = None
     is_active: bool
     data_entrega: Optional[date] = None

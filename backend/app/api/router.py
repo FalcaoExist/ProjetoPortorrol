@@ -1,10 +1,10 @@
 from typing import List, Optional, Annotated
 
 from fastapi import (
-    APIRouter, BackgroundTasks, Depends, File, Header, 
+    APIRouter, BackgroundTasks, Depends, File, 
     HTTPException, Query, Request, Response, UploadFile, Path
 )
-from dotenv import load_dotenv
+
 from app.core.security import create_access_token
 
 from app.api.schemas import (
@@ -38,7 +38,6 @@ from .schemas import (
 )
 
 # --- INICIALIZAÇÃO ---
-load_dotenv()
 router = APIRouter()
 
 # --- HELPERS ---
@@ -141,12 +140,15 @@ def delete_user_endpoint(user_id: str, service: UserService = Depends(get_user_s
 # FORNECEDORES
 
 
-@router.get("/suppliers", response_model=List[FornecedorResponse])
+@router.get("/suppliers", response_model=List[FornecedorResponse], operation_id="list_suppliers")
 def get_suppliers_list(current_user: dict = Depends(get_current_user), supplier_service: SupplierService = Depends(get_supplier_service)):
     try:
         return supplier_service.get_active_suppliers()
     except Exception:
-        return []
+        raise HTTPException(
+            status_code=500,
+            detail="Erro ao buscar fornecedores"
+        )
 
 @router.post("/suppliers", response_model=FornecedorResponse)
 def create_supplier(data: FornecedorCreate, current_user: dict = Depends(get_current_user), supplier_service: SupplierService = Depends(get_supplier_service)):
@@ -169,7 +171,7 @@ def delete_supplier(id: str, current_user: dict = Depends(get_current_user), sup
 
 # PEDIDOS E ESTOQUE
 
-@router.get("/orders", response_model=List[PedidoResponse])
+@router.get("/orders", response_model=List[PedidoResponse], operation_id="list_orders")
 def get_orders(current_user: dict = Depends(get_current_user), order_service: OrderService = Depends(get_order_service)):
     return order_service.get_orders()
 
@@ -193,7 +195,7 @@ def create_batch_order(payload: BatchOrderRequest, current_user: dict = Depends(
     except Exception as e:
         raise HTTPException(500, str(e))
 
-@router.get("/stock", response_model=List[StockItemResponse])
+@router.get("/stock", response_model=List[StockItemResponse], operation_id="get_stock_data")
 def get_stock_data(filial: Optional[str] = None, current_user: dict = Depends(get_current_user), stock_service: StockService = Depends(get_stock_service)):
     return stock_service.get_stock_data(filial)
 
@@ -227,7 +229,7 @@ def get_product_history(sku_id: Optional[int] = None, service: DashboardService 
     return service.get_sku_history(sku_id)
 
 @router.post("/imports/pedidos/{supplier}")
-async def import_orders_file(supplier: Annotated[str, Path(...)], file: Annotated[UploadFile, File(...)]):
+async def import_orders_file(supplier: Annotated[str, Path(...)], file: Annotated[UploadFile, File(...)], current_user: dict = Depends(get_current_user)):
     service = ImportOrdersService()
     imported = await service.import_file(supplier, file)
     return {"success": True, "imported": imported}

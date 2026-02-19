@@ -81,6 +81,23 @@ export default function Stock() {
         loading 
     } = useStock(); 
 
+    // O DataGrid v8 usa { type, ids: Set }. Para seleção controlada funcionar (incluindo "marcar todos"),
+    // precisamos clonar o Set para sempre mudar a referência do estado.
+    const handleRowSelectionModelChange = (model) => {
+        if (model && model.ids instanceof Set) {
+            setRowSelectionModel({
+                type: model.type || 'include',
+                ids: new Set(model.ids),
+            });
+            return;
+        }
+
+        // Fallback: se por algum motivo vier um array de IDs
+        if (Array.isArray(model)) {
+            setRowSelectionModel({ type: 'include', ids: new Set(model) });
+        }
+    };
+
     const handleImportClick = () => {
         if (fileInputRef.current) {
             fileInputRef.current.click();
@@ -159,7 +176,7 @@ export default function Stock() {
                             loading={loading} 
                             isRequisitionMode={isNewOrderVisible}
                             rowSelectionModel={rowSelectionModel}
-                            onRowSelectionModelChange={setRowSelectionModel}
+                            onRowSelectionModelChange={handleRowSelectionModelChange}
                         />
 
                         <div className="flex items-center justify-between mt-4">

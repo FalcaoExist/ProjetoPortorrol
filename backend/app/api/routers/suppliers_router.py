@@ -2,7 +2,7 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException
 from app.core.dependencies import get_current_user, get_supplier_service
 from app.services.supplier_service import SupplierService
-from ..schemas import FornecedorCreate, FornecedorResponse
+from app.api.schemas import FornecedorCreate, FornecedorResponse
 
 router = APIRouter()
 

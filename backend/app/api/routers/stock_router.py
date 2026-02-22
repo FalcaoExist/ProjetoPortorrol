@@ -2,7 +2,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends
 from app.core.dependencies import get_current_user, get_stock_service
 from app.services.stock_service import StockService
-from ..schemas import StockItemResponse
+from app.api.schemas import StockItemResponse
 
 router = APIRouter()
 

@@ -1,13 +1,13 @@
 from fastapi import APIRouter
 
-from .routers.auth_router import router as auth_router
-from .routers.users_router import router as users_router
-from .routers.suppliers_router import router as suppliers_router
-from .routers.orders_router import router as orders_router
-from .routers.stock_router import router as stock_router
-from .routers.dashboard_router import router as dashboard_router
-from .routers.import_router import router as import_router
-from .routers.audit_router import router as audit_router
+from app.api.routers.auth_router import router as auth_router
+from app.api.routers.users_router import router as users_router
+from app.api.routers.suppliers_router import router as suppliers_router
+from app.api.routers.orders_router import router as orders_router
+from app.api.routers.stock_router import router as stock_router
+from app.api.routers.dashboard_router import router as dashboard_router
+from app.api.routers.import_router import router as import_router
+from app.api.routers.audit_router import router as audit_router
 
 router = APIRouter()
 

@@ -37,3 +37,7 @@ node_modules/
 
 # Arquivos de sistema operacional
 .DS_Store
+
+# Cookies
+cookies.txt
+

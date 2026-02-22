@@ -2,7 +2,7 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException
 from app.core.dependencies import get_current_user,get_order_service
 from app.services.order_service import OrderService
-from ..schemas import BatchOrderRequest, BatchOrderResponse, PedidoCreate, PedidoResponse
+from app.api.schemas import BatchOrderRequest, BatchOrderResponse, PedidoCreate, PedidoResponse
 
 router = APIRouter()
 

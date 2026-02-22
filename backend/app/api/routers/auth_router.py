@@ -3,7 +3,7 @@ from app.core.security import create_access_token
 from app.core.dependencies import get_auth_service, get_current_user, get_user_service
 from app.services.auth_service import AuthService
 from app.services.user_service import UserService
-from ..schemas import LoginRequest, LoginResponse, UserGetResponse, ChangePasswordRequest
+from app.api.schemas import LoginRequest, LoginResponse, UserGetResponse, ChangePasswordRequest
 
 router = APIRouter()
 

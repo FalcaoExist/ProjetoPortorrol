@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, File, HTTPException
 from app.core.dependencies import get_current_user, get_user_service
 from app.services.user_service import UserService
 from app.services.service_models import UserCreateRequest, UserUpdateRequest
-from ..schemas import UserCreateResponse, UserGetResponse, UserListResponse, UserUpdateResponse
+from app.api.schemas import UserCreateResponse, UserGetResponse, UserListResponse, UserUpdateResponse
 
 router = APIRouter()
 

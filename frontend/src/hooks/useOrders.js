@@ -1,16 +1,23 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
-import { useLocation } from "react-router-dom";
-import httpClient from "../services/validators/api/httpClient"; 
+import httpClient from "../services/validators/api/httpClient";
+
+// Função utilitária para remover acentos e facilitar a busca
+const removeAcentos = (str) => {
+    if (!str) return "";
+    return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+};
+
 export function useOrders() {
-    const location = useLocation();
-    
     const [ordersData, setOrdersData] = useState([]);
     const [loading, setLoading] = useState(true);
-
+    
+    // Estados dos Filtros
     const [searchQuery, setSearchQuery] = useState("");
-    const [statusFilter, setStatusFilter] = useState(""); 
+    const [responsavelFilter, setResponsavelFilter] = useState(""); 
+    const [statusFilter, setStatusFilter] = useState("");
     const [orderDate, setOrderDate] = useState("");
-    const [responsavelFilter, setResponsavelFilter] = useState("");
+    
+    // Estados do Modal
     const [modalOpen, setModalOpen] = useState(false);
     const [selectedOrderItems, setSelectedOrderItems] = useState([]);
 
@@ -18,157 +25,232 @@ export function useOrders() {
         setLoading(true);
         try {
             const response = await httpClient.get("/orders");
-            const data = Array.isArray(response?.data) ? response.data : [];
+            
+            let rawData = [];
+            if (Array.isArray(response)) rawData = response;
+            else if (response?.data && Array.isArray(response.data)) rawData = response.data;
+            else if (response?.items && Array.isArray(response.items)) rawData = response.items;
 
-            const hoje = new Date();
-
-            const formattedData = data.map(item => {
-                let statusBinario = "Aprovado";
-
-                if (item?.data_entrega) {
-                    const dataEntrega = new Date(item?.data_entrega);
-                    dataEntrega.setHours(23, 59, 59);
-
-                    const isBackendFinished = item?.status === 'COMPLETED' || item?.status === 'APPROVED';
+            const formattedData = rawData.map((item, index) => {
+                const finalId = item.id || `temp-${index}`;
+                
+                const previsaoRaw = item.previsao_entrega;
+                const entregaRaw = item.data_entrega;
+                
+                let statusBinario = item.status || "Aprovado";
+                const hoje = new Date();
+                hoje.setHours(0,0,0,0);
+                
+                if (entregaRaw) {
+                    const dataEntrega = new Date(entregaRaw);
+                    const dataEntregaLimpa = new Date(dataEntrega.valueOf() + dataEntrega.getTimezoneOffset() * 60000);
+                    dataEntregaLimpa.setHours(0,0,0,0);
                     
-                    if (dataEntrega < hoje && !isBackendFinished) {
+                    if (dataEntregaLimpa <= hoje) {
+                        statusBinario = "Aprovado";
+                    }
+                } else if (previsaoRaw) {
+                    const dataPrevisao = new Date(previsaoRaw);
+                    const dataPrevisaoLimpa = new Date(dataPrevisao.valueOf() + dataPrevisao.getTimezoneOffset() * 60000);
+                    dataPrevisaoLimpa.setHours(0,0,0,0);
+                    
+                    if (dataPrevisaoLimpa < hoje) {
                         statusBinario = "Atrasado";
+                    } else {
+                        statusBinario = "Aprovado";
                     }
                 }
 
+                const dataCriacao = item.created_at || item.data_pedido || new Date().toISOString();
+
                 return {
-                    id: item?.id,
-                    numero_pedido: item?.order_id || "",   
-                    item: item?.item_name || "",           
-                    fornecedor: item?.supplier_name || "", 
-                    quantidade: item?.quantity ?? 0,
-                    filial: "Matriz",               
-                    valor: item?.total_value ?? 0,
-                    data_pedido: item?.created_at ? String(item?.created_at).split('T')[0] : "",
-                    previsao_entrega: item?.data_entrega ?? null,
-                    status: statusBinario 
+                    id: finalId, 
+                    real_id: item.real_id || item.order_id, 
+                    numero_pedido: item.numero_pedido || String(finalId).substring(0,8).toUpperCase(),
+                    responsavel: item.responsavel || "Sistema", 
+                    item: item.item_name || item.item || "Item",
+                    fornecedor: item.supplier_name || item.fornecedor || "Desc.", 
+                    filial: item.branch_name || item.filial || "Matriz", 
+                    quantidade: Number(item.quantity || item.quantidade || 0),
+                    valor: Number(item.total_value || item.valor || 0),
+                    data_pedido: dataCriacao, 
+                    created_at: dataCriacao,
+                    previsao_entrega: previsaoRaw,
+                    data_entrega: entregaRaw,
+                    status: statusBinario,
+                    _raw: item 
                 };
             });
-
             setOrdersData(formattedData);
         } catch (error) {
-            console.error("Erro ao buscar pedidos:", error);
+            console.error("Erro busca:", error);
         } finally {
             setLoading(false);
         }
     }, []);
 
-    useEffect(() => {
-        fetchOrders();
-    }, [fetchOrders]);
+    useEffect(() => { fetchOrders(); }, [fetchOrders]);
 
-    useEffect(() => {
-        if (location.state?.newOrders) {
-            const newOrders = location.state.newOrders.map(o => ({
-                ...o,
-                status: "Aprovado" 
-            }));
+    const handleUpdateData = async (rowId, field, value) => {
+        let newStatus = null;
 
-            setOrdersData(prevOrders => {
-                const existingIds = new Set(
-                    prevOrders
-                        .map(o => o?.id)
-                        .filter(id => id != null)
-                );
-                const uniqueNewOrders = newOrders.filter(o => {
-                    const id = o?.id;
-                    if (id == null) {
-                        // Orders without an ID are not deduplicated by ID
-                        return true;
-                    }
-                    return !existingIds.has(id);
-                });
-                if (uniqueNewOrders.length > 0) {
-                    return [...uniqueNewOrders, ...prevOrders];
-                }
-                return prevOrders;
-            });
-            window.history.replaceState({}, document.title);
+        if (field === "data_entrega" && value) {
+            const newDate = new Date(value);
+            const today = new Date();
+            today.setHours(0,0,0,0);
+            const compareDate = new Date(newDate.valueOf() + newDate.getTimezoneOffset() * 60000);
+            compareDate.setHours(0,0,0,0);
+            
+            if (compareDate <= today) {
+                newStatus = "Aprovado";
+            }
         }
-    }, [location.state]);
+
+        setOrdersData(prev => prev.map(row => {
+            if (row.id === rowId) {
+                const updated = { ...row, [field]: value };
+                if (newStatus) updated.status = newStatus;
+                
+                if (field === "data_entrega" && !value && row.previsao_entrega) {
+                     const today = new Date();
+                     today.setHours(0,0,0,0);
+                     const prevDate = new Date(row.previsao_entrega);
+                     const prevLimpa = new Date(prevDate.valueOf() + prevDate.getTimezoneOffset() * 60000);
+                     prevLimpa.setHours(0,0,0,0);
+                     if (prevLimpa < today) updated.status = "Atrasado";
+                }
+                
+                return updated;
+            }
+            return row;
+        }));
+
+        const itemsToUpdate = ordersData.filter(i => i.id === rowId && !String(i.id).startsWith('temp'));
+
+        if (itemsToUpdate.length === 0) return;
+
+        try {
+            await Promise.all(itemsToUpdate.map(async (item) => {
+                const payload = { [field]: value };
+                if (newStatus) payload.status = newStatus;
+
+                const idParaSalvar = item.real_id || item._raw?.order_id;
+                if (!idParaSalvar) return;
+
+                const url = `/orders/${idParaSalvar}`;
+
+                if (typeof httpClient.put === 'function') {
+                    return await httpClient.put(url, payload);
+                } else if (typeof httpClient.patch === 'function') {
+                    return await httpClient.patch(url, payload);
+                } else {
+                    return await httpClient.post(url, payload);
+                }
+            }));
+        } catch (err) {
+            console.error("ERRO AO SALVAR NA API:", err);
+            alert("Erro ao salvar o pedido.");
+        }
+    };
 
     const handleOpenModal = (items) => {
-        if (typeof items === 'string') {
-            const orderId = items;
-            const itemsDoPedido = ordersData.filter(o => o.numero_pedido === orderId);
-            setSelectedOrderItems(itemsDoPedido);
-        } else {
-            setSelectedOrderItems(items);
-        }
+        if (Array.isArray(items)) setSelectedOrderItems(items);
+        else setSelectedOrderItems([items]);
         setModalOpen(true);
     };
 
-    const handleCloseModal = () => {
-        setModalOpen(false);
-        setSelectedOrderItems([]);
-    };
-
     const groupedAndFilteredOrders = useMemo(() => {
+        if (!ordersData.length) return [];
+        
         const grouped = ordersData.reduce((acc, item) => {
-            if (!acc[item?.numero_pedido]) {
-                acc[item?.numero_pedido] = {
-                    id: item?.numero_pedido, 
-                    numero_pedido: item?.numero_pedido,
-                    data_pedido: item?.data_pedido,
-                    fornecedor: item?.fornecedor, 
+            const k = item.numero_pedido;
+            if (!acc[k]) {
+                acc[k] = { 
+                    ...item, 
+                    items: [], 
                     valor: 0, 
-                    status: item?.status, 
-                    items: [],
+                    quantidade: 0,
+                    responsavel: item.responsavel
                 };
             }
-            acc[item?.numero_pedido].valor += (Number(item?.valor) || 0);
-            acc[item?.numero_pedido].items.push(item);
+            acc[k].valor += item.valor;
+            acc[k].quantidade += item.quantidade;
+            acc[k].items.push(item);
+            
+            if (item.status === "Atrasado") acc[k].status = "Atrasado";
             return acc;
         }, {});
 
-        return Object.values(grouped).map(order => {
-            const hasDelayedItem = order.items.some(item => item?.status === "Atrasado");
-            const orderStatus = hasDelayedItem ? "Atrasado" : "Aprovado";
-            const responsavel = order.items[0]?.responsavel || "";
+        return Object.values(grouped).map(o => {
+            if (o.items.length > 1) {
+                o.item = `${o.items[0].item} (+${o.items.length - 1} itens)`;
+            }
+            return o;
+        }).filter(o => {
+            // Prevenção contra Eventos acidentais
+            let sText = searchQuery;
+            if (sText && typeof sText === 'object' && sText.target) sText = sText.target.value;
             
-            return {
-                ...order,
-                status: orderStatus,
-                responsavel: responsavel,
-            };
-        }).filter(order => {
-            const searchLower = searchQuery.toLowerCase();
-            const responsavelLower = responsavelFilter.toLowerCase();
+            let rText = responsavelFilter;
+            if (rText && typeof rText === 'object' && rText.target) rText = rText.target.value;
+
+            // Textos Limpos
+            const s = removeAcentos(String(sText || "").trim());
+            const r = removeAcentos(String(rText || "").trim());
+            
+            // Verifica itens aninhados
+            const matchItemName = o.items.some(childItem => 
+                childItem.item && removeAcentos(String(childItem.item)).includes(s)
+            );
+
+            // Filtro de Texto Geral
+            const matchSearch = s === "" || 
+                 removeAcentos(String(o.numero_pedido)).includes(s) || 
+                 removeAcentos(String(o.fornecedor)).includes(s) ||
+                 removeAcentos(String(o.item)).includes(s) || 
+                 matchItemName;
+
+            // Filtro de Responsável
+            const matchResponsavel = r === "" || removeAcentos(String(o.responsavel)).includes(r);
+
+            // Filtro de Data do Pedido (Ignorando horas)
+            let matchDate = true;
+            let filterDate = orderDate;
+            if (filterDate && typeof filterDate === 'object' && filterDate.target) filterDate = filterDate.target.value;
+            
+            if (filterDate && String(filterDate).trim() !== "") {
+                const searchDate = String(filterDate).trim(); 
+                
+                // Extrai apenas YYYY-MM-DD do banco de dados (ignorando "T" e o tempo)
+                let rowDateStr = String(o.data_pedido);
+                if (o.data_pedido instanceof Date) {
+                    rowDateStr = o.data_pedido.toISOString().split('T')[0];
+                } else if (rowDateStr.includes('T')) {
+                    rowDateStr = rowDateStr.split('T')[0];
+                } else if (rowDateStr.includes(' ')) {
+                    rowDateStr = rowDateStr.split(' ')[0];
+                }
+
+                matchDate = rowDateStr === searchDate || rowDateStr.includes(searchDate);
+            }
+
             return (
-                (searchQuery === "" || order.numero_pedido?.toLowerCase()?.includes(searchLower)) &&
-                (statusFilter === "" || order.status === statusFilter) &&
-                (orderDate === "" || order.data_pedido === orderDate) &&
-                (responsavelFilter === "" || order.responsavel?.toLowerCase()?.includes(responsavelLower))
+                matchSearch &&
+                matchResponsavel && 
+                matchDate &&
+                (statusFilter === "" || statusFilter === "Todos" || o.status === statusFilter)
             );
         });
-    }, [ordersData, searchQuery, statusFilter, orderDate, responsavelFilter]);
+    }, [ordersData, searchQuery, responsavelFilter, statusFilter, orderDate]);
 
-    const handleUpdateData = (id, field, value) => {
-        setOrdersData(currentData =>
-            currentData.map(row =>
-                row.id === id ? { ...row, [field]: value } : row
-            )
-        );
-    };
-
+    // Retorna métodos de SET robustos
     return {
-        ordersData,
-        responsavelFilter,
-        setResponsavelFilter,
-        loading,
-        searchQuery, setSearchQuery,
-        statusFilter, setStatusFilter,
+        ordersData, loading, 
+        searchQuery, setSearchQuery, 
+        responsavelFilter, setResponsavelFilter, 
+        statusFilter, setStatusFilter, 
         orderDate, setOrderDate,
-        modalOpen,
-        selectedOrderItems,
-        handleOpenModal,
-        handleCloseModal,
-        groupedAndFilteredOrders,
-        handleUpdateData,
+        modalOpen, selectedOrderItems, handleOpenModal, handleCloseModal: () => setModalOpen(false),
+        groupedAndFilteredOrders, handleUpdateData
     };
 }

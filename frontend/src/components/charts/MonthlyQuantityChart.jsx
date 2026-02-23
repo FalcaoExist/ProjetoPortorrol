@@ -18,11 +18,7 @@ const CustomTooltip = ({ active, payload, label }) => {
 
 export default function MonthlyQuantityChart({ data, sku }) {
 
-  const displayData = useMemo(() => {
-    if (!sku) return data;
-    const modifier = 1 + ((sku.length % 5) * 0.1);
-    return data.map(d => ({ ...d, value: Math.round(d.value * modifier) }));
-  }, [data, sku]);
+  const displayData = data || [];
 
   return (
     <div className="w-full h-[300px] min-h-[200px] bg-white rounded-[20px] p-6 relative">

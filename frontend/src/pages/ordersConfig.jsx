@@ -27,12 +27,17 @@ export const getMainOrdersColumns = (handleOpenModal) => [
         minWidth: 180, 
         flex: 1,
         type: 'date',
-        valueGetter: (params) => {
-            if (!params.value) return null;
-            const date = new Date(params.value);
+        valueGetter: (value) => {
+            if (!value) return null;
+            const date = new Date(value);
             if (isNaN(date.getTime())) return null; 
+
             const timeZoneOffset = date.getTimezoneOffset() * 60000;
             return new Date(date.valueOf() + timeZoneOffset);
+        },
+        valueFormatter: (value) => {
+            if (!value) return "-";
+            return value.toLocaleDateString("pt-BR");
         }
     },
     {

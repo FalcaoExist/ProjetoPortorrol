@@ -3,46 +3,41 @@ from app.core.supabase_client import supabase
 
 class DashboardRepository:
     def get_all_skus_with_analysis(self):
+        """
+        Busca todos os SKUs, incluindo os dados de análise de compra (estoque/demanda)
+        e o relacionamento com os fornecedores.
+        """
         try:
-            # Busca os dados já processados (tb_analise_compra)
+            # Realiza o join entre tb_skus, tb_analise_compra e a estrutura de fornecedores
             response = supabase.table("tb_skus").select(
-                "id, codigo, nome_produto, marca, classificacao, tb_analise_compra(*)"
+                "id, codigo, nome_produto, marca, classificacao, filial, "
+                "tb_analise_compra(*), "
+                "product_suppliers(suppliers(name))"
             ).execute()
             return response.data
         except Exception as e:
             print(f"!!! ERRO LISTAGEM GERAL !!!: {e}")
             return []
 
-    # --- SAFE SEARCH (NO RAW SQL) ---
     def search_by_term(self, term: str):
         try:
             cleaned_term = term.strip()
-            print(f"--- Searching for: {cleaned_term} ---")
+            # Busca trazendo os dados de análise vinculados
+            response = supabase.table("tb_skus")\
+                .select("id, codigo, nome_produto, marca, tb_analise_compra(*)")\
+                .or_(f"codigo.ilike.%{cleaned_term}%,nome_produto.ilike.%{cleaned_term}%")\
+                .limit(15)\
+                .execute()
 
-            # Step A: Exact/partial match on CODE
-            res_code = supabase.table("tb_skus")\
-                .select("id, codigo, nome_produto, marca")\
-                .ilike("codigo", f"%{cleaned_term}%")\
-                .limit(10)\
-                .execute().data
-
-            # Step B: Partial match on NAME
-            res_name = supabase.table("tb_skus")\
-                .select("id, codigo, nome_produto, marca")\
-                .ilike("nome_produto", f"%{cleaned_term}%")\
-                .limit(10)\
-                .execute().data
-
-            # Step C: Combine and deduplicate by ID
-            combined = {item['id']: item for item in (res_code + res_name)}
-
-            return list(combined.values())
-
+            return response.data
         except Exception as e:
-            print(f"Erro busca SKU: {e}")
+            print(f"Erro busca SKU com análise: {e}")
             return []
 
     def get_history_by_sku(self, sku_id: int):
+        """
+        Retorna o histórico de vendas real de um SKU específico ordenado por período.
+        """
         try:
             return supabase.table("tb_historico_vendas")\
                 .select("periodo_sequencia, quantidade, valor")\
@@ -50,18 +45,16 @@ class DashboardRepository:
                 .order("periodo_sequencia")\
                 .execute().data
         except Exception as e:
-            print(f"Erro history: {e}")
+            print(f"Erro history SKU: {e}")
             return []
 
-    # --- CORREÇÃO 2: GRÁFICO GERAL (SEM SQL) ---
     def get_aggregate_history(self):
         """
-        Calcula o total de vendas (soma de todos os SKUs) usando Python.
-        Isso evita erros se a função SQL 'get_sales_summary' não existir.
+        Calcula o total de vendas de todos os SKUs agregados por período
+        para exibição no gráfico geral do dashboard.
         """
         try:
-            # 1. Baixa os dados brutos (apenas colunas necessárias)
-            # Limitamos para evitar timeout, mas 19.500 linhas o Python processa em milissegundos.
+            # Recupera os dados de vendas para processamento em memória
             response = supabase.table("tb_historico_vendas")\
                 .select("periodo_sequencia, quantidade")\
                 .limit(50000)\
@@ -71,7 +64,7 @@ class DashboardRepository:
             if not rows:
                 return []
 
-            # 2. In-memory aggregation
+            # Agregação manual para garantir a soma correta por sequência
             aggregated = {}
             for row in rows:
                 seq = row.get('periodo_sequencia')
@@ -80,30 +73,31 @@ class DashboardRepository:
                 if seq is None or qty is None:
                     continue
                 
-                # Garante conversão segura
                 try:
                     s = int(seq)
                     q = float(qty)
-                except:
+                    aggregated[s] = aggregated.get(s, 0) + q
+                except ValueError:
                     continue
 
-                aggregated[s] = aggregated.get(s, 0) + q
-
-            # 3. Format for dashboard
+            # Formata os dados para o padrão esperado pelo serviço
             result = [
                 {"periodo_sequencia": seq, "total_quantidade": total}
                 for seq, total in aggregated.items()
             ]
 
-            # 4. Sort and return last 24 months
+            # Ordena e retorna apenas os últimos 24 meses
             result.sort(key=lambda x: x['periodo_sequencia'])
             return result[-24:]
 
         except Exception as e:
-            print(f"Erro crítico no cálculo Python: {e}")
+            print(f"Erro no cálculo de histórico agregado: {e}")
             return []
 
     def get_active_branches(self):
+        """
+        Retorna a lista de filiais ativas.
+        """
         try:
             response = supabase.table("branches").select("branch_id, name").eq("is_active", True).execute()
             return response.data
@@ -112,6 +106,9 @@ class DashboardRepository:
             return []
 
     def get_configuration(self, key: str):
+        """
+        Recupera um valor de configuração global do sistema.
+        """
         try:
             response = supabase.table("tb_configuracoes").select("valor").eq("chave", key).single().execute()
             return response.data
@@ -119,8 +116,16 @@ class DashboardRepository:
             return None
 
     def update_configuration(self, key: str, value: str):
+        """
+        Atualiza um parâmetro de configuração na tabela tb_configuracoes.
+        """
         try:
-            return supabase.table("tb_configuracoes").update({"valor": value, "updated_at": "now()"}).eq("chave", key).execute()
+            return supabase.table("tb_configuracoes")\
+                .update({"valor": value, "updated_at": "now()"})\
+                .eq("chave", key)\
+                .execute()
         except Exception as e:
             print(f"Erro ao atualizar config: {e}")
             return None
+        
+        

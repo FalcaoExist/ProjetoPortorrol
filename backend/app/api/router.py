@@ -28,12 +28,14 @@ from app.services.service_models import UserCreateRequest, UserUpdateRequest
 from app.services.supplier_service import SupplierService
 from app.services.order_service import OrderService
 from app.services.stock_service import StockService
+from app.repositories.orders_repository import OrdersRepository
+from app.core.dependencies import get_current_user, get_orders_repo
 
 # Schemas Locais
 from .schemas import (
     BatchOrderRequest, BatchOrderResponse, ChangePasswordRequest,
     FornecedorCreate, FornecedorResponse, LoginRequest,
-    LoginResponse, PedidoCreate, PedidoResponse, StockItemResponse,
+    LoginResponse, OrderUpdate, PedidoCreate, PedidoResponse, StockItemResponse,
     UserCreateResponse, UserGetResponse, UserListResponse, UserUpdateResponse,
 )
 
@@ -140,12 +142,14 @@ def delete_user_endpoint(user_id: str, service: UserService = Depends(get_user_s
 
 # FORNECEDORES
 
-
-@router.get("/suppliers", response_model=List[FornecedorResponse])
+@router.get("/suppliers")
 def get_suppliers_list(current_user: dict = Depends(get_current_user), supplier_service: SupplierService = Depends(get_supplier_service)):
     try:
-        return supplier_service.get_active_suppliers()
-    except Exception:
+        fornecedores = supplier_service.get_active_suppliers()
+        # Mapeia a lista de dicionários para devolver APENAS uma lista de strings com os nomes
+        return [f.get("name") for f in fornecedores if f.get("name")]
+    except Exception as e:
+        print(f"Erro na rota de fornecedores: {e}")
         return []
 
 @router.post("/suppliers", response_model=FornecedorResponse)
@@ -169,38 +173,52 @@ def delete_supplier(id: str, current_user: dict = Depends(get_current_user), sup
 
 # PEDIDOS E ESTOQUE
 
-@router.get("/orders", response_model=List[PedidoResponse])
-def get_orders(current_user: dict = Depends(get_current_user), order_service: OrderService = Depends(get_order_service)):
-    return order_service.get_orders()
+@router.get("/orders")
+def get_orders(orders_repo: OrdersRepository = Depends(get_orders_repo)):
+    return orders_repo.get_all_orders()
 
-@router.post("/orders", response_model=PedidoResponse)
-def create_order(pedido: PedidoCreate, current_user: dict = Depends(get_current_user), order_service: OrderService = Depends(get_order_service)):
+@router.patch("/orders/{order_id}")
+def update_order(order_id: str, order: OrderUpdate, orders_repo: OrdersRepository = Depends(get_orders_repo)):
+    return orders_repo.update_order(order_id, order.model_dump(exclude_unset=True))
+
+@router.put("/orders/{order_id}")
+def update_order_put(order_id: str, order: OrderUpdate, orders_repo: OrdersRepository = Depends(get_orders_repo)):
+    return update_order(order_id, order, orders_repo)
+
+
+@router.post("/orders")
+def create_order(pedido: PedidoCreate, current_user: dict = Depends(get_current_user), orders_repo: OrdersRepository = Depends(get_orders_repo)):
+    # Enviamos o dicionário current_user completo
+    return orders_repo.create_single_order(current_user, pedido)
+
+@router.post("/orders/batch")
+def create_batch_order(payload: BatchOrderRequest, current_user: dict = Depends(get_current_user), orders_repo: OrdersRepository = Depends(get_orders_repo)):
+    # Enviamos o dicionário current_user completo
+    return orders_repo.create_batch_order(current_user, payload.items)
+            
+@router.get("/stock")
+def get_stock_endpoint(
+    filial: Optional[str] = None,
+    fornecedor: Optional[str] = None,
+    status: Optional[str] = None,
+    current_user: dict = Depends(get_current_user),
+    stock_service: StockService = Depends(get_stock_service)
+):
     try:
-        return order_service.create_order(pedido, current_user)
-    except ValueError as e:
-        raise HTTPException(400, str(e))
+        # O router apenas chama a função do serviço e devolve o resultado
+        return stock_service.get_stock(
+            filial=filial, 
+            fornecedor=fornecedor, 
+            status=status, 
+            current_user=current_user
+        )
     except Exception as e:
-        raise HTTPException(500, str(e))
+        # Captura erros do serviço e converte num erro HTTP para o Frontend
+        raise HTTPException(status_code=500, detail=f"Erro ao buscar estoque: {str(e)}")
+    
 
-@router.post("/orders/batch", response_model=BatchOrderResponse)
-def create_batch_order(payload: BatchOrderRequest, current_user: dict = Depends(get_current_user), order_service: OrderService = Depends(get_order_service)):
-    if not payload.items:
-        raise HTTPException(400, "Nenhum item enviado.")
-    try:
-        items = [item.dict() for item in payload.items]
-        count = order_service.create_batch_orders(items, current_user)
-        return {"success": True, "message": "Pedidos criados!", "orders_created": count}
-    except Exception as e:
-        raise HTTPException(500, str(e))
-
-@router.get("/stock", response_model=List[StockItemResponse])
-def get_stock_data(filial: Optional[str] = None, current_user: dict = Depends(get_current_user), stock_service: StockService = Depends(get_stock_service)):
-    return stock_service.get_stock_data(filial)
-
-
-# DASHBOARD E IMPORTAÇÃO
-
-
+    # DASHBOARD E IMPORTAÇÃO
+    
 @router.post("/stock/import")
 async def import_stock(background_tasks: BackgroundTasks, file: UploadFile = File(...), current_user: dict = Depends(get_current_user)):
     if not file.filename.lower().endswith(".csv"):
@@ -208,7 +226,18 @@ async def import_stock(background_tasks: BackgroundTasks, file: UploadFile = Fil
     contents = await file.read()
     user_id = current_user.get("user_id")
     background_tasks.add_task(process_import_file, contents, user_id)
-    return {"success": True, "message": "Processamento iniciado em segundo plano."}
+    return {"success": True, "message": "Processamento iniciado em segundo plano."}    
+    
+
+@router.get("/dashboard/search")
+def search_skus(
+    term: str = Query(..., min_length=1), 
+    service: DashboardService = Depends(get_dashboard_service)
+):
+    try:
+        return service.search_products(term)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro na busca: {str(e)}")
 
 @router.get("/dashboard/skus", response_model=List[SkuAnaliseResponse])
 def listar_skus_dashboard(status: Optional[StatusProduto] = Query(None), filial: Optional[str] = Query(None), fornecedor: Optional[str] = Query(None), service: DashboardService = Depends(get_dashboard_service)):

@@ -1,9 +1,9 @@
 from datetime import date, datetime
 from enum import Enum
-from typing import List, Optional
+from typing import List, Optional, Union
 from uuid import UUID
 
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 
 
 # --- Schemas de Usuário e Login ---
@@ -89,10 +89,14 @@ class FornecedorCreate(BaseModel):
     external_id: Optional[str] = None
 
 class FornecedorResponse(BaseModel):
-    supplier_id: UUID
+    id: str = Field(..., alias="supplier_id") 
     name: str
-    lead_time_days: Optional[int] = None
     is_active: bool
+    lead_time_days: Optional[int] = 30
+    
+    class Config:
+        populate_by_name = True
+        from_attributes = True
 
 class PedidoCreate(BaseModel):
     sku_codigo: str          
@@ -128,14 +132,36 @@ class OrderItemRequest(BaseModel):
     unit_cost: float
     expected_delivery_date: Optional[str] = None 
     supplier_name: Optional[str] = None
+    
+class OrderUpdate(BaseModel):
+    data_entrega: Optional[str] = None
+    status: Optional[str] = None
 
-class BatchOrderRequest(BaseModel):
-    items: List[OrderItemRequest]
+class BatchOrderItem(BaseModel):
+    id: Optional[str] = None
+    sku_id: int
+    quantity: int
+    unit_cost: float
+    supplier_name: Optional[str] = None
+    expected_delivery_date: Optional[Union[date, datetime, str]] = None
 
+class OrderItemRequest(BaseModel):
+    sku_id: int
+    quantity: int
+    unit_cost: float
+    supplier_name: Optional[str] = None
+    expected_delivery_date: Optional[str] = None
+    
+class UpdateItemDate(BaseModel):
+    delivery_date: str | None
+      
 class BatchOrderResponse(BaseModel):
     success: bool
     message: str
     orders_created: int
+
+class BatchOrderRequest(BaseModel):
+    items: List[OrderItemRequest]    
     
 class FornecedorCreate(BaseModel):
     name: str
@@ -146,6 +172,6 @@ class FornecedorCreate(BaseModel):
 class FornecedorResponse(BaseModel):
     supplier_id: UUID
     name: str
-    lead_time_days: Optional[int] = None
+    lead_time_days: Optional[int]
     is_active: bool
     data_entrega: Optional[date] = None

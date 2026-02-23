@@ -1,8 +1,7 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { getStockData, createOrderBatch, getSuppliers } from "../services/stockService";
-import { getStockRowId } from "../utils/rowIds";
 
-// Função auxiliar para definir status textual baseado nos dias
+// Função auxiliar para definir status textual baseado nos dias de cobertura
 const getStatusText = (dias) => {
     if (dias <= 30) return "Ruptura iminente";
     if (dias <= 60) return "Subdimensionado";
@@ -17,7 +16,9 @@ export const useStock = () => {
     const [supplierOptions, setSupplierOptions] = useState([]); 
 
     // --- 2. ESTADOS DA TABELA DE REQUISIÇÃO (SELEÇÃO) ---
+    // Mantemos o formato de Objeto + Set exigido pelo seu DataGrid atual
     const [rowSelectionModel, setRowSelectionModel] = useState({ type: 'include', ids: new Set() });
+    
     const [newOrderRows, setNewOrderRows] = useState([]);
     const [isNewOrderVisible, setIsNewOrderVisible] = useState(false);
 
@@ -27,15 +28,17 @@ export const useStock = () => {
     const [fornecedor, setFornecedor] = useState("");
     const [filial, setFilial] = useState("");
 
-    // --- 4. MODAIS ---
+    // --- 4. MODAIS E UTILITÁRIOS ---
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [itemToDelete, setItemToDelete] = useState(null);
+    const [isImportConfirmModalOpen, setIsImportConfirmModalOpen] = useState(false);
+    const [selectedFile, setSelectedFile] = useState(null);
 
     // =========================================================
     // EFEITOS DE CARREGAMENTO (INIT)
     // =========================================================
 
-    // A. Carrega Fornecedores
+    // Carrega a lista de fornecedores para os filtros
     useEffect(() => {
         const loadSuppliers = async () => {
             try {
@@ -50,7 +53,7 @@ export const useStock = () => {
         loadSuppliers();
     }, []);
 
-    // B. Carrega Estoque
+    // Carrega dados do estoque aplicando filtros de servidor
     const fetchStock = useCallback(async (filters = {}) => {
         setLoading(true);
         try {
@@ -64,12 +67,46 @@ export const useStock = () => {
         }
     }, []);
 
-    // Recarrega estoque quando muda a filial (filtro de servidor)
     useEffect(() => {
         const activeFilters = {};
         if (filial) activeFilters.filial = filial;
+        if (fornecedor) activeFilters.fornecedor = fornecedor;
         fetchStock(activeFilters);
-    }, [fetchStock, filial]);
+    }, [fetchStock, filial, fornecedor]);
+
+    // =========================================================
+    // LÓGICA DE SINCRONIZAÇÃO (Seleção -> Tabela de Pedido)
+    // =========================================================
+    
+    useEffect(() => {
+        const selectionSet = (rowSelectionModel && rowSelectionModel.ids) 
+            ? rowSelectionModel.ids 
+            : new Set();
+
+        setNewOrderRows(prevOrderRows => {
+            const selectedRows = stockData
+                .filter(row => selectionSet.has(row.id)) // Filtra pelo ID único gerado no service
+                .map(item => {
+                    const existingItem = prevOrderRows.find(nr => nr.real_sku_id === item.sku_id);
+                    
+                    if (existingItem) return existingItem;
+
+                    // Cria novo item para a tabela de pedido com valores padrão
+                    return {
+                        ...item,
+                        real_sku_id: item.sku_id || item.id, // ID real da tb_skus para o backend
+                        quantidade: 100, // Sugestão inicial
+                        previsao_entrega: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                        status: "Pendente"
+                    };
+                });
+            return selectedRows;
+        });
+
+        if (selectionSet.size > 0) {
+            setIsNewOrderVisible(true);
+        }
+    }, [rowSelectionModel, stockData]);
 
     // =========================================================
     // FILTRAGEM LOCAL
@@ -79,68 +116,17 @@ export const useStock = () => {
         return stockData.filter(row => {
             const statusText = getStatusText(row.dias_cobertura);
             const searchLower = searchQuery.toLowerCase();
-            
             const itemText = (row.item || "").toLowerCase();
             const codigoText = (row.codigo || "").toLowerCase();
-            const rowFornecedor = row.fornecedor || "";
-            const rowFilial = row.filial || "";
 
             return (
                 (searchQuery === "" || itemText.includes(searchLower) || codigoText.includes(searchLower)) &&
                 (statusFilter === "" || statusText === statusFilter) &&
-                (fornecedor === "" || rowFornecedor === fornecedor) &&
-                (filial === "" || rowFilial === filial)
+                (fornecedor === "" || row.fornecedor === fornecedor) &&
+                (filial === "" || row.filial === filial)
             );
         });
     }, [stockData, searchQuery, statusFilter, fornecedor, filial]);
-
-    // =========================================================
-    // LÓGICA DE SINCRONIZAÇÃO 
-    // =========================================================
-    
-    useEffect(() => {
-        const ids = (rowSelectionModel && rowSelectionModel.ids instanceof Set)
-            ? rowSelectionModel.ids
-            : new Set();
-        const type = rowSelectionModel?.type || 'include';
-
-        const isRowSelected = (row) => {
-            const id = getStockRowId(row);
-            if (!id) return false;
-            return type === 'exclude' ? !ids.has(id) : ids.has(id);
-        };
-
-       
-        setNewOrderRows(prevOrderRows => {
-            const selectedRows = filteredRows
-                .filter(isRowSelected)
-                .map(item => {
-                    const uniqueRowId = getStockRowId(item);
-                    const existingItem = prevOrderRows.find(nr => nr.id === uniqueRowId);
-                    if (existingItem) return existingItem;
-
-                    return {
-                        ...item,
-                        id: uniqueRowId,
-                        real_sku_id: item.id,
-                        unidades: item.unidades || 0,
-                        valor: item.valor || 0,
-                        quantidade: item.unidades > 0 ? Math.round(item.unidades * 0.5) : 100,
-                        previsao_entrega: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-                        status: "Pendente",
-                        fornecedor: item.fornecedor || ""
-                    };
-                });
-            return selectedRows;
-        });
-
-        const selectedCount = type === 'exclude'
-            ? Math.max(0, filteredRows.length - ids.size)
-            : ids.size;
-        if (selectedCount > 0) {
-            setIsNewOrderVisible(true);
-        }
-    }, [rowSelectionModel, filteredRows]);
 
     // =========================================================
     // HANDLERS
@@ -148,8 +134,6 @@ export const useStock = () => {
 
     const handleShowNewOrder = useCallback(() => {
         setIsNewOrderVisible(true);
-        setRowSelectionModel({ type: 'exclude', ids: new Set() });
-        setNewOrderRows([]);
     }, []);
 
     const handleCloseNewOrder = useCallback(() => {
@@ -173,23 +157,15 @@ export const useStock = () => {
     const confirmDelete = () => {
         if (!itemToDelete) return;
         setRowSelectionModel(prevModel => {
-            const prevIds = (prevModel && prevModel.ids instanceof Set) ? prevModel.ids : new Set();
-            const nextIds = new Set(prevIds);
-
-           
-            if (prevModel?.type === 'exclude') {
-                nextIds.add(itemToDelete);
-                return { type: 'exclude', ids: nextIds };
-            }
-
-            nextIds.delete(itemToDelete);
-            return { type: 'include', ids: nextIds };
+            const newIds = new Set(prevModel.ids);
+            newIds.delete(itemToDelete);
+            return { ...prevModel, ids: newIds };
         });
         setItemToDelete(null);
         setIsDeleteModalOpen(false);
     };
 
-    // --- FUNÇÃO FINAL: CRIAÇÃO DO PEDIDO ---
+    // --- CRIAÇÃO DO PEDIDO (LIMPEZA E ENVIO) ---
     const handleCreateOrder = async (navigate) => {
         if (newOrderRows.length === 0) {
             alert("Por favor, adicione itens ao pedido.");
@@ -197,28 +173,24 @@ export const useStock = () => {
         }
 
         try {
-            // PREPARAÇÃO DOS DADOS:
-            // O serviço espera { id: numero, ... }, mas nossos rows têm { id: "123-Filial" }
-            // Vamos mapear de volta para o formato que o createOrderBatch espera.
-            const itemsToSend = newOrderRows.map(row => ({
-                ...row,
-                id: row.real_sku_id || row.id // Usa o ID numérico salvo
+            const itemsList = newOrderRows.map((row) => ({
+                sku_id: parseInt(row.real_sku_id, 10), // Envia o ID numérico da tb_skus
+                quantity: parseInt(row.quantidade, 10),
+                unit_cost: parseFloat(row.valor || 0),
+                supplier_name: row.fornecedor || "Não informado",
+                expected_delivery_date: row.previsao_entrega || null
             }));
 
-            await createOrderBatch(itemsToSend);
+            await createOrderBatch(itemsList); // Envia para o backend
             
             alert("Pedido criado com sucesso!");
+            handleCloseNewOrder();
+            if (navigate) navigate('/orders'); // Redireciona para a página de ordens
             
-            setRowSelectionModel({ type: 'include', ids: new Set() });
-            setNewOrderRows([]);
-            setIsNewOrderVisible(false);
-            
-            if (navigate) {
-                navigate('/orders');
-            }
         } catch (error) {
-            console.error(error);
-            alert("Erro ao criar pedido. Verifique o console.");
+            console.error("Erro ao criar pedido:", error);
+            const msg = error.response?.data?.detail || error.message;
+            alert(`Falha ao criar pedido: ${msg}`);
         }
     };
 
@@ -236,11 +208,14 @@ export const useStock = () => {
         fornecedor, setFornecedor,
         filial, setFilial,
         isDeleteModalOpen, setIsDeleteModalOpen,
+        isImportConfirmModalOpen, setIsImportConfirmModalOpen,
+        selectedFile, setSelectedFile,
         handleShowNewOrder,
         handleCloseNewOrder,
         handleNewOrderRowUpdate,
         handleDeleteClick,
         confirmDelete,
-        handleCreateOrder
+        handleCreateOrder,
+        fetchStock
     };
 };

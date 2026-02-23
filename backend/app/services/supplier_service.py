@@ -20,3 +20,12 @@ class SupplierService:
 
     def deactivate_supplier(self, supplier_id: str) -> None:
         supabase.table("suppliers").update({"is_active": False}).eq("supplier_id", supplier_id).execute()
+
+    def get_active_supplier_names(self) -> list:
+        try:
+            fornecedores = self.get_active_suppliers()
+            # A lógica de formatação vem para cá!
+            return [f.get("name") for f in fornecedores if f.get("name")]
+        except Exception as e:
+            print(f"Erro ao formatar nomes de fornecedores: {e}")
+            return []

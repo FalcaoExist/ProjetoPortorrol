@@ -17,31 +17,35 @@ import useDashboardData from "../hooks/useDashboardData";
 import { exportDashboardCSV } from "../services/csvExporter";
 import xlsxExporter from "../services/xlsxExporter";
 import ExportDropdown from "../components/common/ExportDropdown";
+import { useOrders } from "../hooks/useOrders";
 
 export default function Home() {
   const { user } = useAuth();
   const {
-    branch,
-    setBranch,
-    supplier,
-    setSupplier,
-    sku,
-    setSku,
+    branch, setBranch,
+    supplier, setSupplier,
+    sku, setSku,
     branchOptions,
     supplierOptions,
-    months,
+    months, 
     data,
     dataCritic,
     stockOverview,
-    kpis, // <--- Pegando o KPI calculado
+    kpis, 
     STATUS_INDICATORS,
     skuOptions,
-    orders,
+    orders, // ⬅️ Agora ele traz os números dinâmicos
     budget,
     leadtimeInfo,
     onSkuSearch
   } = useDashboardData();
 
+  const { ordersData } = useOrders();
+
+
+  const atrasadosCount = ordersData?.filter(o => o.status === "Atrasado").length || 0;
+  const aprovadosCount = ordersData?.filter(o => o.status === "Aprovado").length || 0;
+  
   // Exporta via serviço externo (single responsibility)
   const handleExportCSV = () => {
     exportDashboardCSV({
@@ -116,8 +120,8 @@ export default function Home() {
               <div className="flex-1 min-w-0">
                 <p className="text-start font-semibold text-primary text-2xl py-5">Pedidos</p>
                 <div className="flex gap-2 h-[128px]">
-                  <Orders text={"Atrasados"} img={lateOrdersImg} number={8} />
-                  <Orders text={"Aprovados"} img={aprovedorders} number={8} />
+                  <Orders text={"Atrasados"} img={lateOrdersImg} number={atrasadosCount} />
+                  <Orders text={"Aprovados"} img={aprovedorders} number={aprovadosCount} />
                 </div>
               </div>
               <div className="flex-1 min-w-0">
@@ -149,7 +153,6 @@ export default function Home() {
                     value={sku} 
                     onChange={(newVal) => setSku(newVal)} 
                     options={skuOptions} 
-                    onInputChange={(event, newInputValue) => onSkuSearch(newInputValue)}
                     placeholder="Procurar SKU" 
                 />
               </div>

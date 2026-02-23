@@ -1,5 +1,5 @@
-import React, { useMemo } from "react";
-import { FiClock, FiX } from "react-icons/fi";
+import React, { useMemo, useState } from "react";
+import { FiClock, FiX, FiEdit2, FiCheck } from "react-icons/fi";
 import { GridToolbarQuickFilter } from "@mui/x-data-grid";
 import { BaseDataGrid } from "../common/BaseDataGrid";
 import { useSnapshotForm } from "../../hooks/useSnapshotForm";
@@ -11,6 +11,12 @@ const normalizeHistoryRows = (history, supplierId) => {
         id: entry.id || `${supplierId || "s"}-${index}`,
     }));
 };
+
+const initialBranchLeadtimes = [
+    { id: 1, name: "Porto Alegre", days: 15 },
+    { id: 2, name: "São Paulo", days: 10 },
+    { id: 3, name: "Joinville", days: 16 },
+];
 
 const historyColumns = [
     {
@@ -92,6 +98,21 @@ export default function LeadtimeHistoryModal({
         isOpen,
     });
 
+    const [branchLeadtimes, setBranchLeadtimes] = useState(initialBranchLeadtimes);
+    const [editingBranchId, setEditingBranchId] = useState(null);
+    const [tempLeadtime, setTempLeadtime] = useState("");
+
+    const handleEdit = (branch) => {
+        setEditingBranchId(branch.id);
+        setTempLeadtime(branch.days);
+    };
+
+    const handleSave = (branchId) => {
+        setBranchLeadtimes(branchLeadtimes.map(b => b.id === branchId ? { ...b, days: Number(tempLeadtime) } : b));
+        setEditingBranchId(null);
+        setTempLeadtime("");
+    };
+
     const rows = useMemo(() => normalizeHistoryRows(history, supplier?.id), [history, supplier]);
     const columns = useMemo(() => columnsConfig, [columnsConfig]);
 
@@ -106,7 +127,7 @@ export default function LeadtimeHistoryModal({
                             <FiClock size={22} />
                         </div>
                         <div>
-                            <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold">Histórico de leadtime</p>
+                            <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold">Leadtime do Fornecedor</p>
                             <h2 className="text-lg font-bold text-gray-900 font-poppins">{supplier?.name || "Fornecedor"}</h2>
                         </div>
                     </div>
@@ -119,6 +140,60 @@ export default function LeadtimeHistoryModal({
                         <FiX size={18} />
                     </button>
                 </div>
+
+                <div className="mb-6 border border-gray-100 rounded-xl p-4 bg-gray-50/50">
+                    <h3 className="text-md font-semibold text-gray-800 mb-3 font-poppins">Leadtime por Filial</h3>
+                    <div className="space-y-2">
+                        {branchLeadtimes.map((branch) => (
+                            <div key={branch.id} className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-100">
+                                {editingBranchId === branch.id ? (
+                                    <>
+                                        <span className="font-medium text-gray-700">{branch.name}:</span>
+                                        <div className="flex items-center gap-2">
+                                            <input
+                                                type="number"
+                                                value={tempLeadtime}
+                                                onChange={(e) => setTempLeadtime(e.target.value)}
+                                                className="w-24 px-2 py-1 rounded-md border border-gray-300 focus:outline-none focus:ring-1 focus:ring-[#5A44B0]"
+                                                onKeyDown={(e) => e.key === 'Enter' && handleSave(branch.id)}
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => handleSave(branch.id)}
+                                                className="p-1.5 text-green-600 hover:bg-green-100 rounded-md"
+                                                aria-label="Salvar"
+                                            >
+                                                <FiCheck size={16} />
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setEditingBranchId(null)}
+                                                className="p-1.5 text-gray-500 hover:bg-gray-200 rounded-md"
+                                                aria-label="Cancelar"
+                                            >
+                                                <FiX size={16} />
+                                            </button>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <>
+                                        <span className="font-medium text-gray-700">{branch.name}: <span className="font-normal">{branch.days} dias</span></span>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleEdit(branch)}
+                                            className="p-1.5 text-gray-500 hover:bg-gray-200 rounded-md"
+                                            aria-label="Editar"
+                                        >
+                                            <FiEdit2 size={16} />
+                                        </button>
+                                    </>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold mb-2">Histórico de leadtime</p>
 
                 <p className="text-sm text-gray-600 mb-4">
                     Consulte os registros anteriores de leadtime e demais parâmetros do fornecedor.

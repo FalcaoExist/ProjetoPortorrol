@@ -1,4 +1,5 @@
 from typing import List
+from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException
 from app.core.dependencies import get_current_user, get_supplier_service
 from app.services.supplier_service import SupplierService
@@ -29,8 +30,8 @@ def create_supplier(
             name=data.name, 
             budget=data.budget,
             leadtime=data.leadtime, 
-            start=str(data.start),
-            end=str(data.end),
+            start=data.start,
+            end=data.end,
             external_id=data.external_id
             )
         return created
@@ -41,7 +42,7 @@ def create_supplier(
     
 @router.put("/suppliers/{id}", response_model=FornecedorResponse)
 def update_supplier(
-    id: str,
+    id: UUID,
     data: FornecedorUpdate,
     supplier_service: SupplierService = Depends(get_supplier_service)
     ):
@@ -51,15 +52,15 @@ def update_supplier(
             name=data.name,
             budget=data.budget,
             leadtime=data.leadtime,
-            start=str(data.start),
-            end=str(data.end),
+            start=data.start,
+            end=data.end,
         )
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.delete("/suppliers/{id}")
 def delete_supplier(
-    id: str, 
+    id: UUID, 
     supplier_service: SupplierService = Depends(get_supplier_service)
     ):
     try:

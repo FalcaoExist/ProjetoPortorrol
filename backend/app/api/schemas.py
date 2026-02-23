@@ -2,9 +2,7 @@ from datetime import date, datetime
 from enum import Enum
 from typing import List, Optional
 from uuid import UUID
-
 from pydantic import BaseModel, EmailStr
-
 
 # --- Schemas de Usuário e Login ---
 class UserResponse(BaseModel):
@@ -85,14 +83,30 @@ class FilialResponse(BaseModel):
 # --- Schemas de Fornecedor e Pedido ---
 class FornecedorCreate(BaseModel):
     name: str
-    lead_time_days: Optional[int] = 30
+    budget: float
+    leadtime: int
+    start: date
+    end: date
     external_id: Optional[str] = None
+
+class FornecedorUpdate(BaseModel):
+    name: str
+    budget: float
+    leadtime: int
+    start: date
+    end: date
 
 class FornecedorResponse(BaseModel):
     supplier_id: UUID
     name: str
-    lead_time_days: Optional[int] = None
+    budget: Optional[float] = None
+    leadtime: Optional[int] = None
+    start: Optional[date] = None
+    end: Optional[date] = None
+    external_id: Optional[str] = None
     is_active: bool
+    created_at: datetime
+    update_at: Optional[datetime] = None
 
 class PedidoCreate(BaseModel):
     sku_codigo: str          
@@ -135,17 +149,4 @@ class BatchOrderRequest(BaseModel):
 class BatchOrderResponse(BaseModel):
     success: bool
     message: str
-    orders_created: int
-    
-class FornecedorCreate(BaseModel):
-    name: str
-    lead_time_days: Optional[int] = 30
-    external_id: Optional[str] = None
-
-    
-class FornecedorResponse(BaseModel):
-    supplier_id: UUID
-    name: str
-    lead_time_days: Optional[int] = None
-    is_active: bool
-    data_entrega: Optional[date] = None
+    orders_created: int 

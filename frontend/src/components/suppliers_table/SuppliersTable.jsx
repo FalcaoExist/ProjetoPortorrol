@@ -41,7 +41,6 @@ export default function SuppliersTable({ rows = [], setRows, onRequestDelete, hi
                 start: newSupplier.start ? new Date(newSupplier.start) : null,
                 end: newSupplier.end ? new Date(newSupplier.end) : null,
                 budget: newSupplier.budget ? Number(newSupplier.budget) : 0,
-                leadtime: newSupplier.leadtime ? Number(newSupplier.leadtime) : 0,
             };
             return [...prevRows, normalizedRow];
         });
@@ -127,17 +126,6 @@ export default function SuppliersTable({ rows = [], setRows, onRequestDelete, hi
             flex: 1,
             editable: true,
             valueFormatter: (value) => value ? value.toLocaleString("pt-BR", { style: 'currency', currency: 'BRL' }) : '',
-            headerAlign: "left",
-            align: "left",
-        },
-        {
-            field: "leadtime",
-            headerName: "Leadtime",
-            type: "number",
-            minWidth: isCompactLayout ? 110 : 140,
-            flex: 0.6,
-            editable: true,
-            valueFormatter: (value) => (value != null ? `${value} dias` : ''),
             headerAlign: "left",
             align: "left",
         },

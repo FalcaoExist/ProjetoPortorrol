@@ -148,31 +148,16 @@ export default function SuppliersTable({
             minWidth: isCompactLayout ? 130 : 160,
             flex: 1,
             editable: true,
+            align:"left",
+            headerAlign: "left",
         },
-        {
-            field: "start",
-            headerName: "Início",
-            type: "date",
-            minWidth: isCompactLayout ? 130 : 150,
-            flex: 0.8,
-            editable: true,
-            valueFormatter: (value) =>
-                value ? new Date(value).toLocaleDateString("pt-BR") : '',
-        },
-        {
-            field: "end",
-            headerName: "Fim",
-            type: "date",
-            minWidth: isCompactLayout ? 130 : 150,
-            flex: 0.8,
-            editable: true,
-            valueFormatter: (value) =>
-                value ? new Date(value).toLocaleDateString("pt-BR") : '',
-        },
+       
         {
             field: "budget",
             headerName: "Orçamento (R$)",
             type: "number",
+            align:"left",
+            headerAlign: "left", 
             minWidth: isCompactLayout ? 150 : 200,
             flex: 1,
             editable: true,
@@ -184,13 +169,39 @@ export default function SuppliersTable({
                       })
                     : "",
         },
+         {
+            field: "start",
+            headerName: "Início",
+            type: "date",
+            minWidth: isCompactLayout ? 130 : 150,
+            flex: 0.8,
+            editable: true,
+            align:"left",
+            headerAlign: "left",
+            valueFormatter: (value) =>
+                value ? new Date(value).toLocaleDateString("pt-BR") : '',
+        },
+        {
+            field: "end",
+            headerName: "Fim",
+            type: "date",
+            minWidth: isCompactLayout ? 130 : 150,
+            flex: 0.8,
+            align:"left",
+            headerAlign: "left", 
+            editable: true,
+            valueFormatter: (value) =>
+                value ? new Date(value).toLocaleDateString("pt-BR") : '',
+        },
         {
             field: "leadtime",
             headerName: "Leadtime",
             type: "number",
             minWidth: isCompactLayout ? 110 : 140,
             flex: 0.6,
+            align:"left",
             editable: true,
+            headerAlign: "left", 
             valueFormatter: (value) =>
                 value != null ? `${value} dias` : "",
         },
@@ -198,6 +209,8 @@ export default function SuppliersTable({
             field: "actions",
             type: "actions",
             headerName: "Ações",
+            align:"left",
+            headerAlign: "left", 
             width: isCompactLayout ? 120 : 140,
             getActions: ({ id }) => {
                 const isInEditMode =

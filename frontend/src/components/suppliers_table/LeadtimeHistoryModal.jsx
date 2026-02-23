@@ -218,7 +218,7 @@ export default function LeadtimeHistoryModal({
                         <button
                             type="button"
                             onClick={() => handleRegister(supplier)}
-                            className="px-4 py-2.5 rounded-xl bg-[#5A44B0] text-white font-medium shadow hover:bg-[#4a3794] transition"
+                            className="px-4 py-2.5 rounded-xl bg-[#f43629] text-white font-medium shadow hover:bg-[#f43460] transition"
                         >
                             Registrar dados atuais
                         </button>

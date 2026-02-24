@@ -27,5 +27,4 @@ class SupplierService:
             # A lógica de formatação vem para cá!
             return [f.get("name") for f in fornecedores if f.get("name")]
         except Exception as e:
-            print(f"Erro ao formatar nomes de fornecedores: {e}")
             return []

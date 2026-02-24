@@ -29,7 +29,7 @@ class OrdersRepository:
             res_sku = supabase.table("tb_skus").select("id, nome_produto").execute()
             if res_sku.data: skus_map = {k['id']: k['nome_produto'] for k in res_sku.data}
         except Exception as e:
-            print(f"Erro caches gerais: {e}")
+            _ = e
 
         try:
             res_manual = supabase.table(self.table_header).select("*, purchase_order_items(*)").execute()
@@ -40,10 +40,8 @@ class OrdersRepository:
                 raw_date = row.get("created_at") or row.get("inserted_at") or datetime.now().isoformat()
                 nome_fornecedor = suppliers_map.get(sup_id, f"Fornecedor {sup_id}")
                 
-                # A SUA IDEIA AQUI: Puxa o nome direto da coluna que criamos!
                 nome_responsavel = row.get("user_name")
                 
-                # Fallback apenas para os pedidos antigos que foram criados antes dessa coluna existir
                 if not nome_responsavel:
                     u_id_raw = row.get("user_id")
                     u_id_str = str(u_id_raw) if u_id_raw else None
@@ -95,9 +93,8 @@ class OrdersRepository:
                         "origem": "MANUAL"
                     })
         except Exception as e:
-            print(f"Erro purchase_orders: {e}")
+            _ = e
 
-        # Busca NSK e Timken
         for table, label in [("orders_nsk", "NSK"), ("orders_timken", "TIMKEN")]:
             try:
                 res = supabase.table(table).select("*").execute()
@@ -116,7 +113,8 @@ class OrdersRepository:
                         "created_at": d, 
                         "origem": label
                     })
-            except: pass
+            except Exception: 
+                continue
 
         all_orders.sort(key=lambda x: str(x.get("created_at")), reverse=True)
         return all_orders
@@ -142,7 +140,6 @@ class OrdersRepository:
             return {"message": "Atualizado com sucesso", "id": order_id, "updated": update_payload}
             
         except Exception as e:
-            print(f"🔥 ERRO AO ATUALIZAR PEDIDO {order_id}: {str(e)}")
             raise HTTPException(status_code=500, detail=f"Erro ao salvar no banco: {str(e)}")
 
     def create_single_order(self, current_user, pedido):
@@ -153,19 +150,17 @@ class OrdersRepository:
             sku = supabase.table("tb_skus").select("id, nome_produto").eq("codigo", pedido.sku_codigo).execute()
             if not sku.data: raise HTTPException(status_code=400, detail="Produto não encontrado")
 
-            # --- EXTRAÇÃO BLINDADA DO NOME ---
             if isinstance(current_user, str):
                 user_id = str(uuid4())
                 user_name = current_user
             else:
                 user_id = current_user.get("user_id") or current_user.get("id") or current_user.get("sub") or str(uuid4())
-                # Adicionamos "username" e outras variações para garantir que apanha o "dionatas"
                 user_name = current_user.get("username") or current_user.get("nome") or current_user.get("name") or current_user.get("email") or "Dionatas"
 
             order_res = supabase.table(self.table_header).insert({
                 "supplier_id": sup.data[0]["supplier_id"],
                 "user_id": user_id,
-                "user_name": user_name, # GRAVA O NOME AQUI
+                "user_name": user_name,
                 "status": "Aprovado", 
                 "created_at": datetime.now().isoformat(),
                 "expected_delivery_date": str(pedido.previsao_entrega) if pedido.previsao_entrega else None
@@ -189,7 +184,6 @@ class OrdersRepository:
         if not items: raise HTTPException(status_code=400, detail="Nenhum item enviado.")
         
         try:
-            # --- EXTRAÇÃO BLINDADA DO NOME ---
             if isinstance(current_user, str):
                 user_id = str(uuid4())
                 user_name = current_user
@@ -226,7 +220,7 @@ class OrdersRepository:
                 order_res = supabase.table(self.table_header).insert({
                     "supplier_id": sup_id,
                     "user_id": user_id,
-                    "user_name": user_name, # GRAVA O NOME AQUI
+                    "user_name": user_name,
                     "status": "Aprovado",
                     "created_at": datetime.now().isoformat(),
                     "expected_delivery_date": str(group_list[0].get("expected_delivery_date")) if group_list[0].get("expected_delivery_date") else None
@@ -246,5 +240,4 @@ class OrdersRepository:
             
             return {"success": True, "message": "Pedidos gerados!", "orders_created": created_count}
         except Exception as e:
-            print(f"🔥 ERRO AO CRIAR LOTE: {str(e)}")
             raise HTTPException(status_code=500, detail=str(e))

@@ -34,8 +34,9 @@ export function useOrders() {
             const formattedData = rawData.map((item, index) => {
                 const finalId = item.id || `temp-${index}`;
                 
-                const previsaoRaw = item.previsao_entrega;
-                const entregaRaw = item.data_entrega;
+                // 🔥 ISOLAMENTO E TRAVA DE ESPELHAMENTO
+                const previsaoRaw = item.expected_delivery_date || item.previsao_entrega || null;
+                const entregaRaw = item.data_entrega || null;
                 
                 let statusBinario = item.status || "Aprovado";
                 const hoje = new Date();
@@ -76,7 +77,7 @@ export function useOrders() {
                     data_pedido: dataCriacao, 
                     created_at: dataCriacao,
                     previsao_entrega: previsaoRaw,
-                    data_entrega: entregaRaw,
+                    data_entrega: entregaRaw, // Aqui a data de entrega entra vazia
                     status: statusBinario,
                     _raw: item 
                 };
@@ -131,7 +132,10 @@ export function useOrders() {
 
         try {
             await Promise.all(itemsToUpdate.map(async (item) => {
-                const payload = { [field]: value };
+                // 🔥 TRADUÇÃO DE CAMPO PARA O BACKEND: se editou a previsão, envia expected_delivery_date
+                const apiField = field === "previsao_entrega" ? "expected_delivery_date" : field;
+                
+                const payload = { [apiField]: value };
                 if (newStatus) payload.status = newStatus;
 
                 const idParaSalvar = item.real_id || item._raw?.order_id;
@@ -187,33 +191,27 @@ export function useOrders() {
             }
             return o;
         }).filter(o => {
-            // Prevenção contra Eventos acidentais
             let sText = searchQuery;
             if (sText && typeof sText === 'object' && sText.target) sText = sText.target.value;
             
             let rText = responsavelFilter;
             if (rText && typeof rText === 'object' && rText.target) rText = rText.target.value;
 
-            // Textos Limpos
             const s = removeAcentos(String(sText || "").trim());
             const r = removeAcentos(String(rText || "").trim());
             
-            // Verifica itens aninhados
             const matchItemName = o.items.some(childItem => 
                 childItem.item && removeAcentos(String(childItem.item)).includes(s)
             );
 
-            // Filtro de Texto Geral
             const matchSearch = s === "" || 
                  removeAcentos(String(o.numero_pedido)).includes(s) || 
                  removeAcentos(String(o.fornecedor)).includes(s) ||
                  removeAcentos(String(o.item)).includes(s) || 
                  matchItemName;
 
-            // Filtro de Responsável
             const matchResponsavel = r === "" || removeAcentos(String(o.responsavel)).includes(r);
 
-            // Filtro de Data do Pedido (Ignorando horas)
             let matchDate = true;
             let filterDate = orderDate;
             if (filterDate && typeof filterDate === 'object' && filterDate.target) filterDate = filterDate.target.value;
@@ -221,7 +219,6 @@ export function useOrders() {
             if (filterDate && String(filterDate).trim() !== "") {
                 const searchDate = String(filterDate).trim(); 
                 
-                // Extrai apenas YYYY-MM-DD do banco de dados (ignorando "T" e o tempo)
                 let rowDateStr = String(o.data_pedido);
                 if (o.data_pedido instanceof Date) {
                     rowDateStr = o.data_pedido.toISOString().split('T')[0];
@@ -243,7 +240,6 @@ export function useOrders() {
         });
     }, [ordersData, searchQuery, responsavelFilter, statusFilter, orderDate]);
 
-    // Retorna métodos de SET robustos
     return {
         ordersData, loading, 
         searchQuery, setSearchQuery, 

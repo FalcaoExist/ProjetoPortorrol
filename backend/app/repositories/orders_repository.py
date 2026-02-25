@@ -72,7 +72,7 @@ class OrdersRepository:
                             "status": row.get("status", "Aprovado"),
                             "created_at": raw_date,
                             "previsao_entrega": row.get("expected_delivery_date"), 
-                            "data_entrega": row.get("expected_delivery_date") if row.get("status") == "Aprovado" else None, 
+                            "data_entrega": row.get("data_entrega") if row.get("status") == "Aprovado" else None, 
                             "origem": "MANUAL"
                         })
                 else:
@@ -89,7 +89,7 @@ class OrdersRepository:
                         "status": row.get("status", "Aprovado"),
                         "created_at": raw_date,
                         "previsao_entrega": row.get("expected_delivery_date"), 
-                        "data_entrega": row.get("expected_delivery_date") if row.get("status") == "Aprovado" else None, 
+                        "data_entrega": row.get("data_entrega") if row.get("status") == "Aprovado" else None, 
                         "origem": "MANUAL"
                     })
         except Exception as e:
@@ -129,7 +129,10 @@ class OrdersRepository:
             update_payload = {}
             
             if "data_entrega" in data: 
-                update_payload["expected_delivery_date"] = data["data_entrega"]
+                update_payload["data_entrega"] = data["data_entrega"]
+                
+            if "expected_delivery_date" in data:
+                update_payload["expected_delivery_date"] = data["expected_delivery_date"]
                 
             if "status" in data: 
                 update_payload["status"] = data["status"]

@@ -135,6 +135,7 @@ class OrderItemRequest(BaseModel):
     
 class OrderUpdate(BaseModel):
     data_entrega: Optional[str] = None
+    expected_delivery_date: Optional[str] = None
     status: Optional[str] = None
 
 class BatchOrderItem(BaseModel):

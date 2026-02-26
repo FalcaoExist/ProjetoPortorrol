@@ -17,17 +17,34 @@ class DashboardRepository:
 
 
     def search_by_term(self, term: str):
-        
         cleaned_term = term.strip()
-            # Busca trazendo os dados de análise vinculados
-        response = supabase.table("tb_skus")\
-                .select("id, codigo, nome_produto, marca, tb_analise_compra(*)")\
-                .or_(f"codigo.ilike.%{cleaned_term}%,nome_produto.ilike.%{cleaned_term}%")\
-                .limit(15)\
-                .execute()
+        
+        # 1. Busca por código
+        res_codigo = supabase.table("tb_skus")\
+            .select("id, codigo, nome_produto, marca, tb_analise_compra(*)")\
+            .ilike("codigo", f"%{cleaned_term}%")\
+            .limit(15)\
+            .execute()
+            
+        # 2. Busca por nome do produto
+        res_nome = supabase.table("tb_skus")\
+            .select("id, codigo, nome_produto, marca, tb_analise_compra(*)")\
+            .ilike("nome_produto", f"%{cleaned_term}%")\
+            .limit(15)\
+            .execute()
 
-        return response.data
-
+        # 3. Unir os resultados e remover duplicatas (baseado no ID do SKU)
+        resultados = []
+        ids_vistos = set()
+        
+        # Junta as duas listas de resultados
+        for item in (res_codigo.data + res_nome.data):
+            if item["id"] not in ids_vistos:
+                ids_vistos.add(item["id"])
+                resultados.append(item)
+                
+        # Retorna no máximo 15 resultados (para não poluir o dropdown)
+        return resultados[:15]
 
     def get_history_by_sku(self, sku_id: int):
         """

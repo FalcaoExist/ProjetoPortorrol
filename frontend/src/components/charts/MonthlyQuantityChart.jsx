@@ -32,11 +32,6 @@ export default function MonthlyQuantityChart({ data, sku }) {
           <Line type="monotone" dataKey="value" stroke="#5E4D9E" strokeWidth={4} dot={{ r: 0, fill: "#fff", stroke: "#5E4D9E", strokeWidth: 3 }} activeDot={{ r: 10, fill: "#fff", stroke: "#5E4D9E", strokeWidth: 4 }} />
         </LineChart>
       </ResponsiveContainer>
-      {sku && (
-        <div className="absolute ml-8 mt-2">
-          <div className="bg-white px-3 py-1 rounded-full text-sm shadow">{sku}</div>
-        </div>
-      )}
     </div>
   )
 };

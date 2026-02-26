@@ -55,7 +55,8 @@ class ChangePasswordRequest(BaseModel):
     current_password: str
     new_password: str
 
-# --- CORREÇÃO AQUI: Adicionado SUBDIMENSIONADO ---
+
+# --- Status e Configurações ---
 class StatusProduto(str, Enum):
     RUPTURA = "RUPTURA"
     SUBDIMENSIONADO = "SUBDIMENSIONADO" 
@@ -82,22 +83,37 @@ class FilialResponse(BaseModel):
     id: str
     nome: str
 
-# --- Schemas de Fornecedor e Pedido ---
+
+# --- Schemas de Fornecedor ---
 class FornecedorCreate(BaseModel):
     name: str
-    lead_time_days: Optional[int] = 30
+    budget: float
+    leadtime: int
+    start: date
+    end: date
     external_id: Optional[str] = None
 
-class FornecedorResponse(BaseModel):
-    id: str = Field(..., alias="supplier_id") 
+class FornecedorUpdate(BaseModel):
     name: str
-    is_active: bool
-    lead_time_days: Optional[int] = 30
-    
-    class Config:
-        populate_by_name = True
-        from_attributes = True
+    budget: float
+    leadtime: int
+    start: date
+    end: date
 
+class FornecedorResponse(BaseModel):
+    supplier_id: UUID
+    name: str
+    budget: Optional[float] = None
+    leadtime: Optional[int] = None
+    start: Optional[date] = None
+    end: Optional[date] = None
+    external_id: Optional[str] = None
+    is_active: bool
+    created_at: datetime
+    update_at: Optional[datetime] = None
+
+
+# --- Schemas de Pedido e Estoque ---
 class PedidoCreate(BaseModel):
     sku_codigo: str          
     fornecedor_nome: str     
@@ -132,10 +148,9 @@ class OrderItemRequest(BaseModel):
     unit_cost: float
     expected_delivery_date: Optional[str] = None 
     supplier_name: Optional[str] = None
-    
+
 class OrderUpdate(BaseModel):
     data_entrega: Optional[str] = None
-    expected_delivery_date: Optional[str] = None
     status: Optional[str] = None
 
 class BatchOrderItem(BaseModel):
@@ -146,33 +161,13 @@ class BatchOrderItem(BaseModel):
     supplier_name: Optional[str] = None
     expected_delivery_date: Optional[Union[date, datetime, str]] = None
 
-class OrderItemRequest(BaseModel):
-    sku_id: int
-    quantity: int
-    unit_cost: float
-    supplier_name: Optional[str] = None
-    expected_delivery_date: Optional[str] = None
-    
 class UpdateItemDate(BaseModel):
     delivery_date: str | None
-      
+
+class BatchOrderRequest(BaseModel):
+    items: List[OrderItemRequest]
+
 class BatchOrderResponse(BaseModel):
     success: bool
     message: str
     orders_created: int
-
-class BatchOrderRequest(BaseModel):
-    items: List[OrderItemRequest]    
-    
-class FornecedorCreate(BaseModel):
-    name: str
-    lead_time_days: Optional[int] = 30
-    external_id: Optional[str] = None
-
-    
-class FornecedorResponse(BaseModel):
-    supplier_id: UUID
-    name: str
-    lead_time_days: Optional[int]
-    is_active: bool
-    data_entrega: Optional[date] = None

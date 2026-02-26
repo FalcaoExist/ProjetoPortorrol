@@ -59,8 +59,7 @@ def get_order_service() -> OrderService:
     return OrderService()
 
 def get_orders_repo():
-    repo = OrdersRepository()
-    return repo
+    return OrdersRepository()
 
 def get_stock_service() -> StockService:
     return StockService()

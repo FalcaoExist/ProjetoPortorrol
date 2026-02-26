@@ -3,7 +3,7 @@ from enum import Enum
 from typing import List, Optional, Union
 from uuid import UUID
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr
 
 
 # --- Schemas de Usuário e Login ---

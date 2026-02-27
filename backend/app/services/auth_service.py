@@ -1,9 +1,6 @@
 from typing import Any, Dict, Optional
-
 from fastapi import HTTPException, status
-
 from app.core.interfaces import IPasswordHasher, IUserRepository
-
 from app.audit.audit_actions import AuditAction
 
 class AuthService:

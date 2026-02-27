@@ -1,6 +1,5 @@
 import unicodedata
 from datetime import datetime, timedelta
-
 from app.api.schemas import StatusProduto
 from app.repositories.dashboard_repository import DashboardRepository
 

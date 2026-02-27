@@ -2,9 +2,7 @@ from datetime import date, datetime
 from enum import Enum
 from typing import List, Optional, Union
 from uuid import UUID
-
 from pydantic import BaseModel, EmailStr
-
 
 # --- Schemas de Usuário e Login ---
 class UserResponse(BaseModel):
@@ -111,7 +109,6 @@ class FornecedorResponse(BaseModel):
     is_active: bool
     created_at: datetime
     update_at: Optional[datetime] = None
-
 
 # --- Schemas de Pedido e Estoque ---
 class PedidoCreate(BaseModel):

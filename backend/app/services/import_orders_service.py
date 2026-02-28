@@ -34,14 +34,14 @@ def clean_record(record: dict) -> dict:
     for key, value in record.items():
         if pd.isna(value):
             cleaned[key] = None
-        elif hasattr(value, "item"):  # numpy types
+        elif hasattr(value, "item"):
             cleaned[key] = value.item()
         else:
             cleaned[key] = value
 
     return cleaned
 
-class ImportOrdersService:
+class   ImportOrdersService:
 
     async def import_file(self, supplier: str, file):
         user_repo = SupabaseUserRepository()

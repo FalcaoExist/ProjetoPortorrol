@@ -1,166 +1,158 @@
 import io
+import csv
 import pandas as pd
-
 from app.core.supabase_client import supabase
 
 def parse_value(value, type_cast=float, default=0):
-    """
-    Função Mestre: Trata float, int e corrige formatação BR/US.
-    """
     if pd.isna(value) or str(value).strip() == "":
         return default
-    try:
-        s = str(value).strip()
-        s = s.replace('R$', '').replace(' ', '').replace('"', '').replace("'", "")
-        if not s:
-            return default
-        if s.count(',') > 1:
-            s = s.replace(',', '')
-        else:
-            s = s.replace('.', '').replace(',', '.')
-        val_float = float(s)
-        if type_cast == int:
-            return int(val_float)
-        return val_float
-    except Exception:
+    
+    s = str(value).strip()
+    s = s.replace('R$', '').replace(' ', '').replace('"', '').replace("'", "")
+    
+    if not s:
         return default
-
-def parse_percentage(value):
-    try:
-        if pd.isna(value) or str(value).strip() == "":
-            return 0.0
-        s = str(value).strip().replace('%', '').replace('"', '').replace("'", "").replace(' ', '')
-        if '.' in s and ',' in s:
-            s = s.replace('.', '').replace(',', '.')
-        else:
-            s = s.replace(',', '.')
-        return float(s)
-    except:
-        return 0.0
-
-def get_value_by_name(row, possible_names):
-    if isinstance(possible_names, str):
-        possible_names = [possible_names]
-    column_map = {str(c).strip().upper(): c for c in row.index}
-    for target_name in possible_names:
-        key = str(target_name).strip().upper()
-        if key in column_map:
-            real_col = column_map[key]
-            return row[real_col]
-    return 0
+        
+    if s.count(',') > 1:
+        s = s.replace(',', '')
+    else:
+        s = s.replace('.', '').replace(',', '.')
+        
+    val_float = float(s)
+    
+    if type_cast == int:
+        return int(val_float)
+    return val_float
 
 def save_sku(row):
-    code = str(get_value_by_name(row, ['CODIGO', 'REFERENCIA', 'SKU']) or row.iloc[1]).strip()
-    if not code or code.lower() in ['nan', 'sku', 'codigo', 'code', '0']:
+    col_nome = ' ' if ' ' in row.index else row.index[0]
+    nome_produto = str(row.get(col_nome, '')).strip()
+    codigo = str(row.get('REFERENCIA', '')).strip()
+    marca = str(row.get('MARCA', '')).strip()
+    classificacao = str(row.get('CLASSIFICACAO', '')).strip()
+
+    if not codigo or codigo.lower() == 'nan':
         return None
-    name = str(get_value_by_name(row, ['NOME_PRODUTO', 'DESCRIÇÃO', 'DESCRICAO']) or row.iloc[0]).strip()
-    brand = str(get_value_by_name(row, ['MARCA', 'FABRICANTE']) or row.iloc[2]).strip()
-    classification = str(get_value_by_name(row, ['CLASSIFICACAO', 'CURVA']) or "REGULAR").strip()
-    product_data = {
-        "nome_produto": name,
-        "codigo": code,
-        "marca": brand,
-        "classificacao": classification
+
+    marca_limpa = marca if marca.lower() != 'nan' else None
+
+    sku_payload = {
+        "codigo": codigo,
+        "nome_produto": nome_produto if nome_produto.lower() != 'nan' else 'Item sem nome',
+        "marca": marca_limpa,
+        "classificacao": classificacao if classificacao.lower() != 'nan' else 'Geral'
     }
-    try:
-        res = supabase.table("tb_skus").upsert(product_data, on_conflict="codigo").execute()
-        if res.data:
-            return res.data[0]['id']
-        search = supabase.table("tb_skus").select("id").eq("codigo", code).execute()
-        if search.data:
-            return search.data[0]['id']
-    except Exception as e:
-        raise RuntimeError(f"Erro ao salvar SKU {code}") from e
-    return None
+
+    sku_id = None
+    
+    res_check = supabase.table("tb_skus").select("id").eq("codigo", codigo).execute()
+    if res_check.data:
+        sku_id = res_check.data[0]['id']
+        supabase.table("tb_skus").update(sku_payload).eq("id", sku_id).execute()
+    else:
+        res_insert = supabase.table("tb_skus").insert(sku_payload).execute()
+        if res_insert.data:
+            sku_id = res_insert.data[0]['id']
+
+    if marca_limpa and sku_id:
+        supplier_id = None
+        
+        sup_check = supabase.table("suppliers").select("supplier_id").ilike("name", marca_limpa).execute()
+        
+        if sup_check.data:
+            supplier_id = sup_check.data[0]['supplier_id']
+        else:
+            sup_insert = supabase.table("suppliers").insert({"name": marca_limpa}).execute()
+            if sup_insert.data:
+                supplier_id = sup_insert.data[0]['supplier_id']
+
+        if supplier_id:
+            ps_check = supabase.table("product_suppliers").select("id").eq("sku_id", sku_id).eq("supplier_id", supplier_id).execute()
+            
+            if not ps_check.data:
+                supabase.table("product_suppliers").insert({
+                    "sku_id": sku_id,
+                    "supplier_id": supplier_id
+                }).execute()
+
+    return sku_id
 
 def save_analysis(row, sku_id):
-
-    try:
-        supabase.table("tb_analise_compra").delete().eq("sku_id", sku_id).execute()
-        data = {
-            "sku_id": sku_id,
-            "demanda_jv":   parse_value(get_value_by_name(row, ["DEMANDA_10", "DEMANDA_JV"]), type_cast=int),
-            "demanda_sp":   parse_value(get_value_by_name(row, ["DEMANDA_70", "DEMANDA_SP"]), type_cast=int),
-            "demanda_poa":  parse_value(get_value_by_name(row, ["DEMANDA_90", "DEMANDA_POA"]), type_cast=int),
-            "demanda_soma": parse_value(get_value_by_name(row, ["DEMANDA_SOMA", "TOTAL_DEMANDA"]), type_cast=int),
-            "sugestao_compra": parse_value(get_value_by_name(row, ["SUGESTAO_COMPRA_30_DIAS", "SUGESTAO"]), type_cast=int),
-            "estoque_jv":   parse_value(get_value_by_name(row, ["ESTOQUE_10", "ESTOQUE_JV"]), type_cast=int),
-            "estoque_sp":   parse_value(get_value_by_name(row, ["ESTOQUE_70", "ESTOQUE_SP"]), type_cast=int),
-            "estoque_poa":  parse_value(get_value_by_name(row, ["ESTOQUE_90", "ESTOQUE_POA"]), type_cast=int),
-            "estoque_soma": parse_value(get_value_by_name(row, ["ESTOQUE_SOMA", "TOTAL_ESTOQUE"]), type_cast=int),
-            "pendencia_jv":   parse_value(get_value_by_name(row, ["PENDENTE_10", "PENDENCIA_JV"]), type_cast=int),
-            "pendencia_sp":   parse_value(get_value_by_name(row, ["PENDENTE_70", "PENDENCIA_SP"]), type_cast=int),
-            "pendencia_poa":  parse_value(get_value_by_name(row, ["PENDENTE_90", "PENDENCIA_POA"]), type_cast=int),
-            "pendencia_soma": parse_value(get_value_by_name(row, ["PENDENCIA_SOMA", "TOTAL_PENDENCIA"]), type_cast=int),
-            "falta_jv":   parse_value(get_value_by_name(row, ["FALTA_10", "RUPTURA_JV"]), type_cast=int),
-            "falta_sp":   parse_value(get_value_by_name(row, ["FALTA_70", "RUPTURA_SP"]), type_cast=int),
-            "falta_poa":  parse_value(get_value_by_name(row, ["FALTA_90", "RUPTURA_POA"]), type_cast=int),
-            "falta_soma": parse_value(get_value_by_name(row, ["FALTA_SOMA", "TOTAL_FALTA"]), type_cast=int),
-            "falta_soma_total": 0,
-            "atendimento": parse_percentage(get_value_by_name(row, ["ATENDIMENTO", "NIVEL_SERVICO"])),
-            "frequencia":  parse_percentage(get_value_by_name(row, ["FREQUENCIA", "FREQ"])),
-        }
-        supabase.table("tb_analise_compra").insert(data).execute()
-    except Exception as e:
-        raise RuntimeError(f"Erro ao salvar análise do SKU {sku_id}") from e
+    analysis_payload = {
+        "sku_id": sku_id,
+        "demanda_sp": parse_value(row.get('DEMANDA_10'), int),
+        "demanda_jv": parse_value(row.get('DEMANDA_70'), int),
+        "demanda_poa": parse_value(row.get('DEMANDA_90'), int),
+        "demanda_soma": parse_value(row.get('DEMANDA_SOMA'), int),
+        "sugestao_compra": parse_value(row.get('SUGESTAO_COMPRA_30_DIAS'), int),
+        "estoque_sp": parse_value(row.get('ESTOQUE_10'), int),
+        "estoque_jv": parse_value(row.get('ESTOQUE_70'), int),
+        "estoque_poa": parse_value(row.get('ESTOQUE_90'), int),
+        "estoque_soma": parse_value(row.get('ESTOQUE_SOMA'), int),
+        "pendencia_sp": parse_value(row.get('PENDENTE_10'), int),
+        "pendencia_jv": parse_value(row.get('PENDENTE_70'), int),
+        "pendencia_poa": parse_value(row.get('PENDENTE_90'), int),
+        "pendencia_soma": parse_value(row.get('PENDENTE_SOMA'), int),
+        "falta_sp": parse_value(row.get('FALTA_10'), int),
+        "falta_jv": parse_value(row.get('FALTA_70'), int),
+        "falta_poa": parse_value(row.get('FALTA_90'), int),
+        "falta_soma": parse_value(row.get('FALTA_SOMA'), int),
+        "atendimento": parse_value(row.get('ATENDIMENTO'), float),
+        "frequencia": parse_value(row.get('FREQUENCIA'), float)
+    }
+    
+    ana_check = supabase.table("tb_analise_compra").select("id").eq("sku_id", sku_id).execute()
+    if ana_check.data:
+        supabase.table("tb_analise_compra").update(analysis_payload).eq("sku_id", sku_id).execute()
+    else:
+        supabase.table("tb_analise_compra").insert(analysis_payload).execute()
 
 def save_history(row, sku_id):
-    try:
-        supabase.table("tb_historico_vendas").delete().eq("sku_id", sku_id).execute()
-        start_idx = -1
-        columns = row.index.tolist()
-        for i, col_name in enumerate(columns):
-            s_col = str(col_name).upper()
-            if "QTD" in s_col and ("/" in s_col or "_" in s_col):
-                if i+1 < len(columns) and "VALOR" in str(columns[i+1]).upper():
-                    start_idx = i
-                    break
-        if start_idx == -1:
-            start_idx = 4
-        batch = []
-        current_idx = start_idx
-        for seq in range(1, 26):
-            if current_idx + 1 >= len(row):
-                break
-            q = parse_value(row.iloc[current_idx], type_cast=int)
-            v = parse_value(row.iloc[current_idx+1], type_cast=float)
-            if q != 0 or v != 0:
-                batch.append({
-                    "sku_id": sku_id,
-                    "periodo_sequencia": seq,
-                    "quantidade": q,
-                    "valor": v
-                })
-            current_idx += 2
-        if batch:
-            supabase.table("tb_historico_vendas").insert(batch).execute()
-    except Exception as e:
-        raise RuntimeError(f"Erro ao salvar histórico do SKU {sku_id}") from e
+    supabase.table("tb_historico_vendas").delete().eq("sku_id", sku_id).execute()
 
-def process_import_file(file_content, user_id=None):
+    batch = []
+    qtd_cols = [c for c in row.index if str(c).startswith('QTD_')]
     
-    try:
-        df = pd.read_csv(io.BytesIO(file_content), sep=None, engine='python', dtype=str)
-        df.dropna(how='all', inplace=True)
+    seq = 1
+    for q_col in qtd_cols:
+        mes_ano = q_col.replace('QTD_', '')
+        v_col = f"VALOR_{mes_ano}"
         
-        total_sucessos = 0
-        total_erros = 0
+        q_val = parse_value(row.get(q_col), int)
+        v_val = parse_value(row.get(v_col), float) if v_col in row.index else 0.0
 
-        for line_number, (_, row) in enumerate(df.iterrows(), start=2):
-            try:
-                sku_id = save_sku(row)
-                if not sku_id:
-                    total_erros += 1
-                    continue
+        if q_val != 0 or v_val != 0.0:
+            batch.append({
+                "sku_id": sku_id,
+                "periodo_sequencia": seq,
+                "quantidade": q_val,
+                "valor": v_val
+            })
+        seq += 1
 
-                save_analysis(row, sku_id)
-                save_history(row, sku_id)
-                total_sucessos += 1
+    if batch:
+        supabase.table("tb_historico_vendas").insert(batch).execute()
 
-            except Exception as e:
-                raise RuntimeError(f"Erro ao processar linha {line_number}") from e
+def process_import_file(file_content, filename="", user_id=None):
+    is_excel = filename.lower().endswith((".xlsx", ".xls")) or file_content.startswith(b'PK\x03\x04')
+    
+    if is_excel:
+        df = pd.read_excel(io.BytesIO(file_content), dtype=str)
+    else:
+        df = pd.read_csv(
+            io.BytesIO(file_content), sep=';', dtype=str, encoding='latin-1', 
+            engine='python', on_bad_lines='skip', quoting=csv.QUOTE_NONE
+        )
 
-        return {"status": "success", "processed": total_sucessos, "errors": total_erros}
+    if df is None or df.empty:
+        return
 
-    except Exception as e:
-        raise RuntimeError("Falha crítica ao abrir CSV") from e
+    df.dropna(how='all', inplace=True)
+
+    for index, row in df.iterrows():
+        sku_id = save_sku(row)
+        if not sku_id:
+            continue
+        
+        save_analysis(row, sku_id)
+        save_history(row, sku_id)

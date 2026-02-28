@@ -11,7 +11,7 @@ router = APIRouter()
 
 @router.post("/stock/import")
 async def import_stock(background_tasks: BackgroundTasks, file: UploadFile = File(...), current_user: dict = Depends(get_current_user)):
-    if not file.filename.lower().endswith(".csv"):
+    if not file.filename.lower().endswith((".csv", ".xlsx", ".xls")):
         raise HTTPException(400, "Envie um arquivo CSV")
     contents = await file.read()
     user_id = current_user.get("user_id")

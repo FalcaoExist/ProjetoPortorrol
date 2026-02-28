@@ -11,16 +11,16 @@ class StockService:
         current_user: Optional[dict] = None
     ) -> list:
         try:
-            skus_res = supabase.table("tb_skus").select("id, codigo, nome_produto, classificacao").execute()
+            skus_res = supabase.table("tb_skus").select("id, codigo, nome_produto, classificacao").limit(5000000).execute()
             sku_map = {s["id"]: s for s in (skus_res.data or [])}
             
             if not sku_map:
                 return []
 
-            query_analise = supabase.table("tb_analise_compra").select("*")
+            query_analise = supabase.table("tb_analise_compra").select("*").limit(5000000)
             analise_data = query_analise.execute().data or []
 
-            ps_res = supabase.table("product_suppliers").select("sku_id, preco_custo, suppliers(name)").execute()
+            ps_res = supabase.table("product_suppliers").select("sku_id, preco_custo, suppliers(name)").limit(5000000).execute()
             
             ps_map = {}
             for ps in (ps_res.data or []):
@@ -125,4 +125,4 @@ class StockService:
             return []
 
     async def import_stock(self, file, current_user: dict):
-        return {"success": True, "message": "Importação em desenvolvimento."}   
+        return {"success": True, "message": "Importação em desenvolvimento."}

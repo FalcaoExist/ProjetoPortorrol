@@ -5,14 +5,9 @@ from app.audit.audit_actions import AuditAction
 from app.repositories.repositories_supabase import SupabaseUserRepository
 
 def process_background(file_contents: bytes, filename: str, user_id: str):
-    """
-    Esta função roda 'sozinha' após o servidor responder ao usuário.
-    """
-    
     user_repo = SupabaseUserRepository()
 
     try:
-        # 1. Transformar Bytes em DataFrame (Pandas)
         if filename.endswith(".csv"):
             try:
                 df = pd.read_csv(io.BytesIO(file_contents), sep=',', encoding='utf-8')
@@ -21,7 +16,6 @@ def process_background(file_contents: bytes, filename: str, user_id: str):
         else:
             df = pd.read_excel(io.BytesIO(file_contents))
 
-        # 2. Validações iniciais
         if df.empty or len(df.columns) < 2:            
             try:
                 user_repo.insert_audit_log(
@@ -36,7 +30,6 @@ def process_background(file_contents: bytes, filename: str, user_id: str):
 
             return
 
-        # 3. Loop de Processamento
         success = 0
         errors = 0
         
@@ -70,7 +63,6 @@ def process_background(file_contents: bytes, filename: str, user_id: str):
                         "Falha ao registrar auditoria de erro por linha"
                     ) from audit_error
         
-        # 4. Auditoria de sucesso
         try:
             user_repo.insert_audit_log(
                 performed_by=user_id,

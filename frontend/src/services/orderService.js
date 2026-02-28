@@ -42,11 +42,6 @@ const orderService = {
         }
     },
 
-    async update(id, updates) {
-        // Implementar se necessário PUT /orders/{id}
-        console.warn("Update ainda não implementado no backend complexo");
-        return null;
-    }
 };
 
 export default orderService;

@@ -71,3 +71,14 @@ def delete_supplier(
         return {"message": "Fornecedor inativado com sucesso"}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+@router.get("/suppliers/{id}/history")
+def get_supplier_history(
+    id: UUID,
+    #current_user: dict = Depends(get_current_user),
+    supplier_service: SupplierService = Depends(get_supplier_service)
+):
+    try:
+        return supplier_service.get_supplier_history(id)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))

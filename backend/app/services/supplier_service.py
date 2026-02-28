@@ -3,6 +3,7 @@ from uuid import uuid4, UUID
 from datetime import datetime, date
 from app.core.supabase_client import supabase
 from app.repositories.supplier_leadtime_repository import SupplierLeadtimeRepository
+from app.repositories.supplier_history_repository import SupplierHistoryRepository
 
 class SupplierService:
 
@@ -90,48 +91,86 @@ class SupplierService:
         leadtimes: Optional[List[dict]] = None,
     ) -> dict:
 
-        now = datetime.utcnow().isoformat()
+            now = datetime.utcnow().isoformat()
 
-        payload = {
-            "name": name,
-            "budget": budget,
-            "start": start.isoformat() if start else None,
-            "end": end.isoformat() if end else None,
-            "updated_at": now,
-        }
+            current = (
+                supabase.table("suppliers")
+                .select("*")
+                .filter("supplier_id", "eq", str(supplier_id))
+                .single()
+                .execute()
+            )
 
-        resp = (
-            supabase.table("suppliers")
-            .update(payload)
-            .filter("supplier_id", "eq", str(supplier_id))
-            .execute()
-        )
+            if not current.data:
+                raise ValueError("Fornecedor não encontrado")
 
-        if not resp.data:
-            raise ValueError("Fornecedor não encontrado")
+            current_data = current.data
 
-        updated_supplier = resp.data[0]
+            SupplierHistoryRepository.insert({
+                "supplier_id": str(supplier_id),
+                "budget": current_data.get("budget"),
+                "start": current_data.get("start"),
+                "end": current_data.get("end"),
+                "notes": "Alteração de dados gerais",
+                "created_at": now,
+                "updated_at": now,
+            })
 
-        SupplierLeadtimeRepository.delete_by_supplier(supplier_id)
+            current_leadtimes = SupplierLeadtimeRepository.list_by_supplier(supplier_id)
 
-        if leadtimes:
-            leadtimes_payload = [
-                {
+            for lt in current_leadtimes:
+                SupplierHistoryRepository.insert({
                     "supplier_id": str(supplier_id),
-                    "branch_id": str(lt["branch_id"]),
-                    "leadtime": lt["leadtime"],
+                    "branch_id": lt.get("branch_id"),
+                    "leadtime": lt.get("leadtime"),
+                    "notes": "Alteração de leadtime",
                     "created_at": now,
                     "updated_at": now,
+                })
+
+                payload = {
+                    "name": name,
+                    "budget": budget,
+                    "start": start.isoformat() if start else None,
+                    "end": end.isoformat() if end else None,
+                    "updated_at": now,
                 }
-                for lt in leadtimes
-            ]
 
-            inserted_leadtimes = SupplierLeadtimeRepository.bulk_insert(leadtimes_payload)
-            updated_supplier["leadtimes"] = inserted_leadtimes
-        else:
-            updated_supplier["leadtimes"] = []
+                resp = (
+                    supabase.table("suppliers")
+                    .update(payload)
+                    .filter("supplier_id", "eq", str(supplier_id))
+                    .execute()
+                )
 
-        return updated_supplier
+            if not resp.data:
+                raise ValueError("Fornecedor não encontrado")
+
+            updated_supplier = resp.data[0]
+
+            SupplierLeadtimeRepository.delete_by_supplier(supplier_id)
+
+            if leadtimes:
+                leadtimes_payload = [
+                    {
+                        "supplier_id": str(supplier_id),
+                        "branch_id": str(lt["branch_id"]),
+                        "leadtime": lt["leadtime"],
+                        "created_at": now,
+                        "updated_at": now,
+                    }
+                    for lt in leadtimes
+                ]
+
+                inserted_leadtimes = SupplierLeadtimeRepository.bulk_insert(leadtimes_payload)
+                updated_supplier["leadtimes"] = inserted_leadtimes
+            else:
+                updated_supplier["leadtimes"] = []
+
+            return updated_supplier
+
+    def get_supplier_history(self, supplier_id: UUID):
+        return SupplierHistoryRepository.list_by_supplier(supplier_id)
 
     def deactivate_supplier(self, supplier_id: str) -> dict:
         try:

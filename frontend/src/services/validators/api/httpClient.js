@@ -7,18 +7,18 @@ const customFetch = async (endpoint, options = {}) => {
 
   // LÓGICA DE HEADER DE USUÁRIO (Mantenha como estava)
   let userHeader = {};
-  try {
-    const storedUser = localStorage.getItem("user_data") || localStorage.getItem("user");
-    if (storedUser) {
-      const parsed = JSON.parse(storedUser);
-      const userId = parsed.user_id || parsed.userId || parsed.id;
-      if (userId) {
-        userHeader["X-User-Id"] = userId;
+    try {
+      const storedMeta = localStorage.getItem("user_meta") || localStorage.getItem("user_data") || localStorage.getItem("user");
+      if (storedMeta) {
+        const parsed = JSON.parse(storedMeta);
+        const userId = parsed.user_id || parsed.userId || parsed.id;
+        if (userId) {
+          userHeader["X-User-Id"] = userId;
+        }
       }
+    } catch (error) {
+      console.warn("Erro ao ler localStorage:", error);
     }
-  } catch (error) {
-    console.warn("Erro ao ler localStorage:", error);
-  }
 
   const config = {
     ...options,

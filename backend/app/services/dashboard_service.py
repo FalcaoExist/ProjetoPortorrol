@@ -1,5 +1,5 @@
+import unicodedata
 from datetime import datetime, timedelta
-
 from app.api.schemas import StatusProduto
 from app.repositories.dashboard_repository import DashboardRepository
 
@@ -8,7 +8,14 @@ class DashboardService:
     def __init__(self):
         self.repo = DashboardRepository()
 
-    # --- MÉTODOS AUXILIARES (SEGURANÇA) ---
+    # --- MÉTODOS AUXILIARES (SEGURANÇA E FORMATAÇÃO) ---
+    def _normalize_text(self, text: str) -> str:
+        """Remove acentos e espaços extras, e converte para minúsculo."""
+        if not text:
+            return ""
+        text = unicodedata.normalize('NFKD', str(text)).encode('ASCII', 'ignore').decode('utf-8')
+        return text.lower().strip()
+
     def _safe_float(self, val, default=0.0):
         try:
             if val is None:
@@ -74,6 +81,17 @@ class DashboardService:
 
             status = self._calculate_status(coverage_days)
 
+            # --- Extrair o Fornecedor Corretamente (Via relacionamento) ---
+            raw_suppliers = item.get("product_suppliers", [])
+            fornecedor_nome = ""
+            if isinstance(raw_suppliers, list) and len(raw_suppliers) > 0:
+                sup_data = raw_suppliers[0].get("suppliers")
+                if isinstance(sup_data, dict):
+                    fornecedor_nome = sup_data.get("name", "")
+
+            # --- Priorizar filial direto da tb_skus, com fallback para tb_analise_compra ---
+            filial_nome = str(item.get("filial") or analysis_data.get("filial_id") or "")
+
             sku_obj = {
                 "sku_id": item.get("id"),
                 "codigo": item.get("codigo") or "N/A",
@@ -85,7 +103,8 @@ class DashboardService:
                 "sugestao_compra": self._safe_int(analysis_data.get("sugestao_compra")),
                 "estoque_soma": stock,
                 "demanda_soma": demand,
-                "filial_nome": str(analysis_data.get("filial_id") or "")
+                "filial_nome": filial_nome,
+                "fornecedor_nome": fornecedor_nome # <- Novo campo adicionado!
             }
             processed_data.append(sku_obj)
 
@@ -102,13 +121,19 @@ class DashboardService:
         if status_filter:
             result = [p for p in result if p["status"].value == status_filter.upper()]
 
+        # Filtro de FILIAL (Ignorando acentos e case)
         if branch and branch.strip() and branch != "Todas":
-            b_term = branch.lower().strip()
-            result = [p for p in result if b_term in p["filial_nome"].lower()]
+            b_term = self._normalize_text(branch)
+            result = [p for p in result if b_term in self._normalize_text(p["filial_nome"])]
 
+        # Filtro de FORNECEDOR (Busca no nome real da tabela de suppliers ou fallback na marca)
         if supplier and supplier.strip() and supplier != "Todos":
-            s_term = supplier.lower().strip()
-            result = [p for p in result if s_term in p["marca"].lower() or s_term in p["nome_produto"].lower()]
+            s_term = self._normalize_text(supplier)
+            result = [
+                p for p in result 
+                if s_term in self._normalize_text(p.get("fornecedor_nome", "")) 
+                or s_term in self._normalize_text(p.get("marca", ""))
+            ]
 
         return result
 

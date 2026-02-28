@@ -1,20 +1,40 @@
 import httpClient from "./validators/api/httpClient";
 
-/**
- * Busca a lista de todos os fornecedores cadastrados.
- * Rota esperada: GET /suppliers
- */
 export async function getSuppliers() {
   try {
     const response = await httpClient.get("/suppliers");
-    
-    // O backend agora retorna uma lista direta de strings: ["Timken", "NSK"]
-    // Ou uma lista de objetos se não tiver sido achatada. 
-    // O httpClient já trata o .json().
     return response || [];
   } catch (error) {
     console.error("Erro ao buscar fornecedores:", error);
     return [];
   }
 }
-export default getSuppliers;
+
+export async function createSupplier(data) {
+  try {
+    const response = await httpClient.post("/suppliers", data);
+    return response;
+  } catch (error) {
+    console.error("Erro ao criar fornecedor:", error);
+    throw error;
+  }
+}
+
+export async function updateSupplier(id, data) {
+  try {
+    const response = await httpClient.put(`/suppliers/${id}`, data);
+    return response;
+  } catch (error) {
+    console.error("Erro ao atualizar fornecedor:", error);
+    throw error;
+  }
+}
+
+export async function deleteSupplier(id) {
+  try {
+    await httpClient.delete(`/suppliers/${id}`);
+  } catch (error) {
+    console.error("Erro ao deletar fornecedor:", error);
+    throw error;
+  }
+}

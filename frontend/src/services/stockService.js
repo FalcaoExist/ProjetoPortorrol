@@ -1,48 +1,61 @@
 import httpClient from './validators/api/httpClient';
 import { exportStockCSV } from "./csvExporter";
-import { exportStockXLSX } from "./xlsxExporter";
 
-const mapStockToFrontend = (item) => {
-    let rawSupplier = item.primary_supplier || item.supplier_name || item.fornecedor || item.supplier;
+// Adicionado o parâmetro 'index' para criar uma chave única
+const mapStockToFrontend = (item, index) => {
+    let rawSupplier = item.primary_supplier || item.supplier_name || item.fornecedor || item.supplier || item.suppliers?.name;
     let supplierStr = String(rawSupplier || "").trim();
 
     if (supplierStr.includes("Padrão") || supplierStr.includes("Default") || supplierStr === "null" || supplierStr === "undefined") {
         supplierStr = "";
     }
 
+    // A MÁGICA ESTÁ AQUI: Cria um ID composto para o React nunca reclamar
+    const baseId = item.id || item.sku_id || "gen";
+    const uniqueReactId = `${baseId}-${index}-${Math.random().toString(36).substr(2, 5)}`;
+
     return {
-        id: item.sku_id || item.id,
-        codigo: item.sku_code || item.codigo || "S/C",
-        item: item.name || item.item || "Item sem nome",
+        id: uniqueReactId, // ID Único para o DataGrid renderizar sem erros
+        real_sku_id: item.sku_id || item.id, // O ID real guardado para quando for criar a encomenda (pedido)
+        codigo: item.sku_code || item.codigo || item.tb_skus?.codigo || "S/C",
+        item: item.name || item.item || item.tb_skus?.nome_produto || "Item sem nome",
         categoria: item.category || item.categoria || "Geral",
-        unidades: item.stock_quantity || item.unidades || 0,
+        unidades: item.stock_quantity || item.unidades || item.estoque || item.estoque_soma || 0,
         fornecedor: supplierStr, 
-        filial: item.branch_name || item.filial || "Matriz",
         dias_cobertura: item.coverage_days || item.dias_cobertura || 0,
-        valor: item.unit_price || item.valor || 0,
+        valor: item.unit_price || item.valor || item.preco || item.preco_custo || 0,
+        
+        // Recebe os dados de filiais diretamente do backend
+        porto_alegre: item.porto_alegre || item.estoque_poa || 0,
+        joinville: item.joinville || item.estoque_jv || 0,
+        sao_paulo: item.sao_paulo || item.estoque_sp || 0,
         _raw: item
     };
 };
 
-export const getStockData = async (filters = {}) => {
+export const getStockData = async (filial, fornecedor, status) => {
     try {
+        const args = typeof filial === 'object' ? filial : { filial, fornecedor, status };
+
         const params = new URLSearchParams();
-        if (filters.filial) params.append('filial', filters.filial);
-        if (filters.fornecedor) params.append('fornecedor', filters.fornecedor);
+        if (args.filial && args.filial !== "Todos") params.append('filial', args.filial);
+        if (args.fornecedor && args.fornecedor !== "Todos") params.append('fornecedor', args.fornecedor);
+        if (args.status && args.status !== "Todos") params.append('status', args.status);
 
         const queryString = params.toString();
         const endpoint = queryString ? `/stock?${queryString}` : '/stock';
         
         const response = await httpClient.get(endpoint);
-        const data = Array.isArray(response) ? response : (response.data || []);
+        const dataList = Array.isArray(response) ? response : (response.data || []);
         
-        return data.map(mapStockToFrontend);
+        // Passa o item e o índice (index) para a função de mapeamento
+        return dataList.map((item, index) => mapStockToFrontend(item, index));
+
     } catch (error) {
         console.error("Erro ao carregar estoque:", error);
         return [];
     }
 };
-
 export const getSuppliers = async () => {
     try {
         let data = [];
@@ -54,16 +67,19 @@ export const getSuppliers = async () => {
             data = Array.isArray(resStock) ? resStock : (resStock.data || []);
         }
 
+        if (data.length > 0 && typeof data[0] === 'string') {
+            return data;
+        }
+
         const allSuppliers = data.map(item => {
-            const val = item.name || item.supplier_name || item.primary_supplier || item.fornecedor;
+            const val = item.name || item.supplier_name || item.primary_supplier || item.fornecedor || item.suppliers?.name;
             return String(val || "").trim();
         });
         
-        const uniqueSuppliers = [...new Set(allSuppliers)]
+        return [...new Set(allSuppliers)]
             .filter(s => s && s !== "null" && s !== "undefined" && !s.includes("Padrão"))
             .sort();
             
-        return uniqueSuppliers;
     } catch (error) {
         console.error("Erro ao buscar fornecedores:", error);
         return [];
@@ -71,39 +87,41 @@ export const getSuppliers = async () => {
 };
 
 export const createOrderBatch = async (items) => {
-    const payload = {
-        items: items.map(i => {
-            const valorLimpo = String(i.valor).replace(',', '.');
-            
-            return {
-                sku_id: i.id,
-                quantity: Number(i.quantidade),
-                unit_cost: Number(valorLimpo),
-                expected_delivery_date: i.previsao_entrega || null,
-                
-                supplier_name: i.fornecedor || "Fornecedor Padrão" 
-            };
-        })
-    };
-    return await httpClient.post('/orders/batch', payload);
+    const safeItems = Array.isArray(items) ? items : [];
+    const payload = { items: safeItems };
+
+    try {
+        const response = await httpClient.post('/orders/batch', payload);
+        return response.data || response;
+    } catch (error) {
+        console.error("Erro ao criar pedido em lote:", error);
+        throw error;
+    }
 };
 
-export const importStockFromFile = async (file) => {
-    return new Promise(resolve => setTimeout(() => resolve({ success: true, message: "Mock Import" }), 1000));
+export const importStockFromFile = async (file, token) => {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const headers = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+
+    const response = await fetch(`${API_URL}/stock/import`, {
+        method: "POST",
+        headers: headers,
+        body: formData,
+    });
+
+    const data = await response.json();
+    if (!response.ok) throw new Error("Erro na requisição de importação");
+
+    return data;
 };
 
 export const exportStockData = async (data) => {
-    if (!data || data.length === 0) {
-        throw new Error("Nenhum dado fornecido para exportação.");
-    }
-    // Trigger XLSX export by default
-    try {
-        exportStockXLSX(data);
-    } catch (e) {
-        // fallback to CSV if XLSX export fails
-        console.error('Erro exportando XLSX, fallback para CSV:', e);
-        exportStockCSV(data);
-    }
-
+    if (!data || data.length === 0) throw new Error("Nenhum dado fornecido para exportação.");
+    exportStockCSV(data);
     return Promise.resolve({ message: "Dados do estoque exportados e download iniciado." });
 };

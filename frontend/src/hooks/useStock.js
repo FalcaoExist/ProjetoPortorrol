@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { getStockData, createOrderBatch, getSuppliers } from "../services/stockService";
 
-// Função auxiliar para definir status textual baseado nos dias
+// Função auxiliar para definir status textual baseado nos dias de cobertura
 const getStatusText = (dias) => {
     if (dias <= 30) return "Ruptura iminente";
     if (dias <= 60) return "Subdimensionado";
@@ -16,7 +16,9 @@ export const useStock = () => {
     const [supplierOptions, setSupplierOptions] = useState([]); 
 
     // --- 2. ESTADOS DA TABELA DE REQUISIÇÃO (SELEÇÃO) ---
+    // Mantemos o formato de Objeto + Set exigido pelo seu DataGrid atual
     const [rowSelectionModel, setRowSelectionModel] = useState({ type: 'include', ids: new Set() });
+    
     const [newOrderRows, setNewOrderRows] = useState([]);
     const [isNewOrderVisible, setIsNewOrderVisible] = useState(false);
 
@@ -26,15 +28,17 @@ export const useStock = () => {
     const [fornecedor, setFornecedor] = useState("");
     const [filial, setFilial] = useState("");
 
-    // --- 4. MODAIS ---
+    // --- 4. MODAIS E UTILITÁRIOS ---
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [itemToDelete, setItemToDelete] = useState(null);
+    const [isImportConfirmModalOpen, setIsImportConfirmModalOpen] = useState(false);
+    const [selectedFile, setSelectedFile] = useState(null);
 
     // =========================================================
     // EFEITOS DE CARREGAMENTO (INIT)
     // =========================================================
 
-    // A. Carrega Fornecedores
+    // Carrega a lista de fornecedores para os filtros
     useEffect(() => {
         const loadSuppliers = async () => {
             try {
@@ -49,7 +53,7 @@ export const useStock = () => {
         loadSuppliers();
     }, []);
 
-    // B. Carrega Estoque
+    // Carrega dados do estoque aplicando filtros de servidor
     const fetchStock = useCallback(async (filters = {}) => {
         setLoading(true);
         try {
@@ -63,59 +67,37 @@ export const useStock = () => {
         }
     }, []);
 
-    // Recarrega estoque quando muda a filial (filtro de servidor)
     useEffect(() => {
         const activeFilters = {};
         if (filial) activeFilters.filial = filial;
+        if (fornecedor) activeFilters.fornecedor = fornecedor;
         fetchStock(activeFilters);
-    }, [fetchStock, filial]);
+    }, [fetchStock, filial, fornecedor]);
 
     // =========================================================
-    // LÓGICA DE SINCRONIZAÇÃO (CORRIGIDA)
+    // LÓGICA DE SINCRONIZAÇÃO (Seleção -> Tabela de Pedido)
     // =========================================================
     
     useEffect(() => {
-        // Pega os IDs selecionados na tabela principal (que agora são "ID-FILIAL")
         const selectionSet = (rowSelectionModel && rowSelectionModel.ids) 
             ? rowSelectionModel.ids 
             : new Set();
 
         setNewOrderRows(prevOrderRows => {
-            // Filtra os itens do estoque reconstruindo o ID Composto para comparar
             const selectedRows = stockData
-                .filter(row => {
-                    // Recria o ID exatamente como a tabela StockTable faz
-                    const compositeId = row.filial 
-                        ? `${row.id}-${row.filial}` 
-                        : String(row.id);
-                    
-                    // Verifica se esse ID composto está na lista de selecionados
-                    return selectionSet.has(compositeId);
-                })
+                .filter(row => selectionSet.has(row.id)) // Filtra pelo ID único gerado no service
                 .map(item => {
-                    // Gera o ID único para a tabela de baixo também
-                    const uniqueRowId = item.filial ? `${item.id}-${item.filial}` : String(item.id);
-
-                    // Verifica se já existia na tabela de baixo (para manter edições de preço/qtd)
-                    const existingItem = prevOrderRows.find(nr => nr.id === uniqueRowId);
+                    const existingItem = prevOrderRows.find(nr => nr.real_sku_id === item.sku_id);
                     
-                    if (existingItem) {
-                        return existingItem;
-                    }
+                    if (existingItem) return existingItem;
 
-                    // Se é novo, cria objeto.
-                    // IMPORTANTE: Salvamos 'real_sku_id' para enviar ao backend depois
+                    // Cria novo item para a tabela de pedido com valores padrão
                     return {
                         ...item,
-                        id: uniqueRowId,       // ID único para o React (DataGrid)
-                        real_sku_id: item.id,  // ID numérico real para o Python
-                        
-                        unidades: item.unidades || 0,
-                        valor: item.valor || 0,
-                        quantidade: item.unidades > 0 ? Math.round(item.unidades * 0.5) : 100,
+                        real_sku_id: item.sku_id || item.id, // ID real da tb_skus para o backend
+                        quantidade: 100, // Sugestão inicial
                         previsao_entrega: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-                        status: "Pendente",
-                        fornecedor: item.fornecedor || "" 
+                        status: "Pendente"
                     };
                 });
             return selectedRows;
@@ -134,17 +116,14 @@ export const useStock = () => {
         return stockData.filter(row => {
             const statusText = getStatusText(row.dias_cobertura);
             const searchLower = searchQuery.toLowerCase();
-            
             const itemText = (row.item || "").toLowerCase();
             const codigoText = (row.codigo || "").toLowerCase();
-            const rowFornecedor = row.fornecedor || "";
-            const rowFilial = row.filial || "";
 
             return (
                 (searchQuery === "" || itemText.includes(searchLower) || codigoText.includes(searchLower)) &&
                 (statusFilter === "" || statusText === statusFilter) &&
-                (fornecedor === "" || rowFornecedor === fornecedor) &&
-                (filial === "" || rowFilial === filial)
+                (fornecedor === "" || row.fornecedor === fornecedor) &&
+                (filial === "" || row.filial === filial)
             );
         });
     }, [stockData, searchQuery, statusFilter, fornecedor, filial]);
@@ -154,16 +133,8 @@ export const useStock = () => {
     // =========================================================
 
     const handleShowNewOrder = useCallback(() => {
-        if (!isNewOrderVisible) {
-            // Sugere itens críticos (precisamos usar o ID composto aqui também)
-            const suggestedCompositeIds = stockData
-                .filter(item => item.dias_cobertura <= 60)
-                .map(item => item.filial ? `${item.id}-${item.filial}` : String(item.id));
-            
-            setRowSelectionModel({ type: 'include', ids: new Set(suggestedCompositeIds) });
-        }
         setIsNewOrderVisible(true);
-    }, [stockData, isNewOrderVisible]);
+    }, []);
 
     const handleCloseNewOrder = useCallback(() => {
         setIsNewOrderVisible(false);
@@ -194,7 +165,7 @@ export const useStock = () => {
         setIsDeleteModalOpen(false);
     };
 
-    // --- FUNÇÃO FINAL: CRIAÇÃO DO PEDIDO ---
+    // --- CRIAÇÃO DO PEDIDO (LIMPEZA E ENVIO) ---
     const handleCreateOrder = async (navigate) => {
         if (newOrderRows.length === 0) {
             alert("Por favor, adicione itens ao pedido.");
@@ -202,28 +173,24 @@ export const useStock = () => {
         }
 
         try {
-            // PREPARAÇÃO DOS DADOS:
-            // O serviço espera { id: numero, ... }, mas nossos rows têm { id: "123-Filial" }
-            // Vamos mapear de volta para o formato que o createOrderBatch espera.
-            const itemsToSend = newOrderRows.map(row => ({
-                ...row,
-                id: row.real_sku_id || row.id // Usa o ID numérico salvo
+            const itemsList = newOrderRows.map((row) => ({
+                sku_id: parseInt(row.real_sku_id, 10), // Envia o ID numérico da tb_skus
+                quantity: parseInt(row.quantidade, 10),
+                unit_cost: parseFloat(row.valor || 0),
+                supplier_name: row.fornecedor || "Não informado",
+                expected_delivery_date: row.previsao_entrega || null
             }));
 
-            await createOrderBatch(itemsToSend);
+            await createOrderBatch(itemsList); // Envia para o backend
             
             alert("Pedido criado com sucesso!");
+            handleCloseNewOrder();
+            if (navigate) navigate('/orders'); // Redireciona para a página de ordens
             
-            setRowSelectionModel({ type: 'include', ids: new Set() });
-            setNewOrderRows([]);
-            setIsNewOrderVisible(false);
-            
-            if (navigate) {
-                navigate('/orders');
-            }
         } catch (error) {
-            console.error(error);
-            alert("Erro ao criar pedido. Verifique o console.");
+            console.error("Erro ao criar pedido:", error);
+            const msg = error.response?.data?.detail || error.message;
+            alert(`Falha ao criar pedido: ${msg}`);
         }
     };
 
@@ -241,11 +208,14 @@ export const useStock = () => {
         fornecedor, setFornecedor,
         filial, setFilial,
         isDeleteModalOpen, setIsDeleteModalOpen,
+        isImportConfirmModalOpen, setIsImportConfirmModalOpen,
+        selectedFile, setSelectedFile,
         handleShowNewOrder,
         handleCloseNewOrder,
         handleNewOrderRowUpdate,
         handleDeleteClick,
         confirmDelete,
-        handleCreateOrder
+        handleCreateOrder,
+        fetchStock
     };
 };

@@ -1,6 +1,6 @@
 import { Modal, Box } from "@mui/material";
-import OrdersTable from "./orders_table/OrdersTable";
-import { modalStyle } from "../pages/ordersConfig";
+import OrdersTable from "../orders_table/OrdersTable";
+import { modalStyle } from "../../pages/ordersConfig";
 
 export default function OrderDetailsModal({ open, onClose, items, updateData }) {
     return (

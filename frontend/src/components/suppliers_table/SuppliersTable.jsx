@@ -7,8 +7,21 @@ import { BaseDataGrid } from "../common/BaseDataGrid";
 import AddSupplierModal from "./AddSupplierModal";
 import LeadtimeHistoryModal from "./LeadtimeHistoryModal";
 
-export default function SuppliersTable({ rows = [], setRows, onRequestDelete, historyBySupplier = {}, onRegisterCurrentSnapshot = () => ({}) }) {
+import {
+    updateSupplier,
+    createSupplier
+} from "../../services/supplierService";
+
+export default function SuppliersTable({
+    rows = [],
+    setRows,
+    onRequestDelete,
+    historyBySupplier = {},
+    onRegisterCurrentSnapshot = () => ({})
+}) {
+
     const isCompactLayout = useMediaQuery("(max-width:1279px)");
+
     const [openModal, setOpenModal] = useState(false);
     const [leadtimeModalOpen, setLeadtimeModalOpen] = useState(false);
     const [selectedSupplier, setSelectedSupplier] = useState(null);
@@ -18,7 +31,7 @@ export default function SuppliersTable({ rows = [], setRows, onRequestDelete, hi
         setRowModesModel,
         handleEditClick,
         handleSaveClick,
-        handleCancelClick: genericHandleCancelClick, // Rename to avoid conflict
+        handleCancelClick: genericHandleCancelClick,
     } = useRowEditing();
 
     const handleAdd = useCallback(() => {
@@ -29,12 +42,19 @@ export default function SuppliersTable({ rows = [], setRows, onRequestDelete, hi
         setOpenModal(false);
     }, []);
 
-    const handleSave = useCallback((newSupplier) => {
-        if (!setRows) return;
+    // 🔥 CREATE REAL
+    const handleSave = useCallback(async (newSupplier) => {
+        try {
+            const payload = {
+                name: newSupplier.name,
+                budget: Number(newSupplier.budget),
+                leadtime: Number(newSupplier.leadtime),
+                start: newSupplier.start,
+                end: newSupplier.end,
+            };
 
-        setRows((prevRows) => {
-            // TODO: remover geração local de ID quando o backend retornar o identificador oficial.
-            const newId = prevRows.length ? Math.max(...prevRows.map((row) => row.id)) + 1 : 1;
+            const created = await createSupplier(payload);
+
             const normalizedRow = {
                 id: newId,
                 name: newSupplier.name,
@@ -42,10 +62,14 @@ export default function SuppliersTable({ rows = [], setRows, onRequestDelete, hi
                 end: newSupplier.end ? new Date(newSupplier.end) : null,
                 budget: newSupplier.budget ? Number(newSupplier.budget) : 0,
             };
-            return [...prevRows, normalizedRow];
-        });
 
-        setOpenModal(false);
+            setRows((prev) => [...prev, normalizedRow]);
+
+            setOpenModal(false);
+
+        } catch (error) {
+            console.error("Erro ao criar fornecedor:", error);
+        }
     }, [setRows]);
 
     const handleDeleteClick = useCallback((id) => () => {
@@ -57,11 +81,13 @@ export default function SuppliersTable({ rows = [], setRows, onRequestDelete, hi
     }, [rows, onRequestDelete]);
 
     const handleCancelClick = useCallback((id) => () => {
-        genericHandleCancelClick(id)(); // Call the hook's cancel handler
+        genericHandleCancelClick(id)();
         if (!setRows) return;
         const editedRow = rows.find((row) => row.id === id);
         if (editedRow?.isNew) {
-            setRows((prevRows) => prevRows.filter((row) => row.id !== id));
+            setRows((prevRows) =>
+                prevRows.filter((row) => row.id !== id)
+            );
         }
     }, [genericHandleCancelClick, rows, setRows]);
 
@@ -75,14 +101,43 @@ export default function SuppliersTable({ rows = [], setRows, onRequestDelete, hi
         setLeadtimeModalOpen(false);
         setSelectedSupplier(null);
     }, []);
-    
-    const processRowUpdate = useCallback((newRow) => {
-        const updatedRow = { ...newRow, isNew: false };
-        if (!setRows) {
+
+    // 🔥 UPDATE REAL
+    const processRowUpdate = useCallback(async (newRow) => {
+        try {
+
+            const payload = {
+                name: newRow.name,
+                budget: Number(newRow.budget),
+                leadtime: Number(newRow.leadtime),
+                start: newRow.start?.toISOString().split("T")[0],
+                end: newRow.end?.toISOString().split("T")[0],
+            };
+
+            const updated = await updateSupplier(newRow.id, payload);
+
+            const updatedRow = {
+                id: updated.supplier_id,
+                name: updated.name,
+                start: updated.start ? new Date(updated.start) : null,
+                end: updated.end ? new Date(updated.end) : null,
+                budget: updated.budget,
+                leadtime: updated.leadtime,
+            };
+
+            setRows((prev) =>
+                prev.map((row) =>
+                    row.id === updatedRow.id ? updatedRow : row
+                )
+            );
+
             return updatedRow;
+
+        } catch (error) {
+            console.error("Erro ao atualizar fornecedor:", error);
+            throw error;
         }
-        setRows((prevRows) => prevRows.map((row) => (row.id === newRow.id ? updatedRow : row)));
-        return updatedRow;
+
     }, [setRows]);
 
     const columns = useMemo(() => [
@@ -92,20 +147,38 @@ export default function SuppliersTable({ rows = [], setRows, onRequestDelete, hi
             minWidth: isCompactLayout ? 130 : 160,
             flex: 1,
             editable: true,
-            isCellEditable: (params) => params.row.isNew,
+            align:"left",
             headerAlign: "left",
-            align: "left",
         },
+       
         {
+            field: "budget",
+            headerName: "Orçamento (R$)",
+            type: "number",
+            align:"left",
+            headerAlign: "left", 
+            minWidth: isCompactLayout ? 150 : 200,
+            flex: 1,
+            editable: true,
+            valueFormatter: (value) =>
+                value
+                    ? value.toLocaleString("pt-BR", {
+                          style: "currency",
+                          currency: "BRL",
+                      })
+                    : "",
+        },
+         {
             field: "start",
             headerName: "Início",
             type: "date",
             minWidth: isCompactLayout ? 130 : 150,
             flex: 0.8,
             editable: true,
-            valueFormatter: (value) => value ? new Date(value).toLocaleDateString("pt-BR") : '',
+            align:"left",
             headerAlign: "left",
-            align: "left",
+            valueFormatter: (value) =>
+                value ? new Date(value).toLocaleDateString("pt-BR") : '',
         },
         {
             field: "end",
@@ -113,54 +186,79 @@ export default function SuppliersTable({ rows = [], setRows, onRequestDelete, hi
             type: "date",
             minWidth: isCompactLayout ? 130 : 150,
             flex: 0.8,
+            align:"left",
+            headerAlign: "left", 
             editable: true,
-            valueFormatter: (value) => value ? new Date(value).toLocaleDateString("pt-BR") : '',
-            headerAlign: "left",
-            align: "left",
-        },
-        {
-            field: "budget",
-            headerName: "Orçamento (R$)",
-            type: "number",
-            minWidth: isCompactLayout ? 150 : 200,
-            flex: 1,
-            editable: true,
-            valueFormatter: (value) => value ? value.toLocaleString("pt-BR", { style: 'currency', currency: 'BRL' }) : '',
-            headerAlign: "left",
-            align: "left",
+            valueFormatter: (value) =>
+                value ? new Date(value).toLocaleDateString("pt-BR") : '',
         },
         {
             field: "actions",
             type: "actions",
             headerName: "Ações",
+            align:"left",
+            headerAlign: "left", 
             width: isCompactLayout ? 120 : 140,
-            cellClassName: "actions",
-            headerAlign: "center",
-            align: "center",
-            justify:"center",
             getActions: ({ id }) => {
-                const isInEditMode = rowModesModel[id]?.mode === GridRowModes.Edit;
+                const isInEditMode =
+                    rowModesModel[id]?.mode === GridRowModes.Edit;
 
                 if (isInEditMode) {
                     return [
-                        <GridActionsCellItem icon={<FiCheck />} label="Salvar" onClick={handleSaveClick(id)} color="primary" />,
-                        <GridActionsCellItem icon={<FiX />} label="Cancelar" onClick={handleCancelClick(id)} color="inherit" />,
+                        <GridActionsCellItem
+                            icon={<FiCheck />}
+                            label="Salvar"
+                            onClick={handleSaveClick(id)}
+                            color="primary"
+                        />,
+                        <GridActionsCellItem
+                            icon={<FiX />}
+                            label="Cancelar"
+                            onClick={handleCancelClick(id)}
+                            color="inherit"
+                        />,
                     ];
                 }
 
                 return [
-                    <GridActionsCellItem icon={<FiClock />} label="Leadtime" onClick={handleLeadtimeClick(id)} color="inherit" />,
-                    <GridActionsCellItem icon={<FiEdit />} label="Editar" onClick={handleEditClick(id)} color="inherit" />,
-                    <GridActionsCellItem icon={<FiTrash2 />} label="Excluir" onClick={handleDeleteClick(id)} color="inherit" />,
+                    <GridActionsCellItem
+                        icon={<FiClock />}
+                        label="Leadtime"
+                        onClick={handleLeadtimeClick(id)}
+                        color="inherit"
+                    />,
+                    <GridActionsCellItem
+                        icon={<FiEdit />}
+                        label="Editar"
+                        onClick={handleEditClick(id)}
+                        color="inherit"
+                    />,
+                    <GridActionsCellItem
+                        icon={<FiTrash2 />}
+                        label="Excluir"
+                        onClick={handleDeleteClick(id)}
+                        color="inherit"
+                    />,
                 ];
             },
         },
-    ], [rowModesModel, rows, handleEditClick, handleSaveClick, handleDeleteClick, handleCancelClick, handleLeadtimeClick, isCompactLayout]);
+    ], [
+        rowModesModel,
+        handleEditClick,
+        handleSaveClick,
+        handleDeleteClick,
+        handleCancelClick,
+        handleLeadtimeClick,
+        isCompactLayout,
+    ]);
 
-    const selectedHistory = selectedSupplier ? historyBySupplier[selectedSupplier.id] || [] : [];
+    const selectedHistory =
+        selectedSupplier
+            ? historyBySupplier[selectedSupplier.id] || []
+            : [];
 
     return (
-        <Box sx={{ width: '100%' }}>
+        <Box sx={{ width: "100%" }}>
             <BaseDataGrid
                 rows={rows}
                 columns={columns}
@@ -168,19 +266,22 @@ export default function SuppliersTable({ rows = [], setRows, onRequestDelete, hi
                 rowModesModel={rowModesModel}
                 onRowModesModelChange={setRowModesModel}
                 processRowUpdate={processRowUpdate}
-                headerStyle="alternative" // Use the alternative header style
+                headerStyle="alternative"
             />
+
             <button
                 onClick={handleAdd}
                 className="bg-[#f43629] hover:bg-white text-white hover:text-black shadow-lg font-poppins uppercase text-sm p-2 rounded-md mt-6"
             >
                 Adicionar Fornecedor
             </button>
+
             <AddSupplierModal
                 isOpen={openModal}
                 onClose={handleCloseModal}
                 onSave={handleSave}
             />
+
             <LeadtimeHistoryModal
                 isOpen={leadtimeModalOpen}
                 onClose={handleCloseLeadtimeModal}

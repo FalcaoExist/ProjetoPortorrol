@@ -15,7 +15,8 @@ const orderService = {
                 valor: order.total_value,
                 status: order.status,
                 data_entrega: order.data_entrega,
-                previsao_entrega: order.data_entrega // ou outro campo se tiver
+                data_pedido: order.created_at || order.data_pedido,
+                previsao_entrega: order.data_entrega 
             })) || [];
         } catch (error) {
             console.error("Erro ao buscar pedidos:", error);

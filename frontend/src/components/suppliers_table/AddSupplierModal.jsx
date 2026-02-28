@@ -5,7 +5,7 @@ import InputField from "../common/InputField";
 export default function AddSupplierModal({
   isOpen = false,
   onClose = () => {},
-  onSave = () => {},
+  onSave = async () => {},
 }) {
   const [formData, setFormData] = useState({
     name: "",
@@ -13,6 +13,7 @@ export default function AddSupplierModal({
     end: "",
     budget: "",
   });
+
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState({ type: "", message: "" });
 
@@ -25,6 +26,7 @@ export default function AddSupplierModal({
         budget: "",
       });
       setStatus({ type: "", message: "" });
+      setLoading(false);
     }
   }, [isOpen]);
 
@@ -33,19 +35,42 @@ export default function AddSupplierModal({
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+
     setLoading(true);
     setStatus({ type: "", message: "" });
 
     try {
-      onSave(formData);
-      setStatus({ type: "success", message: "Fornecedor salvo com sucesso!" });
+      const payload = {
+        name: formData.name.trim(),
+        start: formData.start, // já vem YYYY-MM-DD
+        end: formData.end,
+        budget: Number(formData.budget),
+        leadtime: Number(formData.leadtime),
+      };
+
+      await onSave(payload);
+
+      setStatus({
+        type: "success",
+        message: "Fornecedor salvo com sucesso!",
+      });
+
       setTimeout(() => {
         onClose();
-      }, 1000);
+      }, 800);
+
     } catch (error) {
-      setStatus({ type: "error", message: "Erro ao salvar o fornecedor." });
+      console.error("Erro ao salvar fornecedor:", error);
+
+      setStatus({
+        type: "error",
+        message:
+          error?.response?.data?.detail ||
+          "Erro ao salvar o fornecedor.",
+      });
+
     } finally {
       setLoading(false);
     }
@@ -56,8 +81,11 @@ export default function AddSupplierModal({
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50">
       <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-lg animate-fade-in">
+
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-bold text-gray-800 font-poppins">Adicionar Novo Fornecedor</h2>
+          <h2 className="text-xl font-bold text-gray-800 font-poppins">
+            Adicionar Novo Fornecedor
+          </h2>
         </div>
 
         {status.message && (
@@ -68,12 +96,17 @@ export default function AddSupplierModal({
                 : "bg-red-50 text-red-700 border border-red-200"
             }`}
           >
-            {status.type === "success" ? <FiCheckCircle size={20} /> : <FiAlertCircle size={20} />}
+            {status.type === "success" ? (
+              <FiCheckCircle size={20} />
+            ) : (
+              <FiAlertCircle size={20} />
+            )}
             <span>{status.message}</span>
           </div>
         )}
 
         <form className="space-y-4" onSubmit={handleSubmit} noValidate>
+
           <InputField
             label="Fornecedor"
             type="text"
@@ -84,6 +117,7 @@ export default function AddSupplierModal({
             required
             disabled={loading}
           />
+
           <InputField
             label="Início"
             type="date"
@@ -93,6 +127,7 @@ export default function AddSupplierModal({
             required
             disabled={loading}
           />
+
           <InputField
             label="Fim"
             type="date"
@@ -102,6 +137,7 @@ export default function AddSupplierModal({
             required
             disabled={loading}
           />
+
           <InputField
             label="Orçamento (R$)"
             type="number"
@@ -114,6 +150,7 @@ export default function AddSupplierModal({
           />
 
           <div className="flex justify-end gap-3 mt-8 pt-4 border-t border-gray-100">
+
             <button
               type="button"
               onClick={onClose}
@@ -129,8 +166,13 @@ export default function AddSupplierModal({
               className={`px-6 py-2.5 rounded-xl text-white font-medium shadow-lg transition-all flex items-center gap-2 font-poppins
                 ${status.type === "success" ? "bg-green-600 hover:bg-green-700" : "bg-[#f43629] hover:bg-[#d92e21]"} disabled:opacity-70 disabled:cursor-not-allowed`}
             >
-              {loading ? "Salvando..." : status.type === "success" ? "Salvo!" : "Salvar"}
+              {loading
+                ? "Salvando..."
+                : status.type === "success"
+                ? "Salvo!"
+                : "Salvar"}
             </button>
+
           </div>
         </form>
       </div>

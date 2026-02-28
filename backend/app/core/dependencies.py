@@ -13,6 +13,10 @@ from app.repositories.repositories_supabase import SupabaseUserRepository
 from app.services.audit_service import AuditService
 from app.services.auth_service import AuthService
 from app.services.user_service import UserService
+from app.services.supplier_service import SupplierService
+from app.services.order_service import OrderService
+from app.services.stock_service import StockService
+from app.repositories.orders_repository import OrdersRepository
 
 load_dotenv()
 
@@ -45,6 +49,20 @@ def get_audit_service(
     repo: IUserRepository = Depends(get_user_repository)
 ) -> AuditService:
     return AuditService(repo)
+
+
+def get_supplier_service() -> SupplierService:
+    return SupplierService()
+
+
+def get_order_service() -> OrderService:
+    return OrderService()
+
+def get_orders_repo():
+    return OrdersRepository()
+
+def get_stock_service() -> StockService:
+    return StockService()
 
 # --- Dependência de Autenticação (JWT) ---
 

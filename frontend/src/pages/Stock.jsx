@@ -6,19 +6,17 @@ import { importStockFromFile, exportStockData } from "../services/stockService";
 import { exportStockCSV } from "../services/csvExporter";
 
 
-// Opções estáticas (Status e Filial não mudam, então definimos aqui para não precisar de mock)
-const statusOptions = ["Ok", "Subdimensionado", "Ruptura iminente", "Excesso"];
-const filialOptions = ["Porto Alegre", "Joinville", "São Paulo"];
-
 import Header from "../components/header/Header";
 import Navbar from "../components/nav_bar/NavBar";
 import SearchBar from "../components/common/SearchBar";
 import SelectFilter from "../components/common/SelectFilter";
-import StockTable from "../components/stock_table/StockTable";
+import StockTable from "../components/stock_table/StockTable"; 
 import NewOrderTable from "../components/new_order_table/NewOrderTable";
 import ConfirmationModal from "../components/common/ConfirmationModal";
 import ExportDropdown from "../components/common/ExportDropdown";
 
+const statusOptions = ["Ok", "Subdimensionado", "Ruptura iminente", "Excesso"];
+const filialOptions = ["Porto Alegre", "Joinville", "São Paulo"];
 
 
 export default function Stock() {

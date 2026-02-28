@@ -18,11 +18,7 @@ const CustomTooltip = ({ active, payload, label }) => {
 
 export default function MonthlyQuantityChart({ data, sku }) {
 
-  const displayData = useMemo(() => {
-    if (!sku) return data;
-    const modifier = 1 + ((sku.length % 5) * 0.1);
-    return data.map(d => ({ ...d, value: Math.round(d.value * modifier) }));
-  }, [data, sku]);
+  const displayData = data || [];
 
   return (
     <div className="w-full h-[300px] min-h-[200px] bg-white rounded-[20px] p-6 relative">
@@ -36,11 +32,6 @@ export default function MonthlyQuantityChart({ data, sku }) {
           <Line type="monotone" dataKey="value" stroke="#5E4D9E" strokeWidth={4} dot={{ r: 0, fill: "#fff", stroke: "#5E4D9E", strokeWidth: 3 }} activeDot={{ r: 10, fill: "#fff", stroke: "#5E4D9E", strokeWidth: 4 }} />
         </LineChart>
       </ResponsiveContainer>
-      {sku && (
-        <div className="absolute ml-8 mt-2">
-          <div className="bg-white px-3 py-1 rounded-full text-sm shadow">{sku}</div>
-        </div>
-      )}
     </div>
   )
 };

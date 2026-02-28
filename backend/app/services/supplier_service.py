@@ -2,6 +2,7 @@ from typing import List, Optional
 from uuid import uuid4, UUID
 from datetime import datetime, date
 from app.core.supabase_client import supabase
+from app.repositories.supplier_leadtime_repository import SupplierLeadtimeRepository
 
 class SupplierService:
 
@@ -14,7 +15,17 @@ class SupplierService:
                 .order("name")
                 .execute()
             )
-            return resp.data or []
+
+            suppliers = resp.data or []
+
+            for supplier in suppliers:
+                leadtimes = SupplierLeadtimeRepository.list_by_supplier(
+                    supplier["supplier_id"]
+                )
+                supplier["leadtimes"] = leadtimes or []
+
+            return suppliers
+
         except Exception as e:
             raise Exception(f"Erro ao buscar fornecedores: {e}")
 
@@ -22,22 +33,20 @@ class SupplierService:
         self,
         name: str,
         budget: float,
-        leadtime: int,
         start: date,
         end: date,
+        leadtimes: Optional[List[dict]] = None,
         external_id: Optional[str] = None,
     ) -> dict:
 
         ext_id = external_id or str(uuid4())[:8]
-
         now = datetime.utcnow().isoformat()
 
         payload = {
             "name": name,
             "budget": budget,
-            "leadtime": leadtime,
-            "start": start.isoformat(),
-            "end": end.isoformat(),
+            "start": start.isoformat() if start else None,
+            "end": end.isoformat() if end else None,
             "external_id": ext_id,
             "is_active": True,
             "created_at": now,
@@ -45,20 +54,40 @@ class SupplierService:
         }
 
         resp = supabase.table("suppliers").insert(payload).execute()
-        
+
         if not resp.data:
             raise Exception("Erro ao inserir fornecedor")
 
-        return resp.data[0]
+        created_supplier = resp.data[0]
+        supplier_id = created_supplier["supplier_id"]
 
+        if leadtimes:
+            leadtimes_payload = [
+                {
+                    "supplier_id": supplier_id,
+                    "branch_id": str(lt["branch_id"]),
+                    "leadtime": lt["leadtime"],
+                    "created_at": now,
+                    "updated_at": now,
+                }
+                for lt in leadtimes
+            ]
+
+            inserted_leadtimes = SupplierLeadtimeRepository.bulk_insert(leadtimes_payload)
+            created_supplier["leadtimes"] = inserted_leadtimes
+        else:
+            created_supplier["leadtimes"] = []
+
+        return created_supplier
+    
     def update_supplier(
         self,
         supplier_id: UUID,
         name: str,
         budget: float,
-        leadtime: int,
         start: date,
         end: date,
+        leadtimes: Optional[List[dict]] = None,
     ) -> dict:
 
         now = datetime.utcnow().isoformat()
@@ -66,9 +95,8 @@ class SupplierService:
         payload = {
             "name": name,
             "budget": budget,
-            "leadtime": leadtime,
-            "start": start.isoformat(),
-            "end": end.isoformat(),
+            "start": start.isoformat() if start else None,
+            "end": end.isoformat() if end else None,
             "updated_at": now,
         }
 
@@ -82,7 +110,28 @@ class SupplierService:
         if not resp.data:
             raise ValueError("Fornecedor não encontrado")
 
-        return resp.data[0]
+        updated_supplier = resp.data[0]
+
+        SupplierLeadtimeRepository.delete_by_supplier(supplier_id)
+
+        if leadtimes:
+            leadtimes_payload = [
+                {
+                    "supplier_id": str(supplier_id),
+                    "branch_id": str(lt["branch_id"]),
+                    "leadtime": lt["leadtime"],
+                    "created_at": now,
+                    "updated_at": now,
+                }
+                for lt in leadtimes
+            ]
+
+            inserted_leadtimes = SupplierLeadtimeRepository.bulk_insert(leadtimes_payload)
+            updated_supplier["leadtimes"] = inserted_leadtimes
+        else:
+            updated_supplier["leadtimes"] = []
+
+        return updated_supplier
 
     def deactivate_supplier(self, supplier_id: str) -> dict:
         try:
@@ -100,8 +149,6 @@ class SupplierService:
 
             if not current.data["is_active"]:
                 raise ValueError("Fornecedor já está desativado.")
-
-            # 2. Atualizar
 
             now = datetime.utcnow().isoformat()
 

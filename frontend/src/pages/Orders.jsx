@@ -26,6 +26,9 @@ export default function Orders() {
         setOrderDate,
         responsavelFilter,
         setResponsavelFilter,
+        fornecedorFilter,
+        setFornecedorFilter,
+        supplierOptions,
         modalOpen,
         selectedOrderItems,
         handleOpenModal,
@@ -105,6 +108,9 @@ export default function Orders() {
                                 onOrderDateChange={(e) => setOrderDate(e.target.value)}
                                 responsavelFilter={responsavelFilter}
                                 onResponsavelChange={(e) => setResponsavelFilter(e.target.value)}
+                                 fornecedorFilter={fornecedorFilter}
+                                onFornecedorChange={(e) => setFornecedorFilter(e.target.value)}
+                                supplierOptions={supplierOptions}
                             />
                         </div>
 

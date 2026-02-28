@@ -8,6 +8,7 @@ import { useAuth } from "../context/authContext";
 import { useLeadtimeHistory } from "../hooks/useLeadtimeHistory";
 
 import { getSuppliers, deleteSupplier } from "../services/supplierService";
+import { logger } from "../utils/logger";
 
 export default function ListSuppliers() {
     const { user } = useAuth();
@@ -41,7 +42,7 @@ export default function ListSuppliers() {
 
                 setSuppliers(formatted);
             } catch (error) {
-                console.error("Erro ao carregar fornecedores:", error);
+                logger.error("Erro ao carregar fornecedores:", error);
             } finally {
                 setLoading(false);
             }
@@ -80,7 +81,7 @@ export default function ListSuppliers() {
                 message: `Fornecedor ${deleteTarget.name} excluído com sucesso.`,
             };
         } catch (error) {
-            console.error("Erro ao excluir fornecedor:", error);
+            logger.error("Erro ao excluir fornecedor:", error);
 
             return {
                 success: false,

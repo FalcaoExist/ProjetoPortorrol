@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import supplierService from "../../services/supplierService"; // Ajuste o caminho se necessário
+import { logger } from "../../utils/logger";
 import { X } from "lucide-react"; // Ou use o ícone que você já tem
 
 export default function CreateSupplierModal({ isOpen, onClose, onRefresh }) {
@@ -33,7 +34,7 @@ export default function CreateSupplierModal({ isOpen, onClose, onRefresh }) {
       // Limpa o form
       setFormData({ name: "", lead_time_days: 30, is_active: true });
     } catch (err) {
-      console.error(err);
+      logger.error(err);
       setError("Erro ao criar fornecedor. Verifique se o nome já existe.");
     } finally {
       setLoading(false);

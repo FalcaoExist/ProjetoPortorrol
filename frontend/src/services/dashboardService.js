@@ -1,55 +1,67 @@
-import httpClient from "./validators/api/httpClient";
+import httpClient from './validators/api/httpClient'; // Verifique se o caminho do httpClient está correto no seu projeto
+import { logger } from "../utils/logger";
 
 const dashboardService = {
-  // Adicionado argumento 'supplier'
-  async getSkus(status = null, filial = null, supplier = null) {
-    const params = new URLSearchParams();
-    if (status) params.append("status", status);
-    if (filial) params.append("filial", filial);
-    if (supplier) params.append("fornecedor", supplier); // Envia para o back
 
+  // ---> ADICIONE ESTA FUNÇÃO AQUI <---
+  searchSkus: async (term) => {
     try {
-      const endpoint = params.toString() ? `/dashboard/skus?${params.toString()}` : "/dashboard/skus";
-      const data = await httpClient.get(endpoint);
-      return data || [];
+      // Faz a chamada HTTP para a rota nova que adicionamos no Python
+      const response = await httpClient.get('/dashboard/search', {
+        params: { term }
+      });
+      // Garante que retorne o array de resultados (dependendo de como o Axios ou Fetch está configurado)
+      return response.data || response || [];
     } catch (error) {
-      console.error("Erro dashboard skus:", error);
+      logger.error("Erro ao buscar SKUs no backend:", error);
       return [];
     }
   },
 
-  async getFiliais() {
+  getSkus: async (status, filial, fornecedor) => {
     try {
-      return await httpClient.get("/dashboard/filiais");
+      let url = '/dashboard/skus';
+      const params = new URLSearchParams();
+      if (status) params.append('status', status);
+      if (filial && filial !== "Todas") params.append('filial', filial);
+      if (fornecedor && fornecedor !== "Todos") params.append('fornecedor', fornecedor);
+
+      if (params.toString()) {
+        url += `?${params.toString()}`;
+      }
+
+      const response = await httpClient.get(url);
+      return response.data || response;
     } catch (error) {
-      return [];
+      logger.error("Erro ao buscar SKUs:", error);
+      throw error;
     }
   },
 
-  async searchSkus(query) {
-    if (!query) return [];
+  getFiliais: async () => {
     try {
-      return await httpClient.get(`/dashboard/search?q=${encodeURIComponent(query)}`);
+      const response = await httpClient.get('/dashboard/filiais');
+      return response.data || response;
     } catch (error) {
-      return [];
+      logger.error("Erro ao buscar filiais:", error);
+      throw error;
     }
   },
 
-async getHistory(skuId) {
-    // REMOVIDO O BLOQUEIO: if (!skuId) return [];
+  getHistory: async (skuId = null) => {
     try {
-      // Se tiver ID, manda. Se não, chama a rota limpa para pegar o geral.
-      const endpoint = skuId 
-        ? `/dashboard/history?sku_id=${skuId}` 
-        : `/dashboard/history`;
-        
-      const data = await httpClient.get(endpoint);
-      return data || [];
+      let url = '/dashboard/history';
+      if (skuId) {
+         url += `?sku_id=${skuId}`;
+      }
+      const response = await httpClient.get(url);
+      return response.data || response;
     } catch (error) {
-      console.error("Erro ao buscar histórico:", error);
-      return [];
+      logger.error("Erro ao buscar histórico:", error);
+      throw error;
     }
-  },
+  }
+
 };
 
 export default dashboardService;

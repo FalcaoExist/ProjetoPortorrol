@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from "react";
 import httpClient from "../services/validators/api/httpClient";
+import { logger } from "../utils/logger";
 
 const AuthContext = createContext();
 
@@ -35,9 +36,9 @@ useEffect(() => {
         // Lembrete agora é para todos os usuários logados
         if (currentUser) {
             const lastDismissed = localStorage.getItem('lastReminderDismissedTimestamp');
-            const fortyEightHours = 48 * 60 * 60 * 1000;
-
-            if (!lastDismissed || (Date.now() - parseInt(lastDismissed, 10)) > fortyEightHours) {
+            const twentyFourHours = 24 * 60 * 60 * 1000;
+            
+            if (!lastDismissed || (Date.now() - parseInt(lastDismissed, 10)) > twentyFourHours) {
                 setShowReminder(true);
             }
         }
@@ -76,7 +77,7 @@ useEffect(() => {
                                 localStorage.removeItem("user_data");
                                 localStorage.removeItem("user");
                             } catch (e) {
-                                console.error(e)
+                                logger.error(e);
                             }
                             checkAndShowReminder(me.user);
                     } else {
@@ -113,7 +114,7 @@ useEffect(() => {
             }
 
         } catch (error) {
-            console.error("Erro no login context:", error);
+            logger.error("Erro no login context:", error);
             // Normaliza a mensagem de erro para string (backend pode retornar array/obj)
             const extractMessage = (data) => {
                 if (!data) return null;
@@ -143,7 +144,7 @@ useEffect(() => {
         try {
             await httpClient.post("/logout", {});
         } catch (error) {
-            console.error("Erro ao fazer logout no servidor", error);
+            logger.error("Erro ao fazer logout no servidor", error);
         } finally {
             setUser(null);
             try { localStorage.removeItem("user_meta"); localStorage.removeItem("user_data"); localStorage.removeItem("user"); } catch (e) {}

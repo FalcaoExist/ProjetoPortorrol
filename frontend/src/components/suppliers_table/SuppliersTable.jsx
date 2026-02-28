@@ -6,6 +6,7 @@ import { useRowEditing } from "../../hooks/useRowEditing";
 import { BaseDataGrid } from "../common/BaseDataGrid";
 import AddSupplierModal from "./AddSupplierModal";
 import LeadtimeHistoryModal from "./LeadtimeHistoryModal";
+import { logger } from "../../utils/logger";
 
 import {
     updateSupplier,
@@ -56,12 +57,11 @@ export default function SuppliersTable({
             const created = await createSupplier(payload);
 
             const normalizedRow = {
-                id: created.supplier_id,
-                name: created.name,
-                start: created.start ? new Date(created.start) : null,
-                end: created.end ? new Date(created.end) : null,
-                budget: created.budget,
-                leadtime: created.leadtime,
+                id: newId,
+                name: newSupplier.name,
+                start: newSupplier.start ? new Date(newSupplier.start) : null,
+                end: newSupplier.end ? new Date(newSupplier.end) : null,
+                budget: newSupplier.budget ? Number(newSupplier.budget) : 0,
             };
 
             setRows((prev) => [...prev, normalizedRow]);
@@ -69,7 +69,7 @@ export default function SuppliersTable({
             setOpenModal(false);
 
         } catch (error) {
-            console.error("Erro ao criar fornecedor:", error);
+            logger.error("Erro ao criar fornecedor:", error);
         }
     }, [setRows]);
 
@@ -135,7 +135,7 @@ export default function SuppliersTable({
             return updatedRow;
 
         } catch (error) {
-            console.error("Erro ao atualizar fornecedor:", error);
+            logger.error("Erro ao atualizar fornecedor:", error);
             throw error;
         }
 
@@ -192,18 +192,6 @@ export default function SuppliersTable({
             editable: true,
             valueFormatter: (value) =>
                 value ? new Date(value).toLocaleDateString("pt-BR") : '',
-        },
-        {
-            field: "leadtime",
-            headerName: "Leadtime",
-            type: "number",
-            minWidth: isCompactLayout ? 110 : 140,
-            flex: 0.6,
-            align:"left",
-            editable: true,
-            headerAlign: "left", 
-            valueFormatter: (value) =>
-                value != null ? `${value} dias` : "",
         },
         {
             field: "actions",

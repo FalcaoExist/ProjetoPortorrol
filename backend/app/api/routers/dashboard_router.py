@@ -1,5 +1,5 @@
 from typing import List, Optional
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from app.api.schemas import (
     ConfigUpdate, FilialResponse, SkuAnaliseResponse, StatusProduto,
 )
@@ -9,6 +9,16 @@ router = APIRouter()
 
 def get_dashboard_service():
     return DashboardService()
+
+@router.get("/dashboard/search")
+def search_skus(
+    term: str = Query(..., min_length=1), 
+    service: DashboardService = Depends(get_dashboard_service)
+):
+    try:
+        return service.search_products(term)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro na busca: {str(e)}")
 
 @router.get("/dashboard/skus", response_model=List[SkuAnaliseResponse])
 def listar_skus_dashboard(status: Optional[StatusProduto] = Query(None), filial: Optional[str] = Query(None), fornecedor: Optional[str] = Query(None), service: DashboardService = Depends(get_dashboard_service)):

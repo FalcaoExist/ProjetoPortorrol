@@ -1,4 +1,5 @@
 import httpClient from "./validators/api/httpClient";
+import { logger } from "../utils/logger";
 
 export async function getAuditLogs({
   user_id,
@@ -36,7 +37,7 @@ export async function getAuditLogs({
       description: row.description,
     }));
   } catch (err) {
-    console.error("Erro ao buscar audit logs:", err);
+    logger.error("Erro ao buscar audit logs:", err);
     return [];
   }
 }

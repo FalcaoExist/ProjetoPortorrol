@@ -4,21 +4,20 @@ import { useAuth } from "../context/authContext";
 import { useStock } from "../hooks/useStock";
 import { importStockFromFile, exportStockData } from "../services/stockService";
 import { exportStockCSV } from "../services/csvExporter";
+import { logger } from "../utils/logger";
 
-
-// Opções estáticas (Status e Filial não mudam, então definimos aqui para não precisar de mock)
-const statusOptions = ["Ok", "Subdimensionado", "Ruptura iminente", "Excesso"];
-const filialOptions = ["Porto Alegre", "Joinville", "São Paulo"];
 
 import Header from "../components/header/Header";
 import Navbar from "../components/nav_bar/NavBar";
 import SearchBar from "../components/common/SearchBar";
 import SelectFilter from "../components/common/SelectFilter";
-import StockTable from "../components/stock_table/StockTable";
+import StockTable from "../components/stock_table/StockTable"; 
 import NewOrderTable from "../components/new_order_table/NewOrderTable";
 import ConfirmationModal from "../components/common/ConfirmationModal";
 import ExportDropdown from "../components/common/ExportDropdown";
 
+const statusOptions = ["Ok", "Subdimensionado", "Ruptura iminente", "Excesso"];
+const filialOptions = ["Porto Alegre", "Joinville", "São Paulo"];
 
 
 export default function Stock() {
@@ -81,23 +80,6 @@ export default function Stock() {
         loading 
     } = useStock(); 
 
-    // O DataGrid v8 usa { type, ids: Set }. Para seleção controlada funcionar (incluindo "marcar todos"),
-    // precisamos clonar o Set para sempre mudar a referência do estado.
-    const handleRowSelectionModelChange = (model) => {
-        if (model && model.ids instanceof Set) {
-            setRowSelectionModel({
-                type: model.type || 'include',
-                ids: new Set(model.ids),
-            });
-            return;
-        }
-
-        // Fallback: se por algum motivo vier um array de IDs
-        if (Array.isArray(model)) {
-            setRowSelectionModel({ type: 'include', ids: new Set(model) });
-        }
-    };
-
     const handleImportClick = () => {
         if (fileInputRef.current) {
             fileInputRef.current.click();
@@ -117,10 +99,8 @@ export default function Stock() {
         if (selectedFile) {
             try {
                 const result = await importStockFromFile(selectedFile);
-                alert(result.message || "Importação realizada com sucesso!"); 
             } catch (error) {
-                console.error("Erro ao importar arquivo:", error);
-                alert(`Erro ao importar: ${error.message}`);
+                logger.error("Erro ao importar arquivo:", error);
             } finally {
                 setSelectedFile(null);
                 setIsImportConfirmModalOpen(false);
@@ -160,13 +140,6 @@ export default function Stock() {
                                 onChange={(e) => setFornecedor(e.target.value)}
                                 options={supplierOptions} 
                             />
-                            <SelectFilter
-                                label="Filial"
-                                name="filial"
-                                value={filial}
-                                onChange={(e) => setFilial(e.target.value)}
-                                options={filialOptions}
-                            />
                         </div>
 
                         {/* AQUI: Adicionei 'key' e 'loading' para estabilidade, sem mudar o visual */}
@@ -176,7 +149,7 @@ export default function Stock() {
                             loading={loading} 
                             isRequisitionMode={isNewOrderVisible}
                             rowSelectionModel={rowSelectionModel}
-                            onRowSelectionModelChange={handleRowSelectionModelChange}
+                            onRowSelectionModelChange={setRowSelectionModel}
                         />
 
                         <div className="flex items-center justify-between mt-4">
@@ -211,8 +184,7 @@ export default function Stock() {
                                                 try {
                                                     exportStockCSV(filteredRows);
                                                 } catch (error) {
-                                                    console.error("Erro ao exportar CSV:", error);
-                                                    alert(`Erro ao exportar: ${error.message}`);
+                                                    logger.error("Erro ao exportar CSV:", error);
                                                 }
                                             }
                                         },
@@ -222,8 +194,7 @@ export default function Stock() {
                                                 try {
                                                     await exportStockData(filteredRows);
                                                 } catch (err) {
-                                                    console.error('Erro exportando XLSX via serviço:', err);
-                                                    alert('Erro ao exportar Excel: ' + (err.message || err));
+                                                    logger.error('Erro exportando XLSX via serviço:', err);
                                                 }
                                             }
                                         },
@@ -273,9 +244,7 @@ export default function Stock() {
             <ConfirmationModal
                 isOpen={isConfirmOrderModalOpen}
                 onClose={() => setIsConfirmOrderModalOpen(false)}
-                onConfirm={() => {
-                    handleCreateOrder(navigate);
-                }}
+                onConfirm={() => handleCreateOrder(navigate)}
                 title="Confirmar Novo Pedido"
                 message="Você gostaria de fazer um novo pedido?"
                 confirmButtonText="Sim"

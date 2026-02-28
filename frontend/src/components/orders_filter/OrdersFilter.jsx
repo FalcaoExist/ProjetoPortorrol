@@ -13,6 +13,9 @@ export default function OrdersFilter({
   onOrderDateChange,
   responsavelFilter,
   onResponsavelChange,
+  fornecedorFilter,
+  onFornecedorChange,
+  supplierOptions = [],
 }) {
   return (
     <div className="flex flex-wrap items-center gap-4">
@@ -25,6 +28,13 @@ export default function OrdersFilter({
         value={responsavelFilter}
         onChange={onResponsavelChange}
         placeholder="Buscar por responsável..."
+      />
+      <SelectFilter
+        label="Fornecedor"
+        name="fornecedor"
+        value={fornecedorFilter}
+        onChange={onFornecedorChange}
+        options={supplierOptions}
       />
       <SelectFilter
         label="Status"

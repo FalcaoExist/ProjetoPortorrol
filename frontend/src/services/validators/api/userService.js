@@ -1,4 +1,5 @@
 import httpClient from "./httpClient";
+import { logger } from "../../../utils/logger";
 
 /**
  * Busca a lista de usuários do backend.
@@ -19,7 +20,7 @@ export async function getUsers(filters = {}) {
     // Garantimos que retornamos um array, mesmo que vazio
     return response.users || [];
   } catch (error) {
-    console.error("Erro no serviço getUsers:", error);
+    logger.error("Erro no serviço getUsers:", error);
     return [];
   }
 }
@@ -33,7 +34,7 @@ export async function updateUser(userId, userData) {
     const response = await httpClient.put(`/users/${userId}`, userData);
     return response.user || response;
   } catch (error) {
-    console.error("Erro ao atualizar usuário:", error);
+    logger.error("Erro ao atualizar usuário:", error);
     throw error;
   }
 }
@@ -47,7 +48,7 @@ export async function deleteUser(userId) {
     await httpClient.delete(`/users/${userId}`);
     return true;
   } catch (error) {
-    console.error("Erro ao excluir usuário:", error);
+    logger.error("Erro ao excluir usuário:", error);
     throw error;
   }
 }

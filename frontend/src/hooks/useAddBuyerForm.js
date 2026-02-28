@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { logger } from "../utils/logger";
 
 const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
@@ -58,7 +59,7 @@ export function useAddBuyerForm({ isOpen, onSave, onCheckEmail, onClose }) {
         setEmailExists(false);
       }
     } catch (err) {
-      console.error("Erro ao checar e-mail:", err);
+      logger.error("Erro ao checar e-mail:", err);
     } finally {
       setCheckingEmail(false);
     }
@@ -116,7 +117,7 @@ export function useAddBuyerForm({ isOpen, onSave, onCheckEmail, onClose }) {
         }
       }
     } catch (error) {
-      console.error("Erro no submit:", error);
+      logger.error("Erro no submit:", error);
       setStatus({ type: "error", message: "Erro de conexão." });
     } finally {
       setLoading(false);

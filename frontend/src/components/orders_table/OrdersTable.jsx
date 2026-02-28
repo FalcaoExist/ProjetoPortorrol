@@ -1,5 +1,6 @@
 import React, { useMemo } from "react";
 import { BaseDataGrid } from "../common/BaseDataGrid";
+import { logger } from "../../utils/logger";
 
 const getStatusStyles = (status) => {
     if (status === "Aprovado") {
@@ -46,7 +47,7 @@ const EditDateCell = (props) => {
     );
 };
 
-export default function OrdersTable({ rows = [], updateData }) {
+export default function OrdersTable({ rows = [], updateData, onViewDetails }) {
     const processRowUpdate = (newRow) => {
         const dateString = newRow.data_entrega ? newRow.data_entrega.toISOString().split('T')[0] : null;
         updateData(newRow.id, "data_entrega", dateString);
@@ -60,10 +61,11 @@ export default function OrdersTable({ rows = [], updateData }) {
         return new Date(date.valueOf() + timeZoneOffset);
     };
 
-    const rowsWithDateObjects = useMemo(() => rows.map(row => ({
+const rowsWithDateObjects = useMemo(() => rows.map(row => ({
         ...row,
         previsao_entrega: createUTCDate(row.previsao_entrega),
-        data_entrega: createUTCDate(row.data_entrega)
+        data_entrega: createUTCDate(row.data_entrega),
+        data_pedido: createUTCDate(row.data_pedido || row.created_at)
     })), [rows]);
 
 
@@ -113,9 +115,8 @@ export default function OrdersTable({ rows = [], updateData }) {
             rows={rowsWithDateObjects}
             columns={columns}
             processRowUpdate={processRowUpdate}
-            onProcessRowUpdateError={(error) => console.error(error)}
+            onProcessRowUpdateError={(error) => logger.error(error)}
             experimentalFeatures={{ newEditingApi: true }}
-            autoHeight
         />
     );
 }

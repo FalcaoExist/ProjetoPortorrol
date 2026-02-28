@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import dashboardService from "../services/dashboardService";
 import * as supplierService from "../services/supplierService";
+import { logger } from "../utils/logger";
 import { useAuth } from "../context/authContext";
 
 const STATUS_INDICATORS = {
@@ -77,7 +78,7 @@ export default function useDashboardData() {
         setAllSkus(fetchedSkus); 
 
       } catch (error) {
-        console.error("Erro dashboard:", error);
+        logger.error("Erro dashboard:", error);
       }
     }
     loadInitialData();
@@ -150,7 +151,7 @@ export default function useDashboardData() {
         }));
         setSkuOptions(options);
     } catch (error) {
-        console.error("Erro na busca:", error);
+      logger.error("Erro na busca:", error);
     }
   };
 
@@ -168,7 +169,7 @@ export default function useDashboardData() {
         const history = await dashboardService.getHistory(id);
         setMonthsData(history || []);
       } catch (error) {
-        console.error("Erro ao carregar histórico:", error);
+        logger.error("Erro ao carregar histórico:", error);
         setMonthsData([]); 
       }
     }

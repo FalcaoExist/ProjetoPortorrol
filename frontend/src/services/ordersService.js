@@ -1,4 +1,5 @@
 import httpClient from "./validators/api/httpClient";
+import { logger } from "../utils/logger";
 
 /**
  * Serviço unificado para gerenciamento de Pedidos.
@@ -37,7 +38,7 @@ const ordersService = {
                 previsao_entrega: order.expected_delivery_date || null
             }));
         } catch (error) {
-            console.error("Erro ao buscar pedidos:", error);
+            logger.error("Erro ao buscar pedidos:", error);
             return [];
         }
     },
@@ -61,7 +62,7 @@ async create(orderData) {
             
             return await httpClient.post("/orders", payload);
         } catch (error) {
-            console.error("Erro ao criar pedido:", error);
+            logger.error("Erro ao criar pedido:", error);
             throw error;
         }
     },
@@ -76,7 +77,7 @@ async create(orderData) {
             const response = await httpClient.patch(`/orders/${id}`, updateData);
             return response.data || response;
         } catch (error) {
-            console.error("Erro ao atualizar pedido:", error);
+            logger.error("Erro ao atualizar pedido:", error);
             throw error;
         }
     }

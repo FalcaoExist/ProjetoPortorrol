@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import httpClient from "../services/validators/api/httpClient";
 import { getSuppliers } from "../services/stockService";
+import { logger } from "../utils/logger";
 // Função utilitária para remover acentos e facilitar a busca
 const removeAcentos = (str) => {
     if (!str) return "";
@@ -33,7 +34,7 @@ export function useOrders() {
                     setSupplierOptions([]);
                 }
             } catch (err) {
-                console.error('Erro ao carregar fornecedores:', err);
+                logger.error('Erro ao carregar fornecedores:', err);
                 setSupplierOptions([]);
             }
         };
@@ -46,7 +47,7 @@ export function useOrders() {
             const statusParam = params.get("status") || "";
             setStatusFilter(statusParam);
         } catch (err) {
-            console.error('Erro ao ler query params:', err);
+            logger.error('Erro ao ler query params:', err);
         }
     }, [location.search]);
 
@@ -113,7 +114,7 @@ export function useOrders() {
             });
             setOrdersData(formattedData);
         } catch (error) {
-            console.error("Erro busca:", error);
+            logger.error("Erro busca:", error);
         } finally {
             setLoading(false);
         }
@@ -181,8 +182,7 @@ export function useOrders() {
                 }
             }));
         } catch (err) {
-            console.error("ERRO AO SALVAR NA API:", err);
-            alert("Erro ao salvar o pedido.");
+            logger.error("ERRO AO SALVAR NA API:", err);
         }
     };
 

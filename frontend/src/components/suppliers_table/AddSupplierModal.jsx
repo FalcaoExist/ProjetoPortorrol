@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { FiCheckCircle, FiAlertCircle } from "react-icons/fi";
 import InputField from "../common/InputField";
+import { logger } from "../../utils/logger";
 
 export default function AddSupplierModal({
   isOpen = false,
@@ -62,7 +63,7 @@ export default function AddSupplierModal({
       }, 800);
 
     } catch (error) {
-      console.error("Erro ao salvar fornecedor:", error);
+      logger.error("Erro ao salvar fornecedor:", error);
 
       setStatus({
         type: "error",

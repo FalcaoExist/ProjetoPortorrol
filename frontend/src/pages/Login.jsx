@@ -7,6 +7,7 @@ import LoginForm from "../components/login/LoginForm"
 import useLogin from "../hooks/useLogin.jsx";
 
 import { useAuth } from "../context/authContext"; 
+import { logger } from "../utils/logger";
 
 export default function Login() {
     const navigate = useNavigate();
@@ -34,7 +35,7 @@ export default function Login() {
                 setLoginError(result.message);
             }
         } catch (error) {
-            console.error("Erro inesperado no login:", error);
+            logger.error("Erro inesperado no login:", error);
             setLoginError("Erro inesperado. Tente novamente.");
         } finally {
             setLocalLoading(false);

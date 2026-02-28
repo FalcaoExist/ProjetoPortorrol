@@ -1,4 +1,5 @@
 import httpClient from "./validators/api/httpClient";
+import { logger } from "../utils/logger";
 
 const orderService = {
     async getAll() {
@@ -19,7 +20,7 @@ const orderService = {
                 previsao_entrega: order.data_entrega 
             })) || [];
         } catch (error) {
-            console.error("Erro ao buscar pedidos:", error);
+            logger.error("Erro ao buscar pedidos:", error);
             return [];
         }
     },
@@ -41,11 +42,6 @@ const orderService = {
         }
     },
 
-    async update(id, updates) {
-        // Implementar se necessário PUT /orders/{id}
-        console.warn("Update ainda não implementado no backend complexo");
-        return null;
-    }
 };
 
 export default orderService;

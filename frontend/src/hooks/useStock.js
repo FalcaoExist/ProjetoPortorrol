@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { getStockData, createOrderBatch, getSuppliers } from "../services/stockService";
+import { logger } from "../utils/logger";
 
 // Função auxiliar para definir status textual baseado nos dias de cobertura
 const getStatusText = (dias) => {
@@ -47,7 +48,7 @@ export const useStock = () => {
                     setSupplierOptions(suppliers);
                 }
             } catch (error) {
-                console.error("Falha ao carregar lista de fornecedores");
+                logger.error("Falha ao carregar lista de fornecedores", error);
             }
         };
         loadSuppliers();
@@ -60,7 +61,7 @@ export const useStock = () => {
             const data = await getStockData(filters);
             setStockData(Array.isArray(data) ? data : []);
         } catch (error) {
-            console.error("Erro ao carregar estoque:", error);
+            logger.error("Erro ao carregar estoque:", error);
             setStockData([]);
         } finally {
             setLoading(false);
@@ -168,7 +169,6 @@ export const useStock = () => {
     // --- CRIAÇÃO DO PEDIDO (LIMPEZA E ENVIO) ---
     const handleCreateOrder = async (navigate) => {
         if (newOrderRows.length === 0) {
-            alert("Por favor, adicione itens ao pedido.");
             return { success: false, message: "Nenhum item na requisição." };
         }
 
@@ -188,9 +188,9 @@ export const useStock = () => {
             return { success: true, message: 'Pedido criado com sucesso.' };
             
         } catch (error) {
-            console.error("Erro ao criar pedido:", error);
             const msg = error.response?.data?.detail || error.message;
-            return { success: false, message: msg || 'Erro ao criar pedido.' };
+            logger.error(`Erro ao criar pedido: ${msg}`);
+            return { success: false, message: 'Erro ao criar pedido.' };
         }
     };
 

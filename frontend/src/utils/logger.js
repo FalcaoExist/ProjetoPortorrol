@@ -1,16 +1,20 @@
-const isDev = process.env.NODE_ENV === 'dev';
+const rawViteIsDev = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_ISDEV) || '';
+const viteIsDev = String(rawViteIsDev).replace(/^['"]|['"]$/g, '');
+const isDev = viteIsDev === 'dev';
 
 export const logger = {
   error: (err, ctx) => {
-    // Em Dev mostra tudo, em Produção talvez só o erro crítico sem o contexto
-    if (isDev) {
-      console.error("DEBUG:", err, ctx);
-    } else {
-      console.error("App Error:", String(err));
+    try {
+      if (isDev) {
+        console.error("DEBUG:", err, ctx);
+      } else {
+        // Não mostrar em producao
+      }
+    } catch (e) {
     }
   },
-  warn: (msg, ctx) => { if (isDev) console.warn(msg, ctx); },
-  info: (msg, ctx) => { if (isDev) console.info(msg, ctx); }
+  warn: (msg, ctx) => { try { if (isDev) console.warn(msg, ctx); } catch (e) {} },
+  info: (msg, ctx) => { try { if (isDev) console.info(msg, ctx); } catch (e) {} }
 };
 
 export default logger;

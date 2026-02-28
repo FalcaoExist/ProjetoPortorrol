@@ -188,9 +188,9 @@ export const useStock = () => {
             return { success: true, message: 'Pedido criado com sucesso.' };
             
         } catch (error) {
-            logger.error("Erro ao criar pedido:", error);
             const msg = error.response?.data?.detail || error.message;
-            return { success: false, message: msg || 'Erro ao criar pedido.' };
+            logger.error(`Erro ao criar pedido: ${msg}`);
+            return { success: false, message: 'Erro ao criar pedido.' };
         }
     };
 

@@ -35,9 +35,9 @@ useEffect(() => {
         // Lembrete agora é para todos os usuários logados
         if (currentUser) {
             const lastDismissed = localStorage.getItem('lastReminderDismissedTimestamp');
-            const fortyEightHours = 48 * 60 * 60 * 1000;
-
-            if (!lastDismissed || (Date.now() - parseInt(lastDismissed, 10)) > fortyEightHours) {
+            const twentyFourHours = 24 * 60 * 60 * 1000;
+            
+            if (!lastDismissed || (Date.now() - parseInt(lastDismissed, 10)) > twentyFourHours) {
                 setShowReminder(true);
             }
         }

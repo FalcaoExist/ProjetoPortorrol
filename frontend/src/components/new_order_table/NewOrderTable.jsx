@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { BaseDataGrid } from '../common/BaseDataGrid';
+import { logger } from "../../utils/logger";
 import { IconButton } from '@mui/material';
 import { FaTrash } from 'react-icons/fa';
 
@@ -154,7 +155,7 @@ export default function NewOrderTable({
                     rows={rows}
                     columns={columns}
                     processRowUpdate={processRowUpdate}
-                    onProcessRowUpdateError={(error) => console.error(error)}
+                    onProcessRowUpdateError={(error) => logger.error(error)}
                     experimentalFeatures={{ newEditingApi: true }}
                 />
             </div>

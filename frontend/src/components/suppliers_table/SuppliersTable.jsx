@@ -6,6 +6,7 @@ import { useRowEditing } from "../../hooks/useRowEditing";
 import { BaseDataGrid } from "../common/BaseDataGrid";
 import AddSupplierModal from "./AddSupplierModal";
 import LeadtimeHistoryModal from "./LeadtimeHistoryModal";
+import { logger } from "../../utils/logger";
 
 import {
     updateSupplier,
@@ -68,7 +69,7 @@ export default function SuppliersTable({
             setOpenModal(false);
 
         } catch (error) {
-            console.error("Erro ao criar fornecedor:", error);
+            logger.error("Erro ao criar fornecedor:", error);
         }
     }, [setRows]);
 
@@ -134,7 +135,7 @@ export default function SuppliersTable({
             return updatedRow;
 
         } catch (error) {
-            console.error("Erro ao atualizar fornecedor:", error);
+            logger.error("Erro ao atualizar fornecedor:", error);
             throw error;
         }
 

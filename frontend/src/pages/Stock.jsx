@@ -4,6 +4,7 @@ import { useAuth } from "../context/authContext";
 import { useStock } from "../hooks/useStock";
 import { importStockFromFile, exportStockData } from "../services/stockService";
 import { exportStockCSV } from "../services/csvExporter";
+import { logger } from "../utils/logger";
 
 
 import Header from "../components/header/Header";
@@ -100,7 +101,7 @@ export default function Stock() {
                 const result = await importStockFromFile(selectedFile);
                 alert(result.message || "Importação realizada com sucesso!"); 
             } catch (error) {
-                console.error("Erro ao importar arquivo:", error);
+                logger.error("Erro ao importar arquivo:", error);
                 alert(`Erro ao importar: ${error.message}`);
             } finally {
                 setSelectedFile(null);
@@ -185,7 +186,7 @@ export default function Stock() {
                                                 try {
                                                     exportStockCSV(filteredRows);
                                                 } catch (error) {
-                                                    console.error("Erro ao exportar CSV:", error);
+                                                    logger.error("Erro ao exportar CSV:", error);
                                                     alert(`Erro ao exportar: ${error.message}`);
                                                 }
                                             }
@@ -196,7 +197,7 @@ export default function Stock() {
                                                 try {
                                                     await exportStockData(filteredRows);
                                                 } catch (err) {
-                                                    console.error('Erro exportando XLSX via serviço:', err);
+                                                    logger.error('Erro exportando XLSX via serviço:', err);
                                                     alert('Erro ao exportar Excel: ' + (err.message || err));
                                                 }
                                             }

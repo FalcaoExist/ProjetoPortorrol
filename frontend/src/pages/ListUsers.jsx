@@ -11,6 +11,7 @@ import { useAuth } from "../context/authContext";
 import { getUsers, deleteUser, updateUser } from "../services/validators/api/userService";
 import { createBuyerApi, checkEmailApi } from "../services/buyerServices";
 import { getSuppliers } from "../services/supplierService"; // [NOVO IMPORT]
+import { logger } from "../utils/logger";
 
 export default function ListUsers() {
     const { user, isGestor } = useAuth();
@@ -54,7 +55,7 @@ export default function ListUsers() {
             setSuppliersOptions(formattedSuppliers);
 
         } catch (error) {
-            console.error("Erro ao carregar dados:", error);
+            logger.error("Erro ao carregar dados:", error);
             alert("Não foi possível carregar os dados do sistema.");
         } finally {
             setLoading(false);
@@ -110,7 +111,7 @@ export default function ListUsers() {
             await updateUser(passwordModal.userId, { password: newPassword });
             return { success: true, message: "Senha alterada com sucesso!" };
         } catch (error) {
-            console.error(error);
+            logger.error(error);
             return { success: false, message: error?.message || "Erro ao alterar senha. Tente novamente." };
         }
     };

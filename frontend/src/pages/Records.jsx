@@ -8,6 +8,7 @@ import RecordsTable from "../components/records_table/RecordsTable";
 import TimeEditModal from "../components/records_table/TimeEditModal";
 import { useAuth } from "../context/authContext";
 import { getAuditLogs } from "../services/auditService";
+import { logger } from "../utils/logger";
 
 const ALL_USERS_OPTION = { id: "all-users", name: "Todos" };
 
@@ -56,7 +57,7 @@ export default function Records() {
             setUsersList([ALL_USERS_OPTION, ...uniqueUsers]);
 
         } catch (err) {
-            console.error("Erro ao carregar logs:", err);
+            logger.error("Erro ao carregar logs:", err);
             setRecords([]);
         }
 

@@ -1,11 +1,10 @@
 from fastapi import APIRouter, BackgroundTasks, Depends
 from app.services.demand_service import demand_service
-from app.services.auth_service import get_current_user
+from app.core.dependencies import get_current_user
 
-router = APIRouter(prefix="/demand", tags=["Demand"])
+router = APIRouter()
 
-
-@router.post("/calculate", status_code=202)
+@router.post("/calculate")
 def trigger_demand_calculation(
     background_tasks: BackgroundTasks,
     current_user: dict = Depends(get_current_user),

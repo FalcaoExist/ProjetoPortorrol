@@ -56,12 +56,11 @@ export default function SuppliersTable({
             const created = await createSupplier(payload);
 
             const normalizedRow = {
-                id: created.supplier_id,
-                name: created.name,
-                start: created.start ? new Date(created.start) : null,
-                end: created.end ? new Date(created.end) : null,
-                budget: created.budget,
-                leadtime: created.leadtime,
+                id: newId,
+                name: newSupplier.name,
+                start: newSupplier.start ? new Date(newSupplier.start) : null,
+                end: newSupplier.end ? new Date(newSupplier.end) : null,
+                budget: newSupplier.budget ? Number(newSupplier.budget) : 0,
             };
 
             setRows((prev) => [...prev, normalizedRow]);
@@ -192,18 +191,6 @@ export default function SuppliersTable({
             editable: true,
             valueFormatter: (value) =>
                 value ? new Date(value).toLocaleDateString("pt-BR") : '',
-        },
-        {
-            field: "leadtime",
-            headerName: "Leadtime",
-            type: "number",
-            minWidth: isCompactLayout ? 110 : 140,
-            flex: 0.6,
-            align:"left",
-            editable: true,
-            headerAlign: "left", 
-            valueFormatter: (value) =>
-                value != null ? `${value} dias` : "",
         },
         {
             field: "actions",

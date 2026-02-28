@@ -12,7 +12,6 @@ export default function AddSupplierModal({
     start: "",
     end: "",
     budget: "",
-    leadtime: "",
   });
 
   const [loading, setLoading] = useState(false);
@@ -25,7 +24,6 @@ export default function AddSupplierModal({
         start: "",
         end: "",
         budget: "",
-        leadtime: "",
       });
       setStatus({ type: "", message: "" });
       setLoading(false);
@@ -151,17 +149,6 @@ export default function AddSupplierModal({
             disabled={loading}
           />
 
-          <InputField
-            label="Leadtime (dias)"
-            type="number"
-            name="leadtime"
-            value={formData.leadtime}
-            onChange={handleChange}
-            placeholder="0"
-            required
-            disabled={loading}
-          />
-
           <div className="flex justify-end gap-3 mt-8 pt-4 border-t border-gray-100">
 
             <button
@@ -177,11 +164,7 @@ export default function AddSupplierModal({
               type="submit"
               disabled={loading || status.type === "success"}
               className={`px-6 py-2.5 rounded-xl text-white font-medium shadow-lg transition-all flex items-center gap-2 font-poppins
-                ${
-                  status.type === "success"
-                    ? "bg-green-600 hover:bg-green-700"
-                    : "bg-[#5A44B0] hover:bg-[#4a3794] hover:shadow-xl"
-                } disabled:opacity-70 disabled:cursor-not-allowed`}
+                ${status.type === "success" ? "bg-green-600 hover:bg-green-700" : "bg-[#f43629] hover:bg-[#d92e21]"} disabled:opacity-70 disabled:cursor-not-allowed`}
             >
               {loading
                 ? "Salvando..."

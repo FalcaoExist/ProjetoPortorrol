@@ -8,6 +8,7 @@ from app.api.routers.stock_router import router as stock_router
 from app.api.routers.dashboard_router import router as dashboard_router
 from app.api.routers.import_router import router as import_router
 from app.api.routers.audit_router import router as audit_router
+from app.api.routers.demand_router import router as demand_router
 
 router = APIRouter()
 
@@ -19,3 +20,4 @@ router.include_router(stock_router)
 router.include_router(dashboard_router)
 router.include_router(import_router)
 router.include_router(audit_router)
+router.include_router(demand_router)

@@ -12,6 +12,8 @@ import { useRef, useState, useEffect } from "react";
 import ConfirmationModal from "../components/common/ConfirmationModal";
 import { importOrdersFromExcel } from "../services/ordersImporter";
 import ExportDropdown from "../components/common/ExportDropdown";
+import { useSearchParams } from "react-router-dom";
+
 
 export default function Orders() {
     const { user, showReminder, dismissReminder } = useAuth();
@@ -45,6 +47,14 @@ export default function Orders() {
     // Read max import size from env (value in MB). Default to 100 MB if not set.
     const MAX_IMPORT_FILE_SIZE = (Number(import.meta.env.VITE_MAX_IMPORT_FILE_SIZE_MB) || 100) * 1024 * 1024;
 
+     const [searchParams] = useSearchParams();
+
+    useEffect(() => {
+        const statusFromParams = searchParams.get("status");
+        if (statusFromParams) {
+            setStatusFilter(statusFromParams);
+        }
+    }, [searchParams]);
 
     const handleImportClick = () => {
         fileInputRef.current.click();

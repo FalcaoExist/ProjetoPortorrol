@@ -1,9 +1,11 @@
-import React from 'react';
+import React, { useState, useRef } from 'react';
 import { DEFAULT_SEGMENT_METADATA } from './segmentMetadata';
 import { useNavigate } from 'react-router-dom';
 
 export default function StockRangeGraph({ data, totalItems, segmentMetadata = DEFAULT_SEGMENT_METADATA, branch, supplier }){
   const navigate = useNavigate();
+  const containerRef = useRef(null);
+  const [tooltip, setTooltip] = useState({ visible: false, text: '', left: 0, top: 0, direction: 'top' });
   // Permite sobrescrever/estender o metadata via prop
   const mergedMetadata = { ...DEFAULT_SEGMENT_METADATA, ...segmentMetadata };
 
@@ -38,7 +40,8 @@ export default function StockRangeGraph({ data, totalItems, segmentMetadata = DE
     <div className="flex items-center p-5 bg-transparent w-full box-border">
       <div className="font-bold text-2xl text-[#333] whitespace-nowrap flex-none">Estoque</div>
 
-      <div className="flex flex-auto h-9 ml-5 overflow-visible w-full items-center rounded-full">
+      <div ref={containerRef} className="relative flex items-center w-full">
+        <div className="flex flex-auto h-9 ml-5 overflow-hidden w-full items-center rounded-full">
         {segmentsForBar.map((segment, index, array) => {
           // calcula largura da barra: se os valores são absolutos, converte para % usando a soma
           const percentWidth = percentWidths[index];
@@ -90,24 +93,83 @@ export default function StockRangeGraph({ data, totalItems, segmentMetadata = DE
                   window.location.href = '/stock';
                 }
               }}
+            
+              onMouseEnter={(e) => {
+                const segRect = e.currentTarget.getBoundingClientRect();
+                const containerRect = containerRef.current?.getBoundingClientRect() || { left: 0, top: 0 };
+                const left = segRect.left - containerRect.left + segRect.width / 2;
+                const top = segRect.top - containerRect.top;
+                setTooltip({ visible: true, text: tooltipText, left, top, direction: 'top' });
+              }}
+              onMouseLeave={() => setTooltip(t => ({ ...t, visible: false }))}
             >
-              <div className="absolute bottom-[calc(100%_+_8px)] left-1/2 -translate-x-1/2 bg-[rgba(0,0,0,0.82)] text-white px-2 py-[6px] rounded-[6px] text-[0.85em] whitespace-nowrap opacity-0 pointer-events-none transition-opacity duration-150 ease-in-out z-20 group-hover:opacity-100">
-                {tooltipText}
-              </div>
+            </div>
+          );
+        })}
+        {tooltip.visible && (
+          <div
+            style={{
+              left: tooltip.left,
+              top: tooltip.top,
+              transform: tooltip.direction === 'left' ? 'translate(-100%, -50%)' : 'translate(-50%, -100%)',
+            }}
+            className="absolute bg-[rgba(0,0,0,0.82)] text-white px-2 py-[6px] rounded-[6px] text-[0.85em] whitespace-nowrap z-50 pointer-events-none transition-opacity duration-150"
+          >
+            {tooltip.text}
+          </div>
+        )}
+        
+      </div>
+      </div>
+
+      <div className="flex flex-col gap-[5px] text-md flex-none ml-6 relative z-10">
+        {segmentsForLegend.map((segment) => {
+          let itemCount = null;
+          let percentage = null;
+          if (valuesArePercent) {
+            percentage = Number(segment.value) || 0;
+            if (totalItems) itemCount = Math.round((percentage / 100) * totalItems);
+          } else {
+            itemCount = Number(segment.value) || 0;
+            percentage = valuesSum > 0 ? (Number(segment.value) / valuesSum) * 100 : 0;
+          }
+          const pctText = `${Math.round(percentage)}%`;
+          const labelText = segment.label?.toLowerCase() || segment.key;
+          const legendTooltip = itemCount !== null
+            ? `${pctText} - ${itemCount} itens em ${labelText}`
+            : `${pctText} ${segment.label || segment.key}`;
+
+          return (
+            <div
+              key={segment.key}
+              className="flex items-center text-[#555] whitespace-nowrap cursor-pointer"
+              onMouseEnter={(e) => {
+                const rect = e.currentTarget.getBoundingClientRect();
+                const containerRect = containerRef.current?.getBoundingClientRect() || { left: 0, top: 0 };
+                const left = rect.left - containerRect.left; // align to left side of legend item
+                const top = rect.top - containerRect.top + rect.height / 2;
+                setTooltip({ visible: true, text: legendTooltip, left, top, direction: 'left' });
+              }}
+              onMouseLeave={() => setTooltip(t => ({ ...t, visible: false }))}
+              onClick={() => {
+                try {
+                  const params = new URLSearchParams();
+                  const statusValue = segment.label || segment.key;
+                  params.set('status', statusValue);
+                  if (supplier && supplier !== 'Todos') params.set('supplier', supplier);
+                  if (branch && branch !== 'Todos') params.set('branch', branch);
+                  navigate(`/stock?${params.toString()}`);
+                } catch (err) {
+                  window.location.href = '/stock';
+                }
+              }}
+            >
+              <span className="inline-block w-3 h-3 mr-2 rounded-[3px]" style={{ backgroundColor: segment.color }} />
+              {segment.label || segment.key}
             </div>
           );
         })}
       </div>
-
-      <div className="flex flex-col gap-[5px] text-md flex-none ml-6 relative z-10">
-        {segmentsForLegend.map((segment) => (
-          <div key={segment.key} className="flex items-center text-[#555] whitespace-nowrap">
-            <span className="inline-block w-3 h-3 mr-2 rounded-[3px]" style={{ backgroundColor: segment.color }} />
-            {segment.label || segment.key}
-          </div>
-        ))}
-      </div>
     </div>
   );
 }
-

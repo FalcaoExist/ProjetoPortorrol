@@ -11,17 +11,12 @@ const margin = {
 };
 // #endregion
 
-function getIntroOfPage(label) {
-    return `${label} — detalhes e métricas.`;
-}
 
 function CustomTooltip({ payload, label, active }) {
     if (active && payload && payload.length) {
         return (
             <div className="border border-[#d88488] bg-white p-[10px] rounded-[5px] shadow-[1px_1px_2px_rgba(216,132,136,1)]">
-                <p className="m-0 font-bold">{`${label} : ${payload[0].value}`}</p>
-                <p className="m-0">{getIntroOfPage(label)}</p>
-                <p className="m-0 border-t border-dashed border-[#f5f5f5] pt-2">Anything you want can be displayed here.</p>
+                <p className="m-0 font-bold">{`${label} : ${payload[0].value} peças`}</p>
             </div>
         );
     }
@@ -33,26 +28,35 @@ export default function OverstokChart({data, branch, supplier}) {
     const navigate = useNavigate();
     const sortedData = [...data].sort((a, b) => b.qtd - a.qtd);
 
-    const handleBarClick = (payload) => {
-        if (!payload || !payload.name) return;
+    const handleNavigation = (name) => {
+        if (!name) return;
         const params = new URLSearchParams();
-        params.set('sku', payload.name);
+        params.set('sku', name);
         if (supplier && supplier !== 'Todos') params.set('supplier', supplier);
         if (branch && branch !== 'Todos') params.set('branch', branch);
         navigate(`/stock?${params.toString()}`);
     };
 
+      const CustomTick = ({ x, y, payload }) => (
+        <g transform={`translate(${x},${y})`}>
+            <text x={0} y={0} dy={16} textAnchor="end" transform="rotate(-45)" 
+            style={{ cursor: 'pointer', pointerEvents: 'all' }} 
+            onClick={(e) => { e.stopPropagation(); payload && payload.value && handleNavigation(payload.value); }} 
+            >
+                {payload.value}
+            </text>
+        </g>
+    );
+
     return (
         <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={sortedData} margin={margin}>
-                <XAxis dataKey="name" interval={0} height={60} tick={{ angle: -45, textAnchor: 'end' }} />
+             <BarChart data={sortedData} margin={margin} onClick={(e) => handleNavigation(e?.activeLabel)}>
+                <XAxis dataKey="name"  interval={0}  height={120}  tick={<CustomTick />}/>
                 <Label value="Dias de cobertura" angle={-90} position="left" dx={-55} style={{ textAnchor: 'middle' }} />
                 <YAxis ticks={[100, 200, 300, 400, 500, 600]} domain={[100, 600]} />
                 <CartesianGrid stroke="#e6e6e6" horizontal={true} vertical={false} />
-                {/* Linha horizontal personalizada (ex: meta em 60) - lisa e atrás das barras
-                <ReferenceLine y={60} stroke="#d88488" strokeWidth={1} isFront={false} label={{ value: '', position: 'right', fill: '#E75656' }} /> */}
                 <Tooltip content={CustomTooltip} />
-                <Bar dataKey="qtd" fill="#212560" barSize={25} onClick={(data) => handleBarClick(data)} />
+                <Bar dataKey="qtd" fill="#212560" barSize={25} onClick={(data) => handleNavigation(data?.name)} />
             </BarChart>
         </ResponsiveContainer>
         

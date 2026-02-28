@@ -18,9 +18,13 @@ import { exportDashboardCSV } from "../services/csvExporter";
 import xlsxExporter from "../services/xlsxExporter";
 import ExportDropdown from "../components/common/ExportDropdown";
 import { useOrders } from "../hooks/useOrders";
+import { useNavigate } from "react-router-dom";
+
 
 export default function Home() {
   const { user } = useAuth();
+  const navigate = useNavigate();
+
   const {
     branch, setBranch,
     supplier, setSupplier,
@@ -77,6 +81,12 @@ export default function Home() {
     });
   };
 
+   const handleOrderClick = (status) => {
+    const params = new URLSearchParams();
+    params.set("status", status);
+    if (supplier) params.set("fornecedor", supplier);
+    navigate(`/orders?${params.toString()}`);
+  };
 
   return (
     <div className="grid min-h-screen grid-cols-[16rem_minmax(0,1fr)]">
@@ -120,8 +130,8 @@ export default function Home() {
               <div className="flex-1 min-w-0">
                 <p className="text-start font-semibold text-primary text-2xl py-5">Pedidos</p>
                 <div className="flex gap-2 h-[128px]">
-                  <Orders text={"Atrasados"} img={lateOrdersImg} number={atrasadosCount} />
-                  <Orders text={"Aprovados"} img={aprovedorders} number={aprovadosCount} />
+                  <Orders text={"Atrasados"} img={lateOrdersImg} number={atrasadosCount} onClick={() => handleOrderClick("Atrasado")}/>
+                  <Orders text={"Aprovados"}  img={aprovedorders} number={aprovadosCount} onClick={() => handleOrderClick("Aprovado")}/>
                 </div>
               </div>
               <div className="flex-1 min-w-0">

@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import httpClient from "../services/validators/api/httpClient";
-
+import { getSuppliers } from "../services/stockService";
 // Função utilitária para remover acentos e facilitar a busca
 const removeAcentos = (str) => {
     if (!str) return "";
@@ -20,6 +20,35 @@ export function useOrders() {
     // Estados do Modal
     const [modalOpen, setModalOpen] = useState(false);
     const [selectedOrderItems, setSelectedOrderItems] = useState([]);
+    const [fornecedorFilter, setFornecedorFilter] = useState("");
+    const [supplierOptions, setSupplierOptions] = useState([]);
+
+    useEffect(() => {
+        const loadSuppliers = async () => {
+            try {
+                const suppliers = await getSuppliers();
+                if (Array.isArray(suppliers)) {
+                    setSupplierOptions(suppliers);
+                } else {
+                    setSupplierOptions([]);
+                }
+            } catch (err) {
+                console.error('Erro ao carregar fornecedores:', err);
+                setSupplierOptions([]);
+            }
+        };
+        loadSuppliers();
+    }, []);
+
+    useEffect(() => {
+        try {
+            const params = new URLSearchParams(location.search || "");
+            const statusParam = params.get("status") || "";
+            setStatusFilter(statusParam);
+        } catch (err) {
+            console.error('Erro ao ler query params:', err);
+        }
+    }, [location.search]);
 
     const fetchOrders = useCallback(async () => {
         setLoading(true);
@@ -199,6 +228,10 @@ export function useOrders() {
 
             const s = removeAcentos(String(sText || "").trim());
             const r = removeAcentos(String(rText || "").trim());
+
+            let fText = fornecedorFilter;
+            if (fText && typeof fText === 'object' && fText.target) fText = fText.target.value;
+            const f = removeAcentos(String(fText || "").trim());
             
             const matchItemName = o.items.some(childItem => 
                 childItem.item && removeAcentos(String(childItem.item)).includes(s)
@@ -211,6 +244,8 @@ export function useOrders() {
                  matchItemName;
 
             const matchResponsavel = r === "" || removeAcentos(String(o.responsavel)).includes(r);
+
+            const matchFornecedor = f === "" || removeAcentos(String(o.fornecedor || "")).includes(f);
 
             let matchDate = true;
             let filterDate = orderDate;
@@ -233,12 +268,13 @@ export function useOrders() {
 
             return (
                 matchSearch &&
-                matchResponsavel && 
+                matchResponsavel &&
+                matchFornecedor &&
                 matchDate &&
                 (statusFilter === "" || statusFilter === "Todos" || o.status === statusFilter)
             );
         });
-    }, [ordersData, searchQuery, responsavelFilter, statusFilter, orderDate]);
+    }, [ordersData, searchQuery, responsavelFilter, statusFilter, orderDate, fornecedorFilter]);
 
     return {
         ordersData, loading, 
@@ -247,6 +283,7 @@ export function useOrders() {
         statusFilter, setStatusFilter, 
         orderDate, setOrderDate,
         modalOpen, selectedOrderItems, handleOpenModal, handleCloseModal: () => setModalOpen(false),
-        groupedAndFilteredOrders, handleUpdateData
+        groupedAndFilteredOrders, handleUpdateData, fornecedorFilter, setFornecedorFilter,
+        supplierOptions,
     };
 }

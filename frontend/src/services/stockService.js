@@ -94,7 +94,6 @@ export const createOrderBatch = async (items) => {
         const response = await httpClient.post('/orders/batch', payload);
         return response.data || response;
     } catch (error) {
-        console.error("Erro ao criar pedido em lote:", error);
         throw error;
     }
 };

@@ -44,8 +44,8 @@ export default function RecordsTable({ records = [] }) {
         headerName: "Usuário",
         minWidth: isCompactLayout ? 160 : 200,
         flex: 1,
-        headerAlign: "center",
-        align: "center",
+        headerAlign: "left",
+        align: "left",
       },
       {
         field: "timestamp",
@@ -54,8 +54,8 @@ export default function RecordsTable({ records = [] }) {
         minWidth: isCompactLayout ? 180 : 220,
         flex: 1,
         valueFormatter: (value) => (value ? new Date(value).toLocaleString("pt-BR") : ""),
-        headerAlign: "center",
-        align: "center",
+        headerAlign: "left",
+        align: "left",
         renderHeader: () => (
           <CustomFilterHeader
             columnId="timestamp"
@@ -75,8 +75,8 @@ export default function RecordsTable({ records = [] }) {
         headerName: "Ação",
         minWidth: isCompactLayout ? 120 : 150,
         flex: 0.7,
-        headerAlign: "center",
-        align: "center",
+        headerAlign: "left",
+        align: "left",
         renderHeader: () => (
           <CustomFilterHeader
             columnId="action"
@@ -98,8 +98,8 @@ export default function RecordsTable({ records = [] }) {
         headerName: "Severidade",
         minWidth: 130,
         flex: 0.6,
-        headerAlign: "center",
-        align: "center",
+        headerAlign: "left",
+        align: "left",
         sortable: false,
         renderHeader: () => (
           <CustomFilterHeader
@@ -130,8 +130,8 @@ export default function RecordsTable({ records = [] }) {
         headerName: "Descrição",
         minWidth: isCompactLayout ? 200 : 300,
         flex: 1.5,
-        headerAlign: "center",
-        align: "center",
+        headerAlign: "left",
+        align: "left",
         sortable: false,
         renderCell: (params) => {
           const fullText = params.value;
@@ -189,7 +189,7 @@ export default function RecordsTable({ records = [] }) {
                 {new Date(selectedLog.timestamp).toLocaleString("pt-BR")}
               </Typography>
 
-              <Stack direction="row" spacing={2} alignItems="center">
+              <Stack direction="row" spacing={2} alignItems="left">
                 <Typography>
                   <strong>Ação:</strong> {selectedLog.action_label}
                 </Typography>

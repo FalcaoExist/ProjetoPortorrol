@@ -117,7 +117,6 @@ const rowsWithDateObjects = useMemo(() => rows.map(row => ({
             processRowUpdate={processRowUpdate}
             onProcessRowUpdateError={(error) => console.error(error)}
             experimentalFeatures={{ newEditingApi: true }}
-            autoHeight
         />
     );
 }

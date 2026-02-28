@@ -56,7 +56,6 @@ export default function ListUsers() {
 
         } catch (error) {
             logger.error("Erro ao carregar dados:", error);
-            alert("Não foi possível carregar os dados do sistema.");
         } finally {
             setLoading(false);
         }
@@ -97,7 +96,6 @@ export default function ListUsers() {
             setUsers(prev => prev.map(u => u.user_id === userId ? { ...u, ...updatedUser } : u));
             return updatedUser;
         } catch (error) {
-            alert("Erro de conexão ao tentar salvar.");
             throw error; 
         }
     };

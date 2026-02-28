@@ -183,7 +183,6 @@ export function useOrders() {
             }));
         } catch (err) {
             logger.error("ERRO AO SALVAR NA API:", err);
-            alert("Erro ao salvar o pedido.");
         }
     };
 

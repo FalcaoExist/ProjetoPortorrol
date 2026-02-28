@@ -13,7 +13,7 @@ import ConfirmationModal from "../components/common/ConfirmationModal";
 import { importOrdersFromExcel } from "../services/ordersImporter";
 import ExportDropdown from "../components/common/ExportDropdown";
 import { useSearchParams } from "react-router-dom";
-
+import { logger } from "../utils/logger";
 
 export default function Orders() {
     const { user, showReminder, dismissReminder } = useAuth();
@@ -86,7 +86,7 @@ export default function Orders() {
                 const processed = await importOrdersFromExcel(selectedFile);
                 // TODO: Process the imported data and add it to the orders table
             } catch (err) {
-                alert('Erro ao importar arquivo: ' + err.message);
+                logger.error('Erro ao importar arquivo: ' + err.message);
             }
             setSelectedFile(null);
             setIsImportConfirmModalOpen(false);

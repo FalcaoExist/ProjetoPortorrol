@@ -99,10 +99,8 @@ export default function Stock() {
         if (selectedFile) {
             try {
                 const result = await importStockFromFile(selectedFile);
-                alert(result.message || "Importação realizada com sucesso!"); 
             } catch (error) {
                 logger.error("Erro ao importar arquivo:", error);
-                alert(`Erro ao importar: ${error.message}`);
             } finally {
                 setSelectedFile(null);
                 setIsImportConfirmModalOpen(false);
@@ -187,7 +185,6 @@ export default function Stock() {
                                                     exportStockCSV(filteredRows);
                                                 } catch (error) {
                                                     logger.error("Erro ao exportar CSV:", error);
-                                                    alert(`Erro ao exportar: ${error.message}`);
                                                 }
                                             }
                                         },
@@ -198,7 +195,6 @@ export default function Stock() {
                                                     await exportStockData(filteredRows);
                                                 } catch (err) {
                                                     logger.error('Erro exportando XLSX via serviço:', err);
-                                                    alert('Erro ao exportar Excel: ' + (err.message || err));
                                                 }
                                             }
                                         },

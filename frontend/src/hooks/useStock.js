@@ -169,7 +169,6 @@ export const useStock = () => {
     // --- CRIAÇÃO DO PEDIDO (LIMPEZA E ENVIO) ---
     const handleCreateOrder = async (navigate) => {
         if (newOrderRows.length === 0) {
-            alert("Por favor, adicione itens ao pedido.");
             return { success: false, message: "Nenhum item na requisição." };
         }
 

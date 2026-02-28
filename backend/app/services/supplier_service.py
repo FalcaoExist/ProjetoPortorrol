@@ -27,9 +27,28 @@ class SupplierService:
                 supplier["leadtimes"] = leadtimes or []
 
             return suppliers
-
         except Exception as e:
             raise Exception(f"Erro ao buscar fornecedores: {e}")
+
+    def get_supplier_by_id(self, supplier_id: UUID) -> Optional[dict]:
+        try:
+            resp = (
+                supabase.table("suppliers")
+                .select("*")
+                .filter("supplier_id", "eq", str(supplier_id))
+                .single()
+                .execute()
+            )
+
+            if not resp.data:
+                return None
+
+            supplier = resp.data
+            leadtimes = SupplierLeadtimeRepository.list_by_supplier(supplier_id)
+            supplier["leadtimes"] = leadtimes or []
+            return supplier
+        except Exception as e:
+            raise Exception(f"Erro ao buscar fornecedor: {e}")
 
     def create_supplier(
         self,
@@ -167,6 +186,31 @@ class SupplierService:
                         "supplier_id": str(supplier_id),
                         "branch_id": branch_id,
                         "leadtime": before_lt,
+                        "budget": current_data.get("budget"),
+                        "start": current_data.get("start"),
+                        "end": current_data.get("end"),
+                        "notes": notes_lt,
+                        "created_at": now,
+                        "updated_at": now,
+                    })
+
+            # Registrar leadtimes criados pela primeira vez (não existiam antes)
+            existing_branch_ids = {str(lt.get("branch_id")) for lt in current_leadtimes}
+            for branch_id_str, after_lt in new_lt_map.items():
+                if branch_id_str not in existing_branch_ids:
+                    branch_name = branches_map.get(branch_id_str) or None
+                    if branch_name:
+                        notes_lt = f"Criação de leadtime filial {branch_name}: None -> {after_lt}"
+                    else:
+                        notes_lt = f"Criação de leadtime: None -> {after_lt}"
+
+                    SupplierHistoryRepository.insert({
+                        "supplier_id": str(supplier_id),
+                        "branch_id": branch_id_str,
+                        "leadtime": None,
+                        "budget": current_data.get("budget"),
+                        "start": current_data.get("start"),
+                        "end": current_data.get("end"),
                         "notes": notes_lt,
                         "created_at": now,
                         "updated_at": now,

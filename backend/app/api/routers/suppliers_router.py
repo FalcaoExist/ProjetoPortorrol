@@ -9,10 +9,14 @@ router = APIRouter()
 
 @router.get("/suppliers", response_model=List[FornecedorResponse], operation_id="list_suppliers")
 def get_suppliers_list(
+    supplier_id: UUID = None,
     #current_user: dict = Depends(get_current_user),
     supplier_service: SupplierService = Depends(get_supplier_service)
     ):
     try:
+        if supplier_id:
+            supplier = supplier_service.get_supplier_by_id(supplier_id)
+            return [supplier] if supplier else []
         return supplier_service.get_active_suppliers()
     except Exception:
         raise HTTPException(

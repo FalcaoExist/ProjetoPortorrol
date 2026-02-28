@@ -49,3 +49,15 @@ export async function getSupplierHistory(id) {
     return [];
   }
 }
+
+// BUSCAR FORNECEDOR POR ID (usa query param supplier_id na rota /suppliers)
+export async function getSupplierById(id) {
+  try {
+    const response = await httpClient.get(`/suppliers?supplier_id=${id}`);
+    // endpoint retorna array (possivelmente vazio) — retornamos o primeiro elemento
+    return (response && response[0]) || null;
+  } catch (error) {
+    console.error("Erro ao buscar fornecedor por id:", error);
+    return null;
+  }
+}

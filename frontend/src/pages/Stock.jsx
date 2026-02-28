@@ -247,9 +247,7 @@ export default function Stock() {
             <ConfirmationModal
                 isOpen={isConfirmOrderModalOpen}
                 onClose={() => setIsConfirmOrderModalOpen(false)}
-                onConfirm={() => {
-                    handleCreateOrder(navigate);
-                }}
+                onConfirm={() => handleCreateOrder(navigate)}
                 title="Confirmar Novo Pedido"
                 message="Você gostaria de fazer um novo pedido?"
                 confirmButtonText="Sim"

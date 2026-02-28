@@ -169,7 +169,7 @@ export const useStock = () => {
     const handleCreateOrder = async (navigate) => {
         if (newOrderRows.length === 0) {
             alert("Por favor, adicione itens ao pedido.");
-            return;
+            return { success: false, message: "Nenhum item na requisição." };
         }
 
         try {
@@ -183,14 +183,14 @@ export const useStock = () => {
 
             await createOrderBatch(itemsList); // Envia para o backend
             
-            alert("Pedido criado com sucesso!");
             handleCloseNewOrder();
             if (navigate) navigate('/orders'); // Redireciona para a página de ordens
+            return { success: true, message: 'Pedido criado com sucesso.' };
             
         } catch (error) {
             console.error("Erro ao criar pedido:", error);
             const msg = error.response?.data?.detail || error.message;
-            alert(`Falha ao criar pedido: ${msg}`);
+            return { success: false, message: msg || 'Erro ao criar pedido.' };
         }
     };
 

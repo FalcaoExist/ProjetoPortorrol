@@ -142,9 +142,9 @@ class SupplierService:
             if before_name != after_name:
                 changes.append(f"nome: {before_name} -> {after_name}")
 
-            # orçamento (budget)
+            # Orçamento (budget)
             if (current_data.get("budget") != after_budget):
-                changes.append(f"orçamento: {current_data.get('budget')} -> {after_budget}")
+                changes.append(f"Alteração de orçamento: {current_data.get('budget')} -> {after_budget}")
 
             # Início (start) and Fim (end)
             if (str(current_data.get("start")) != str(after_start)):

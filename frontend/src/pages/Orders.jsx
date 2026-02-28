@@ -54,8 +54,12 @@ export default function Orders() {
 
     useEffect(() => {
         const statusFromParams = searchParams.get("status");
+        const fornecedorFromParams = searchParams.get("fornecedor");
         if (statusFromParams) {
             setStatusFilter(statusFromParams);
+        }
+        if (fornecedorFromParams) {
+            setFornecedorFilter(fornecedorFromParams);
         }
     }, [searchParams]);
 

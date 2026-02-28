@@ -84,6 +84,7 @@ export default function Home() {
    const handleOrderClick = (status) => {
     const params = new URLSearchParams();
     params.set("status", status);
+    if (supplier) params.set("fornecedor", supplier);
     navigate(`/orders?${params.toString()}`);
   };
 

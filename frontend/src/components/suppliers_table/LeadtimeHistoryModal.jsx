@@ -1,22 +1,24 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { FiClock, FiX, FiEdit2, FiCheck } from "react-icons/fi";
 import { GridToolbarQuickFilter } from "@mui/x-data-grid";
 import { BaseDataGrid } from "../common/BaseDataGrid";
-import { useSnapshotForm } from "../../hooks/useSnapshotForm";
+//import { useSnapshotForm } from "../../hooks/useSnapshotForm";
+import { getSupplierHistory } from "../../services/supplierService";
+import { updateSupplier } from "../../services/supplierService";
 
-const normalizeHistoryRows = (history, supplierId) => {
-    if (!history) return [];
-    return history.map((entry, index) => ({
-        ...entry,
-        id: entry.id || `${supplierId || "s"}-${index}`,
-    }));
-};
+// const normalizeHistoryRows = (history, supplierId) => {
+//     if (!history) return [];
+//     return history.map((entry, index) => ({
+//         ...entry,
+//         id: entry.id || `${supplierId || "s"}-${index}`,
+//     }));
+// };
 
-const initialBranchLeadtimes = [
-    { id: 1, name: "Porto Alegre", days: 15 },
-    { id: 2, name: "São Paulo", days: 10 },
-    { id: 3, name: "Joinville", days: 16 },
-];
+// const initialBranchLeadtimes = [
+//     { id: 1, name: "Porto Alegre", days: 15 },
+//     { id: 2, name: "São Paulo", days: 10 },
+//     { id: 3, name: "Joinville", days: 16 },
+// ];
 
 const historyColumns = [
     {
@@ -89,31 +91,97 @@ export default function LeadtimeHistoryModal({
     isOpen = false,
     onClose = () => {},
     supplier,
-    history = [],
-    onRegisterCurrentSnapshot = () => ({}),
+    //history = [],
+    //onRegisterCurrentSnapshot = () => ({}),
     columnsConfig = historyColumns,
 }) {
-    const { notes, setNotes, status, handleRegister } = useSnapshotForm({
-        onSubmit: (selectedSupplier, noteText) => onRegisterCurrentSnapshot(selectedSupplier?.id, noteText),
-        isOpen,
-    });
+    // const { notes, setNotes, status, handleRegister } = useSnapshotForm({
+    //     onSubmit: (selectedSupplier, noteText) => onRegisterCurrentSnapshot(selectedSupplier?.id, noteText),
+    //     isOpen,
+    // });
 
-    const [branchLeadtimes, setBranchLeadtimes] = useState(initialBranchLeadtimes);
+    const [branchLeadtimes, setBranchLeadtimes] = useState([]);
     const [editingBranchId, setEditingBranchId] = useState(null);
     const [tempLeadtime, setTempLeadtime] = useState("");
+    const [historyRows, setHistoryRows] = useState([]);
+
+    const fetchHistory = async () => {
+        if (!supplier) return;
+
+        try {
+            const data = await getSupplierHistory(supplier.id);
+
+            const normalized = data.map((item) => ({
+                ...item,
+                recordedAt: item.created_at,
+                id: item.history_id,
+            }));
+
+            setHistoryRows(normalized);
+
+        } catch (error) {
+            console.error("Erro ao buscar histórico:", error);
+        }
+    };
+
+    useEffect(() => {
+        if (!supplier || !isOpen) return;
+
+        const mapped = (supplier.leadtimes || []).map((lt) => ({
+            id: lt.branch_id,
+            branch_id: lt.branch_id,
+            name: lt.branch_name || lt.branch_id,
+            days: lt.leadtime,
+        }));
+
+        setBranchLeadtimes(mapped);
+
+        fetchHistory();
+
+    }, [supplier, isOpen]);
 
     const handleEdit = (branch) => {
         setEditingBranchId(branch.id);
         setTempLeadtime(branch.days);
     };
 
-    const handleSave = (branchId) => {
-        setBranchLeadtimes(branchLeadtimes.map(b => b.id === branchId ? { ...b, days: Number(tempLeadtime) } : b));
-        setEditingBranchId(null);
-        setTempLeadtime("");
+    const handleSave = async (branchId) => {
+
+        const updatedLeadtimes = branchLeadtimes.map(b =>
+            b.id === branchId
+                ? { ...b, days: Number(tempLeadtime) }
+                : b
+        );
+
+        try {
+
+            const payload = {
+                name: supplier.name,
+                budget: supplier.budget,
+                start: supplier.start
+                    ? new Date(supplier.start).toISOString().split("T")[0]
+                    : null,
+                end: supplier.end
+                    ? new Date(supplier.end).toISOString().split("T")[0]
+                    : null,
+                leadtimes: updatedLeadtimes.map(b => ({
+                    branch_id: b.branch_id,
+                    leadtime: b.days,
+                })),
+            };
+
+            await updateSupplier(supplier.id, payload);
+            setBranchLeadtimes(updatedLeadtimes);
+            await fetchHistory();
+            setEditingBranchId(null);
+            setTempLeadtime("");
+
+        } catch (error) {
+            console.error("Erro ao atualizar leadtime:", error);
+        }
     };
 
-    const rows = useMemo(() => normalizeHistoryRows(history, supplier?.id), [history, supplier]);
+    const rows = useMemo(() => historyRows, [historyRows]);
     const columns = useMemo(() => columnsConfig, [columnsConfig]);
 
     if (!isOpen) return null;
@@ -204,7 +272,7 @@ export default function LeadtimeHistoryModal({
                     </div>
 
 
-                    <div className="flex flex-col md:flex-row gap-3 md:items-end">
+                    {/* <div className="flex flex-col md:flex-row gap-3 md:items-end">
                         <div className="flex-1">
                             <label className="block text-sm font-medium text-gray-700 mb-1">Observações do registro</label>
                             <input
@@ -222,15 +290,15 @@ export default function LeadtimeHistoryModal({
                         >
                             Registrar dados atuais
                         </button>
-                    </div>
+                    </div> */}
 
-                    {status.message && (
+                    {/* {status.message && (
                         <div
                             className={`px-4 py-3 rounded-lg text-sm font-medium ${status.type === "success" ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}`}
                         >
                             {status.message}
                         </div>
-                    )}
+                    )} */}
 
                     <div className="border border-gray-100 rounded-xl bg-gray-50/50 p-3">
                         <BaseDataGrid

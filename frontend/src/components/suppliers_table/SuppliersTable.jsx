@@ -16,7 +16,6 @@ export default function SuppliersTable({
     rows = [],
     setRows,
     onRequestDelete,
-    historyBySupplier = {},
     onRegisterCurrentSnapshot = () => ({})
 }) {
 
@@ -42,25 +41,27 @@ export default function SuppliersTable({
         setOpenModal(false);
     }, []);
 
-    // 🔥 CREATE REAL
     const handleSave = useCallback(async (newSupplier) => {
         try {
+
             const payload = {
                 name: newSupplier.name,
+                is_active: true,
                 budget: Number(newSupplier.budget),
-                leadtime: Number(newSupplier.leadtime),
                 start: newSupplier.start,
                 end: newSupplier.end,
+                leadtimes: []
             };
 
             const created = await createSupplier(payload);
 
             const normalizedRow = {
-                id: newId,
-                name: newSupplier.name,
-                start: newSupplier.start ? new Date(newSupplier.start) : null,
-                end: newSupplier.end ? new Date(newSupplier.end) : null,
-                budget: newSupplier.budget ? Number(newSupplier.budget) : 0,
+                id: created.supplier_id,
+                name: created.name,
+                start: created.start ? new Date(created.start) : null,
+                end: created.end ? new Date(created.end) : null,
+                budget: created.budget ?? 0,
+                leadtimes: created.leadtimes || [],
             };
 
             setRows((prev) => [...prev, normalizedRow]);
@@ -102,16 +103,15 @@ export default function SuppliersTable({
         setSelectedSupplier(null);
     }, []);
 
-    // 🔥 UPDATE REAL
     const processRowUpdate = useCallback(async (newRow) => {
         try {
 
             const payload = {
                 name: newRow.name,
                 budget: Number(newRow.budget),
-                leadtime: Number(newRow.leadtime),
                 start: newRow.start?.toISOString().split("T")[0],
                 end: newRow.end?.toISOString().split("T")[0],
+                leadtimes: newRow.leadtimes || []
             };
 
             const updated = await updateSupplier(newRow.id, payload);
@@ -122,7 +122,7 @@ export default function SuppliersTable({
                 start: updated.start ? new Date(updated.start) : null,
                 end: updated.end ? new Date(updated.end) : null,
                 budget: updated.budget,
-                leadtime: updated.leadtime,
+                leadtimes: updated.leadtimes || []
             };
 
             setRows((prev) =>
@@ -252,10 +252,7 @@ export default function SuppliersTable({
         isCompactLayout,
     ]);
 
-    const selectedHistory =
-        selectedSupplier
-            ? historyBySupplier[selectedSupplier.id] || []
-            : [];
+    const selectedHistory = selectedSupplier?.history || [];
 
     return (
         <Box sx={{ width: "100%" }}>

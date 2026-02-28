@@ -1,40 +1,51 @@
 import httpClient from "./validators/api/httpClient";
 
+// LISTAR
 export async function getSuppliers() {
   try {
-    const response = await httpClient.get("/suppliers");
-    return response || [];
+    return await httpClient.get("/suppliers");
   } catch (error) {
     console.error("Erro ao buscar fornecedores:", error);
     return [];
   }
 }
 
+// CRIAR
 export async function createSupplier(data) {
   try {
-    const response = await httpClient.post("/suppliers", data);
-    return response;
+    return await httpClient.post("/suppliers", data);
   } catch (error) {
     console.error("Erro ao criar fornecedor:", error);
     throw error;
   }
 }
 
+// ATUALIZAR
 export async function updateSupplier(id, data) {
   try {
-    const response = await httpClient.put(`/suppliers/${id}`, data);
-    return response;
+    return await httpClient.put(`/suppliers/${id}`, data);
   } catch (error) {
     console.error("Erro ao atualizar fornecedor:", error);
     throw error;
   }
 }
 
+// DELETAR
 export async function deleteSupplier(id) {
   try {
-    await httpClient.delete(`/suppliers/${id}`);
+    return await httpClient.delete(`/suppliers/${id}`);
   } catch (error) {
     console.error("Erro ao deletar fornecedor:", error);
     throw error;
+  }
+}
+
+// HISTÓRICO
+export async function getSupplierHistory(id) {
+  try {
+    return await httpClient.get(`/suppliers/${id}/history`);
+  } catch (error) {
+    console.error("Erro ao buscar histórico do fornecedor:", error);
+    return [];
   }
 }

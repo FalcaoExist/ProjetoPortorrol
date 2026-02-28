@@ -102,7 +102,7 @@ export default function useDashboardData() {
       qtd: item.estoque_soma,
       dias: item.atendimento,
       ...item
-    })).slice(0, 15));
+    })).slice(0, 20));
 
     const rupturas = allSkus.filter(i => i.status === "RUPTURA");
     rupturas.sort((a, b) => a.estoque_soma - b.estoque_soma); 
@@ -112,7 +112,7 @@ export default function useDashboardData() {
       demanda_real: item.demanda_soma,
       dias: item.atendimento,
       ...item
-    })).slice(0, 15));
+    })).slice(0, 20));
 
     const counts = { ok: 0, excesso: 0, rupturaIminente: 0, subdimensionado: 0 };
     allSkus.forEach(item => {

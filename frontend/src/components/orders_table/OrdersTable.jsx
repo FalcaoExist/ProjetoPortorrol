@@ -46,10 +46,11 @@ const EditDateCell = (props) => {
     );
 };
 
-export default function OrdersTable({ rows = [], updateData }) {
+export default function OrdersTable({ rows = [], updateData, onViewDetails }) {
     const processRowUpdate = (newRow) => {
         const dateString = newRow.data_entrega ? newRow.data_entrega.toISOString().split('T')[0] : null;
         updateData(newRow.id, "data_entrega", dateString);
+        console.log("Dados chegando na tabela:", rows);
         return newRow;
     };
     
@@ -60,10 +61,11 @@ export default function OrdersTable({ rows = [], updateData }) {
         return new Date(date.valueOf() + timeZoneOffset);
     };
 
-    const rowsWithDateObjects = useMemo(() => rows.map(row => ({
+const rowsWithDateObjects = useMemo(() => rows.map(row => ({
         ...row,
         previsao_entrega: createUTCDate(row.previsao_entrega),
-        data_entrega: createUTCDate(row.data_entrega)
+        data_entrega: createUTCDate(row.data_entrega),
+        data_pedido: createUTCDate(row.data_pedido || row.created_at)
     })), [rows]);
 
 

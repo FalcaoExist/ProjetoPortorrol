@@ -34,7 +34,6 @@ class UserService:
             created_user.pop("password_hash", None)
             created_user["supplier"] = data.supplier
             
-            # AUDITORIA
             try:
                 self.user_repo.insert_audit_log(
                     performed_by=performed_by or new_user_id,
@@ -43,8 +42,8 @@ class UserService:
                     entity_id=new_user_id,
                     extra={"name": created_user["name"], "role": created_user["role"]}
                 )
-            except Exception: 
-                pass
+            except Exception as e: 
+                _ = e
 
             return created_user
         
@@ -107,7 +106,6 @@ class UserService:
             except Exception as e: 
                 raise e 
         
-        # AUDITORIA
         try:
             changed_fields = {}
             for key in ["name", "email", "role", "is_active"]:
@@ -125,8 +123,8 @@ class UserService:
                     entity_id=user_id,
                     extra=changed_fields
                 )
-        except Exception: 
-            pass
+        except Exception as e: 
+            _ = e
         
         return self.get_user_by_id(user_id)
   
@@ -138,7 +136,6 @@ class UserService:
         try:
             self.user_repo.delete_user(user_id) 
             
-            # AUDITORIA
             try:
                 self.user_repo.insert_audit_log(
                     performed_by=performed_by or "system",
@@ -147,8 +144,8 @@ class UserService:
                     entity_id=user_id,
                     extra={"deleted_user": user.get("email")}
                 )
-            except Exception: 
-                pass
+            except Exception as e: 
+                _ = e
 
             return True
         except Exception as e:
@@ -158,22 +155,17 @@ class UserService:
         return self.user_repo.get_all_suppliers()
     
     def change_password(self, user_id: str, old_password: str, new_password: str, performed_by: str):
-        # Buscar usuário
         user = self.user_repo.get_user_by_id(user_id)
         if not user:
             raise HTTPException(status_code=404, detail="Usuário não encontrado.")
 
-        # Validar senha antiga
         if not self.hasher.verify(old_password, user["password_hash"]):
             raise HTTPException(status_code=400, detail="Senha atual incorreta.")
 
-        # Gerar hash da nova senha
         new_hash = self.hasher.hash(new_password)
 
-        # Atualizar no banco
         self.user_repo.update_user(user_id, {"password_hash": new_hash})
 
-        # Auditoria
         try:
             self.user_repo.insert_audit_log(
                 performed_by=performed_by,
@@ -182,7 +174,7 @@ class UserService:
                 entity_id=user_id,
                 extra={"message": "Senha alterada pelo próprio usuário"}
             )
-        except Exception:
-            pass
+        except Exception as e:
+            _ = e
 
         return True

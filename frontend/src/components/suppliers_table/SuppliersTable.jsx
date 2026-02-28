@@ -71,7 +71,7 @@ export default function SuppliersTable({
         } catch (error) {
             console.error("Erro ao criar fornecedor:", error);
         }
-    }, [setRows]);
+    }, [setRows, rows]);
 
     const handleDeleteClick = useCallback((id) => () => {
         if (!onRequestDelete) return;
@@ -106,14 +106,24 @@ export default function SuppliersTable({
     const processRowUpdate = useCallback(async (newRow) => {
         try {
 
+            const originalRow = rows.find(r => r.id === newRow.id) || {};
+
+            const rawLeadtimes = (newRow.leadtimes && newRow.leadtimes.length) ? newRow.leadtimes : (originalRow.leadtimes || []);
+
+            const normalizedLeadtimes = (rawLeadtimes || []).map((lt) => ({
+                branch_id: lt.branch_id || lt.branchId || lt.id,
+                leadtime: lt.leadtime != null ? lt.leadtime : (lt.days != null ? lt.days : 0),
+            }));
+
+
+
             const payload = {
                 name: newRow.name,
                 budget: Number(newRow.budget),
                 start: newRow.start?.toISOString().split("T")[0],
                 end: newRow.end?.toISOString().split("T")[0],
-                leadtimes: newRow.leadtimes || []
+                leadtimes: normalizedLeadtimes,
             };
-
             const updated = await updateSupplier(newRow.id, payload);
 
             const updatedRow = {
@@ -138,7 +148,7 @@ export default function SuppliersTable({
             throw error;
         }
 
-    }, [setRows]);
+    }, [setRows, rows]);
 
     const columns = useMemo(() => [
         {
@@ -285,6 +295,18 @@ export default function SuppliersTable({
                 supplier={selectedSupplier}
                 history={selectedHistory}
                 onRegisterCurrentSnapshot={onRegisterCurrentSnapshot}
+                onUpdateSupplier={(updated) => {
+                    if (!updated) return;
+                    const updatedRow = {
+                        id: updated.supplier_id,
+                        name: updated.name,
+                        start: updated.start ? new Date(updated.start) : null,
+                        end: updated.end ? new Date(updated.end) : null,
+                        budget: updated.budget,
+                        leadtimes: updated.leadtimes || [],
+                    };
+                    setRows((prev) => prev.map(r => r.id === updatedRow.id ? updatedRow : r));
+                }}
             />
         </Box>
     );

@@ -3,8 +3,8 @@ import { FiClock, FiX, FiEdit2, FiCheck } from "react-icons/fi";
 import { GridToolbarQuickFilter } from "@mui/x-data-grid";
 import { BaseDataGrid } from "../common/BaseDataGrid";
 //import { useSnapshotForm } from "../../hooks/useSnapshotForm";
-import { getSupplierHistory } from "../../services/supplierService";
-import { updateSupplier } from "../../services/supplierService";
+import { getSupplierHistory, updateSupplier, getSuppliers } from "../../services/supplierService";
+import dashboardService from "../../services/dashboardService";
 
 // const normalizeHistoryRows = (history, supplierId) => {
 //     if (!history) return [];
@@ -91,6 +91,7 @@ export default function LeadtimeHistoryModal({
     isOpen = false,
     onClose = () => {},
     supplier,
+    onUpdateSupplier = () => {},
     //history = [],
     //onRegisterCurrentSnapshot = () => ({}),
     columnsConfig = historyColumns,
@@ -105,13 +106,13 @@ export default function LeadtimeHistoryModal({
     const [tempLeadtime, setTempLeadtime] = useState("");
     const [historyRows, setHistoryRows] = useState([]);
 
-    const fetchHistory = async () => {
-        if (!supplier) return;
+    const fetchHistory = async (supplierId) => {
+        if (!supplierId) return;
 
         try {
-            const data = await getSupplierHistory(supplier.id);
+            const data = await getSupplierHistory(supplierId);
 
-            const normalized = data.map((item) => ({
+            const normalized = (data || []).map((item) => ({
                 ...item,
                 recordedAt: item.created_at,
                 id: item.history_id,
@@ -127,16 +128,30 @@ export default function LeadtimeHistoryModal({
     useEffect(() => {
         if (!supplier || !isOpen) return;
 
-        const mapped = (supplier.leadtimes || []).map((lt) => ({
-            id: lt.branch_id,
-            branch_id: lt.branch_id,
-            name: lt.branch_name || lt.branch_id,
-            days: lt.leadtime,
-        }));
+        (async () => {
+            try {
+                const [filiais, suppliers] = await Promise.all([dashboardService.getFiliais(), getSuppliers()]);
 
-        setBranchLeadtimes(mapped);
+                const freshSupplier = (suppliers || []).find(s => s.supplier_id === supplier.id || s.id === supplier.id) || supplier;
 
-        fetchHistory();
+                const supplierLeadtimes = freshSupplier.leadtimes || [];
+                const ltMap = new Map((supplierLeadtimes || []).map(lt => [lt.branch_id, lt.leadtime]));
+
+                const mapped = (filiais || []).map((branch) => ({
+                    id: branch.id,
+                    branch_id: branch.id,
+                    name: branch.nome || branch.name || branch.id,
+                    days: ltMap.has(branch.id) ? ltMap.get(branch.id) : 0,
+                }));
+
+                setBranchLeadtimes(mapped);
+
+                await fetchHistory(freshSupplier.supplier_id || freshSupplier.id || supplier.id);
+
+            } catch (error) {
+                console.error("Erro ao inicializar modal de leadtimes:", error);
+            }
+        })();
 
     }, [supplier, isOpen]);
 
@@ -170,14 +185,24 @@ export default function LeadtimeHistoryModal({
                 })),
             };
 
-            await updateSupplier(supplier.id, payload);
+            console.debug("Leadtime PUT payload:", payload);
+
+            const resp = await updateSupplier(supplier.id, payload);
+            console.debug("Leadtime PUT response:", resp);
+
+            // notify parent to sync rows
+            try {
+                onUpdateSupplier(resp);
+            } catch (e) {
+                console.warn("onUpdateSupplier callback failed:", e);
+            }
             setBranchLeadtimes(updatedLeadtimes);
-            await fetchHistory();
+            await fetchHistory(supplier.id);
             setEditingBranchId(null);
             setTempLeadtime("");
 
         } catch (error) {
-            console.error("Erro ao atualizar leadtime:", error);
+            console.error("Erro ao atualizar leadtime:", error, error?.data || error?.message || error?.toString());
         }
     };
 

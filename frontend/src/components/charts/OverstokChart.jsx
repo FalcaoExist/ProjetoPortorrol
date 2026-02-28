@@ -33,10 +33,10 @@ export default function OverstokChart({data, branch, supplier}) {
     const navigate = useNavigate();
     const sortedData = [...data].sort((a, b) => b.qtd - a.qtd);
 
-    const handleBarClick = (payload) => {
-        if (!payload || !payload.name) return;
+    const handleNavigation = (name) => {
+        if (!name) return;
         const params = new URLSearchParams();
-        params.set('sku', payload.name);
+        params.set('sku', name);
         if (supplier && supplier !== 'Todos') params.set('supplier', supplier);
         if (branch && branch !== 'Todos') params.set('branch', branch);
         navigate(`/stock?${params.toString()}`);
@@ -44,15 +44,13 @@ export default function OverstokChart({data, branch, supplier}) {
 
     return (
         <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={sortedData} margin={margin}>
-                <XAxis dataKey="name" interval={0} height={60} tick={{ angle: -45, textAnchor: 'end' }} />
+             <BarChart data={sortedData} margin={margin} onClick={(e) => handleNavigation(e?.activeLabel)}>
+                <XAxis dataKey="name"  interval={0}  height={60}  tick={{ angle: -45, textAnchor: 'end', cursor: 'pointer' }}  onClick={(e) => handleNavigation(e?.value)} />
                 <Label value="Dias de cobertura" angle={-90} position="left" dx={-55} style={{ textAnchor: 'middle' }} />
                 <YAxis ticks={[100, 200, 300, 400, 500, 600]} domain={[100, 600]} />
                 <CartesianGrid stroke="#e6e6e6" horizontal={true} vertical={false} />
-                {/* Linha horizontal personalizada (ex: meta em 60) - lisa e atrás das barras
-                <ReferenceLine y={60} stroke="#d88488" strokeWidth={1} isFront={false} label={{ value: '', position: 'right', fill: '#E75656' }} /> */}
                 <Tooltip content={CustomTooltip} />
-                <Bar dataKey="qtd" fill="#212560" barSize={25} onClick={(data) => handleBarClick(data)} />
+                <Bar dataKey="qtd" fill="#212560" barSize={25} onClick={(data) => handleNavigation(data?.name)} />
             </BarChart>
         </ResponsiveContainer>
         

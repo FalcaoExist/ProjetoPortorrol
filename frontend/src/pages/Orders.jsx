@@ -111,7 +111,7 @@ export default function Orders() {
                         <BaseDataGrid 
                             rows={groupedAndFilteredOrders}
                             columns={mainOrdersColumns}
-                            autoHeight
+                            
                         />
 
                         <div className="flex justify-end mt-4 space-x-2">

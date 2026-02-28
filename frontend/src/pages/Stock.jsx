@@ -141,13 +141,6 @@ export default function Stock() {
                                 onChange={(e) => setFornecedor(e.target.value)}
                                 options={supplierOptions} 
                             />
-                            <SelectFilter
-                                label="Filial"
-                                name="filial"
-                                value={filial}
-                                onChange={(e) => setFilial(e.target.value)}
-                                options={filialOptions}
-                            />
                         </div>
 
                         {/* AQUI: Adicionei 'key' e 'loading' para estabilidade, sem mudar o visual */}

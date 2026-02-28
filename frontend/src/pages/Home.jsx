@@ -129,8 +129,8 @@ export default function Home() {
               <div className="flex-1 min-w-0">
                 <p className="text-start font-semibold text-primary text-2xl py-5">Pedidos</p>
                 <div className="flex gap-2 h-[128px]">
-                  <Orders text={"Atrasados"} img={lateOrdersImg} number={8} onClick={() => handleOrderClick("Atrasado")}/>
-                  <Orders text={"Aprovados"}  img={aprovedorders} number={8} onClick={() => handleOrderClick("Aprovado")}/>
+                  <Orders text={"Atrasados"} img={lateOrdersImg} number={atrasadosCount} onClick={() => handleOrderClick("Atrasado")}/>
+                  <Orders text={"Aprovados"}  img={aprovedorders} number={aprovadosCount} onClick={() => handleOrderClick("Aprovado")}/>
                 </div>
               </div>
               <div className="flex-1 min-w-0">

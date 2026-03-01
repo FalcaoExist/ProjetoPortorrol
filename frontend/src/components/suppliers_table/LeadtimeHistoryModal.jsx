@@ -1,22 +1,10 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { FiClock, FiX, FiEdit2, FiCheck } from "react-icons/fi";
 import { GridToolbarQuickFilter } from "@mui/x-data-grid";
 import { BaseDataGrid } from "../common/BaseDataGrid";
-import { useSnapshotForm } from "../../hooks/useSnapshotForm";
+import { getSupplierHistory, updateSupplier, getSupplierById } from "../../services/supplierService";
+import dashboardService from "../../services/dashboardService";
 
-const normalizeHistoryRows = (history, supplierId) => {
-    if (!history) return [];
-    return history.map((entry, index) => ({
-        ...entry,
-        id: entry.id || `${supplierId || "s"}-${index}`,
-    }));
-};
-
-const initialBranchLeadtimes = [
-    { id: 1, name: "Porto Alegre", days: 15 },
-    { id: 2, name: "São Paulo", days: 10 },
-    { id: 3, name: "Joinville", days: 16 },
-];
 
 const historyColumns = [
     {
@@ -60,16 +48,6 @@ const historyColumns = [
         align: "center",
     },
     {
-        field: "leadtime",
-        headerName: "Leadtime",
-        type: "number",
-        minWidth: 120,
-        flex: 0.7,
-        valueFormatter: (value) => (value != null ? `${value} dias` : ""),
-        headerAlign: "center",
-        align: "center",
-    },
-    {
         field: "notes",
         headerName: "Observações",
         minWidth: 220,
@@ -89,31 +67,122 @@ export default function LeadtimeHistoryModal({
     isOpen = false,
     onClose = () => {},
     supplier,
-    history = [],
-    onRegisterCurrentSnapshot = () => ({}),
+    onUpdateSupplier = () => {},
     columnsConfig = historyColumns,
 }) {
-    const { notes, setNotes, status, handleRegister } = useSnapshotForm({
-        onSubmit: (selectedSupplier, noteText) => onRegisterCurrentSnapshot(selectedSupplier?.id, noteText),
-        isOpen,
-    });
 
-    const [branchLeadtimes, setBranchLeadtimes] = useState(initialBranchLeadtimes);
+    const [branchLeadtimes, setBranchLeadtimes] = useState([]);
     const [editingBranchId, setEditingBranchId] = useState(null);
     const [tempLeadtime, setTempLeadtime] = useState("");
+    const [historyRows, setHistoryRows] = useState([]);
+
+    const fetchHistory = async (supplierId) => {
+        if (!supplierId) return;
+
+        try {
+            const data = await getSupplierHistory(supplierId);
+
+            const normalized = (data || []).map((item) => ({
+                ...item,
+                recordedAt: item.created_at,
+                id: item.history_id,
+            }));
+
+            setHistoryRows(normalized);
+
+        } catch (error) {
+            console.error("Erro ao buscar histórico:", error);
+        }
+    };
+
+    useEffect(() => {
+        if (!supplier || !isOpen) return;
+
+        (async () => {
+            try {
+                const [filiais, freshSupplier] = await Promise.all([dashboardService.getFiliais(), getSupplierById(supplier.id)]);
+                const supplierLeadtimes = (freshSupplier && (freshSupplier.leadtimes || [])) || [];
+                const ltMap = new Map((supplierLeadtimes || []).map(lt => [lt.branch_id, lt.leadtime]));
+
+                const mapped = (filiais || []).map((branch) => ({
+                    id: branch.id,
+                    branch_id: branch.id,
+                    name: branch.nome || branch.name || branch.id,
+                    days: ltMap.has(branch.id) ? ltMap.get(branch.id) : 0,
+                }));
+
+                setBranchLeadtimes(mapped);
+
+                await fetchHistory(freshSupplier.supplier_id || freshSupplier.id || supplier.id);
+
+            } catch (error) {
+                console.error("Erro ao inicializar modal de leadtimes:", error);
+            }
+        })();
+
+    }, [supplier, isOpen]);
+
+    // Clear internal state when modal is closed to avoid leaking previous supplier data
+    useEffect(() => {
+        if (isOpen) return;
+        setBranchLeadtimes([]);
+        setHistoryRows([]);
+        setEditingBranchId(null);
+        setTempLeadtime("");
+    }, [isOpen]);
 
     const handleEdit = (branch) => {
         setEditingBranchId(branch.id);
         setTempLeadtime(branch.days);
     };
 
-    const handleSave = (branchId) => {
-        setBranchLeadtimes(branchLeadtimes.map(b => b.id === branchId ? { ...b, days: Number(tempLeadtime) } : b));
-        setEditingBranchId(null);
-        setTempLeadtime("");
+    const handleSave = async (branchId) => {
+
+        const updatedLeadtimes = branchLeadtimes.map(b =>
+            b.id === branchId
+                ? { ...b, days: Number(tempLeadtime) }
+                : b
+        );
+
+        try {
+
+            const payload = {
+                name: supplier.name,
+                budget: supplier.budget,
+                start: supplier.start
+                    ? new Date(supplier.start).toISOString().split("T")[0]
+                    : null,
+                end: supplier.end
+                    ? new Date(supplier.end).toISOString().split("T")[0]
+                    : null,
+                leadtimes: updatedLeadtimes.map(b => ({
+                    branch_id: b.branch_id,
+                    leadtime: b.days,
+                })),
+            };
+
+            
+
+            const resp = await updateSupplier(supplier.id, payload);
+            
+
+            // notify parent to sync rows
+            try {
+                onUpdateSupplier(resp);
+            } catch (e) {
+                console.warn("onUpdateSupplier callback failed:", e);
+            }
+            setBranchLeadtimes(updatedLeadtimes);
+            await fetchHistory(supplier.id);
+            setEditingBranchId(null);
+            setTempLeadtime("");
+
+        } catch (error) {
+            console.error("Erro ao atualizar leadtime:", error, error?.data || error?.message || error?.toString());
+        }
     };
 
-    const rows = useMemo(() => normalizeHistoryRows(history, supplier?.id), [history, supplier]);
+    const rows = useMemo(() => historyRows, [historyRows]);
     const columns = useMemo(() => columnsConfig, [columnsConfig]);
 
     if (!isOpen) return null;
@@ -202,35 +271,6 @@ export default function LeadtimeHistoryModal({
                             Consulte os registros anteriores de leadtime e demais parâmetros do fornecedor.
                         </p>
                     </div>
-
-
-                    <div className="flex flex-col md:flex-row gap-3 md:items-end">
-                        <div className="flex-1">
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Observações do registro</label>
-                            <input
-                                type="text"
-                                value={notes}
-                                onChange={(e) => setNotes(e.target.value)}
-                                placeholder="Ex.: Registrar valores atuais antes de alterar"
-                                className="w-full px-3 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#5A44B0]"
-                            />
-                        </div>
-                        <button
-                            type="button"
-                            onClick={() => handleRegister(supplier)}
-                            className="px-4 py-2.5 rounded-xl bg-[#f43629] text-white font-medium shadow hover:bg-[#f43460] transition"
-                        >
-                            Registrar dados atuais
-                        </button>
-                    </div>
-
-                    {status.message && (
-                        <div
-                            className={`px-4 py-3 rounded-lg text-sm font-medium ${status.type === "success" ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}`}
-                        >
-                            {status.message}
-                        </div>
-                    )}
 
                     <div className="border border-gray-100 rounded-xl bg-gray-50/50 p-3">
                         <BaseDataGrid

@@ -34,7 +34,7 @@ export default function ListSuppliers() {
                     id: item.supplier_id,
                     name: item.name,
                     budget: item.budget,
-                    leadtime: item.leadtime,
+                    leadtimes: item.leadtimes || [],
                     start: item.start ? new Date(item.start) : null,
                     end: item.end ? new Date(item.end) : null,
                     is_active: item.is_active,

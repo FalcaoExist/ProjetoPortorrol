@@ -17,7 +17,6 @@ export default function SuppliersTable({
     rows = [],
     setRows,
     onRequestDelete,
-    historyBySupplier = {},
     onRegisterCurrentSnapshot = () => ({})
 }) {
 
@@ -43,25 +42,27 @@ export default function SuppliersTable({
         setOpenModal(false);
     }, []);
 
-    // 🔥 CREATE REAL
     const handleSave = useCallback(async (newSupplier) => {
         try {
+
             const payload = {
                 name: newSupplier.name,
+                is_active: true,
                 budget: Number(newSupplier.budget),
-                leadtime: Number(newSupplier.leadtime),
                 start: newSupplier.start,
                 end: newSupplier.end,
+                leadtimes: []
             };
 
             const created = await createSupplier(payload);
 
             const normalizedRow = {
-                id: newId,
-                name: newSupplier.name,
-                start: newSupplier.start ? new Date(newSupplier.start) : null,
-                end: newSupplier.end ? new Date(newSupplier.end) : null,
-                budget: newSupplier.budget ? Number(newSupplier.budget) : 0,
+                id: created.supplier_id,
+                name: created.name,
+                start: created.start ? new Date(created.start) : null,
+                end: created.end ? new Date(created.end) : null,
+                budget: created.budget ?? 0,
+                leadtimes: created.leadtimes || [],
             };
 
             setRows((prev) => [...prev, normalizedRow]);
@@ -71,7 +72,7 @@ export default function SuppliersTable({
         } catch (error) {
             logger.error("Erro ao criar fornecedor:", error);
         }
-    }, [setRows]);
+    }, [setRows, rows]);
 
     const handleDeleteClick = useCallback((id) => () => {
         if (!onRequestDelete) return;
@@ -103,18 +104,27 @@ export default function SuppliersTable({
         setSelectedSupplier(null);
     }, []);
 
-    // 🔥 UPDATE REAL
     const processRowUpdate = useCallback(async (newRow) => {
         try {
+
+            const originalRow = rows.find(r => r.id === newRow.id) || {};
+
+            const rawLeadtimes = (newRow.leadtimes && newRow.leadtimes.length) ? newRow.leadtimes : (originalRow.leadtimes || []);
+
+            const normalizedLeadtimes = (rawLeadtimes || []).map((lt) => ({
+                branch_id: lt.branch_id || lt.branchId || lt.id,
+                leadtime: lt.leadtime != null ? lt.leadtime : (lt.days != null ? lt.days : 0),
+            }));
+
+
 
             const payload = {
                 name: newRow.name,
                 budget: Number(newRow.budget),
-                leadtime: Number(newRow.leadtime),
                 start: newRow.start?.toISOString().split("T")[0],
                 end: newRow.end?.toISOString().split("T")[0],
+                leadtimes: normalizedLeadtimes,
             };
-
             const updated = await updateSupplier(newRow.id, payload);
 
             const updatedRow = {
@@ -123,7 +133,7 @@ export default function SuppliersTable({
                 start: updated.start ? new Date(updated.start) : null,
                 end: updated.end ? new Date(updated.end) : null,
                 budget: updated.budget,
-                leadtime: updated.leadtime,
+                leadtimes: updated.leadtimes || []
             };
 
             setRows((prev) =>
@@ -139,7 +149,7 @@ export default function SuppliersTable({
             throw error;
         }
 
-    }, [setRows]);
+    }, [setRows, rows]);
 
     const columns = useMemo(() => [
         {
@@ -253,10 +263,7 @@ export default function SuppliersTable({
         isCompactLayout,
     ]);
 
-    const selectedHistory =
-        selectedSupplier
-            ? historyBySupplier[selectedSupplier.id] || []
-            : [];
+    const selectedHistory = selectedSupplier?.history || [];
 
     return (
         <Box sx={{ width: "100%" }}>
@@ -289,6 +296,18 @@ export default function SuppliersTable({
                 supplier={selectedSupplier}
                 history={selectedHistory}
                 onRegisterCurrentSnapshot={onRegisterCurrentSnapshot}
+                onUpdateSupplier={(updated) => {
+                    if (!updated) return;
+                    const updatedRow = {
+                        id: updated.supplier_id,
+                        name: updated.name,
+                        start: updated.start ? new Date(updated.start) : null,
+                        end: updated.end ? new Date(updated.end) : null,
+                        budget: updated.budget,
+                        leadtimes: updated.leadtimes || [],
+                    };
+                    setRows((prev) => prev.map(r => r.id === updatedRow.id ? updatedRow : r));
+                }}
             />
         </Box>
     );

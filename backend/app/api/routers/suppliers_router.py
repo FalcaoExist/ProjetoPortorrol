@@ -7,12 +7,16 @@ from app.api.schemas import FornecedorCreate, FornecedorResponse, FornecedorUpda
 
 router = APIRouter()
 
-# RETIRADO get_current_user ENQUANTO NÃO ESTÁ FUNCIONANDO
 @router.get("/suppliers", response_model=List[FornecedorResponse], operation_id="list_suppliers")
 def get_suppliers_list(
+    supplier_id: UUID = None,
+    #current_user: dict = Depends(get_current_user),
     supplier_service: SupplierService = Depends(get_supplier_service)
     ):
     try:
+        if supplier_id:
+            supplier = supplier_service.get_supplier_by_id(supplier_id)
+            return [supplier] if supplier else []
         return supplier_service.get_active_suppliers()
     except Exception:
         raise HTTPException(
@@ -23,17 +27,18 @@ def get_suppliers_list(
 @router.post("/suppliers", response_model=FornecedorResponse)
 def create_supplier(
     data: FornecedorCreate, 
+    #current_user: dict = Depends(get_current_user),
     supplier_service: SupplierService = Depends(get_supplier_service)
     ):
     try:
         created = supplier_service.create_supplier(
-            name=data.name, 
-            budget=data.budget,
-            leadtime=data.leadtime, 
-            start=data.start,
-            end=data.end,
-            external_id=data.external_id
-            )
+        name=data.name,
+        budget=data.budget,
+        start=data.start,
+        end=data.end,
+        leadtimes=[lt.dict() for lt in data.leadtimes] if data.leadtimes else [],
+        external_id=data.external_id
+    )
         return created
     except Exception as e:
         if "duplicate key" in str(e):
@@ -44,27 +49,40 @@ def create_supplier(
 def update_supplier(
     id: UUID,
     data: FornecedorUpdate,
+    #current_user: dict = Depends(get_current_user),
     supplier_service: SupplierService = Depends(get_supplier_service)
     ):
     try:
         return supplier_service.update_supplier(
-            supplier_id=id,
-            name=data.name,
-            budget=data.budget,
-            leadtime=data.leadtime,
-            start=data.start,
-            end=data.end,
-        )
+        supplier_id=id,
+        name=data.name,
+        budget=data.budget,
+        start=data.start,
+        end=data.end,
+        leadtimes=[lt.dict() for lt in data.leadtimes] if hasattr(data, "leadtimes") else [],
+    )
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.delete("/suppliers/{id}")
 def delete_supplier(
     id: UUID, 
+    #current_user: dict = Depends(get_current_user),
     supplier_service: SupplierService = Depends(get_supplier_service)
     ):
     try:
         supplier_service.deactivate_supplier(id)
         return {"message": "Fornecedor inativado com sucesso"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.get("/suppliers/{id}/history")
+def get_supplier_history(
+    id: UUID,
+    #current_user: dict = Depends(get_current_user),
+    supplier_service: SupplierService = Depends(get_supplier_service)
+):
+    try:
+        return supplier_service.get_supplier_history(id)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))

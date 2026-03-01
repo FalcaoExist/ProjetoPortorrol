@@ -50,10 +50,8 @@ def get_audit_service(
 ) -> AuditService:
     return AuditService(repo)
 
-
 def get_supplier_service() -> SupplierService:
     return SupplierService()
-
 
 def get_order_service() -> OrderService:
     return OrderService()

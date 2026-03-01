@@ -26,11 +26,7 @@ export default function Login() {
 
             if (result.success) {
                 // Redirecionamento baseado no cargo (Role Based Redirection)
-                if (result.role === "gestor") {
-                    navigate("/list_users");      // Gestor -> Gerenciar Compradores
-                } else {
-                    navigate("/list_suppliers");  // Comprador -> Lista de Fornecedores
-                }
+                navigate("/home")
             } else {
                 setLoginError(result.message);
             }

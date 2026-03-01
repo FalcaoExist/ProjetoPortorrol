@@ -4,6 +4,7 @@ import { useAuth } from "../context/authContext";
 import { useStock } from "../hooks/useStock";
 import { importStockFromFile, exportStockData } from "../services/stockService";
 import { exportStockCSV } from "../services/csvExporter";
+import { logger } from "../utils/logger";
 
 
 import Header from "../components/header/Header";
@@ -98,10 +99,8 @@ export default function Stock() {
         if (selectedFile) {
             try {
                 const result = await importStockFromFile(selectedFile);
-                alert(result.message || "Importação realizada com sucesso!"); 
             } catch (error) {
-                console.error("Erro ao importar arquivo:", error);
-                alert(`Erro ao importar: ${error.message}`);
+                logger.error("Erro ao importar arquivo:", error);
             } finally {
                 setSelectedFile(null);
                 setIsImportConfirmModalOpen(false);
@@ -140,13 +139,6 @@ export default function Stock() {
                                 value={fornecedor}
                                 onChange={(e) => setFornecedor(e.target.value)}
                                 options={supplierOptions} 
-                            />
-                            <SelectFilter
-                                label="Filial"
-                                name="filial"
-                                value={filial}
-                                onChange={(e) => setFilial(e.target.value)}
-                                options={filialOptions}
                             />
                         </div>
 
@@ -192,8 +184,7 @@ export default function Stock() {
                                                 try {
                                                     exportStockCSV(filteredRows);
                                                 } catch (error) {
-                                                    console.error("Erro ao exportar CSV:", error);
-                                                    alert(`Erro ao exportar: ${error.message}`);
+                                                    logger.error("Erro ao exportar CSV:", error);
                                                 }
                                             }
                                         },
@@ -203,8 +194,7 @@ export default function Stock() {
                                                 try {
                                                     await exportStockData(filteredRows);
                                                 } catch (err) {
-                                                    console.error('Erro exportando XLSX via serviço:', err);
-                                                    alert('Erro ao exportar Excel: ' + (err.message || err));
+                                                    logger.error('Erro exportando XLSX via serviço:', err);
                                                 }
                                             }
                                         },
@@ -254,9 +244,7 @@ export default function Stock() {
             <ConfirmationModal
                 isOpen={isConfirmOrderModalOpen}
                 onClose={() => setIsConfirmOrderModalOpen(false)}
-                onConfirm={() => {
-                    handleCreateOrder(navigate);
-                }}
+                onConfirm={() => handleCreateOrder(navigate)}
                 title="Confirmar Novo Pedido"
                 message="Você gostaria de fazer um novo pedido?"
                 confirmButtonText="Sim"

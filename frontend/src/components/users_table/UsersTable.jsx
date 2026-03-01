@@ -9,6 +9,7 @@ import CustomFilterHeader from "./CustomFilterHeader";
 import SupplierEditCell from "./SupplierEditCell";
 // StatusCell removido, pois voltamos ao texto padrão
 import { useUsersTableLogic } from "../../hooks/useUsersTableLogic";
+import { logger } from "../../utils/logger";
 
 // Função auxiliar para ordenar textos em Português
 const ptBRComparator = (v1, v2) => {
@@ -38,7 +39,7 @@ export default function UsersTable({ users = [], onDelete, onUpdate, onChangePas
     handleCancelClick
   } = useUsersTableLogic({ users, availableSuppliers, onUpdate });
 
-  const onProcessRowUpdateError = (error) => console.error("Erro ao atualizar linha:", error);
+  const onProcessRowUpdateError = (error) => logger.error("Erro ao atualizar linha:", error);
   // Definição das Colunas (limpo)
   const columns = useMemo(
     () => [

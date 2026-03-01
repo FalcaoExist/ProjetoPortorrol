@@ -1,5 +1,6 @@
 import React, { useMemo } from "react";
 import { BaseDataGrid } from "../common/BaseDataGrid";
+import { logger } from "../../utils/logger";
 
 const getStatusStyles = (status) => {
     if (status === "Aprovado") {
@@ -50,7 +51,6 @@ export default function OrdersTable({ rows = [], updateData, onViewDetails }) {
     const processRowUpdate = (newRow) => {
         const dateString = newRow.data_entrega ? newRow.data_entrega.toISOString().split('T')[0] : null;
         updateData(newRow.id, "data_entrega", dateString);
-        console.log("Dados chegando na tabela:", rows);
         return newRow;
     };
     
@@ -115,9 +115,8 @@ const rowsWithDateObjects = useMemo(() => rows.map(row => ({
             rows={rowsWithDateObjects}
             columns={columns}
             processRowUpdate={processRowUpdate}
-            onProcessRowUpdateError={(error) => console.error(error)}
+            onProcessRowUpdateError={(error) => logger.error(error)}
             experimentalFeatures={{ newEditingApi: true }}
-            autoHeight
         />
     );
 }

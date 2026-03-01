@@ -1,8 +1,8 @@
 import React from "react";
 
-export default function Orders({ img, text, number }) {
+export default function Orders({ img, text, number, onClick }) {
     return (
-        <div className="border rounded-xl p-3 flex items-center justify-center gap-3 w-full min-w-0 flex-1 overflow-hidden">
+        <div className="border rounded-xl p-3 flex items-center justify-center gap-3 w-full min-w-0 flex-1 overflow-hidden cursor-pointer"  onClick={onClick}>
             {img ? (
                 <img
                     src={img}

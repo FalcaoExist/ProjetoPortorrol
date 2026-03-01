@@ -22,10 +22,6 @@ def create_user(
 def list_users(name: Optional[str] = None, email: Optional[str] = None, user_service: UserService = Depends(get_user_service)):
     return user_service.get_formatted_users(name, email)
 
-@router.get("/users/all", response_model=UserListResponse)
-def get_all_users(user_service: UserService = Depends(get_user_service)):
-    return user_service.get_formatted_users()
-
 @router.get("/users/{user_id}", response_model=UserGetResponse)
 def get_user_by_id(user_id: str, user_service: UserService = Depends(get_user_service)):
     user = user_service.get_user_by_id(user_id)

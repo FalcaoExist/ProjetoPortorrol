@@ -1,11 +1,12 @@
 import httpClient from "./validators/api/httpClient";
+import { logger } from "../utils/logger";
 
 export async function checkEmailApi(email) {
   try {
     const response = await httpClient.get(`/check-email?email=${encodeURIComponent(email)}`);
     return response;
   } catch (err) {
-    // console.error("Erro ao verificar e-mail:", err);
+    // Não loga por padrão aqui, mas mantém comportamento
     return { exists: false };
   }
 }
@@ -30,7 +31,7 @@ export async function createBuyerApi(formData) {
     return { success: true, data: response };
 
   } catch (err) {
-    console.error("Erro ao criar comprador:", err);
+    logger.error("Erro ao criar comprador:", err);
     
     // Tratamento de erros
     // Tenta pegar a mensagem de erro detalhada do backend

@@ -12,8 +12,11 @@ const stockService = {
             headers['Authorization'] = `Bearer ${token}`;
         }
 
+        const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+
+
         // Fetch nativo para evitar erro 422 de Boundary
-        const response = await fetch("http://localhost:8000/stock/import", {
+        const response = await fetch(`${API_URL}/stock/import`, {
             method: "POST",
             headers: headers, // <--- Aqui vai o Token
             body: formData,
@@ -35,7 +38,7 @@ const stockService = {
     },
 
     async list() {
-        const response = await fetch("http://localhost:8000/stock");
+        const response = await fetch(`${API_URL}/stock`);
         return response.json();
     }
 };

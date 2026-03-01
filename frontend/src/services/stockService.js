@@ -1,5 +1,6 @@
 import httpClient from './validators/api/httpClient';
 import { exportStockCSV } from "./csvExporter";
+import { logger } from "../utils/logger";
 
 // Adicionado o parâmetro 'index' para criar uma chave única
 const mapStockToFrontend = (item, index) => {
@@ -49,7 +50,7 @@ export const getStockData = async (filial, fornecedor, status) => {
         return dataList.map((item, index) => mapStockToFrontend(item, index));
 
     } catch (error) {
-        console.error("Erro ao carregar estoque:", error);
+        logger.error("Erro ao carregar estoque:", error);
         return [];
     }
 };
@@ -79,7 +80,7 @@ export const getSuppliers = async () => {
             .sort();
             
     } catch (error) {
-        console.error("Erro ao buscar fornecedores:", error);
+        logger.error("Erro ao buscar fornecedores:", error);
         return [];
     }
 };
@@ -92,7 +93,6 @@ export const createOrderBatch = async (items) => {
         const response = await httpClient.post('/orders/batch', payload);
         return response.data || response;
     } catch (error) {
-        console.error("Erro ao criar pedido em lote:", error);
         throw error;
     }
 };

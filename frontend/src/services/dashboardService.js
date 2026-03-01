@@ -1,4 +1,5 @@
 import httpClient from './validators/api/httpClient'; // Verifique se o caminho do httpClient está correto no seu projeto
+import { logger } from "../utils/logger";
 
 const dashboardService = {
 
@@ -12,7 +13,7 @@ const dashboardService = {
       // Garante que retorne o array de resultados (dependendo de como o Axios ou Fetch está configurado)
       return response.data || response || [];
     } catch (error) {
-      console.error("Erro ao buscar SKUs no backend:", error);
+      logger.error("Erro ao buscar SKUs no backend:", error);
       return [];
     }
   },
@@ -32,7 +33,7 @@ const dashboardService = {
       const response = await httpClient.get(url);
       return response.data || response;
     } catch (error) {
-      console.error("Erro ao buscar SKUs:", error);
+      logger.error("Erro ao buscar SKUs:", error);
       throw error;
     }
   },
@@ -42,7 +43,7 @@ const dashboardService = {
       const response = await httpClient.get('/dashboard/filiais');
       return response.data || response;
     } catch (error) {
-      console.error("Erro ao buscar filiais:", error);
+      logger.error("Erro ao buscar filiais:", error);
       throw error;
     }
   },
@@ -56,7 +57,7 @@ const dashboardService = {
       const response = await httpClient.get(url);
       return response.data || response;
     } catch (error) {
-      console.error("Erro ao buscar histórico:", error);
+      logger.error("Erro ao buscar histórico:", error);
       throw error;
     }
   }

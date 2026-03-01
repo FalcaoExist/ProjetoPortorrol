@@ -4,7 +4,17 @@ from typing import List, Optional, Union
 from uuid import UUID
 from pydantic import BaseModel, EmailStr
 
-# --- Schemas de Usuário e Login ---
+# SCHEMAS DE LOGIN
+class LoginRequest(BaseModel):
+    email: EmailStr
+    password: str
+
+class LoginResponse(BaseModel):
+    success: bool
+    user: Optional[dict] = None
+    message: str
+
+# SCHEMAS DE USUÁRIO
 class UserResponse(BaseModel):
     user_id: str
     name: str
@@ -21,20 +31,11 @@ class UserListItem(BaseModel):
     is_active: bool
     supplier: Optional[List[str]] = []
 
-class LoginRequest(BaseModel):
-    email: EmailStr
-    password: str
-
-class LoginResponse(BaseModel):
-    success: bool
-    user: Optional[dict] = None
-    message: str
-
 class UserCreateResponse(BaseModel):
     success: bool
     user: UserResponse
     message: str
-    
+
 class UserListResponse(BaseModel):
     success: bool
     users: List[UserListItem]
@@ -53,8 +54,7 @@ class ChangePasswordRequest(BaseModel):
     current_password: str
     new_password: str
 
-
-# --- Status e Configurações ---
+# SCHEMAS DE PRODUTOS
 class StatusProduto(str, Enum):
     RUPTURA = "RUPTURA"
     SUBDIMENSIONADO = "SUBDIMENSIONADO" 
@@ -81,36 +81,45 @@ class FilialResponse(BaseModel):
     id: str
     nome: str
 
+# SCHEMAS DE LEADTIME
+class SupplierLeadtimeCreate(BaseModel):
+    branch_id: UUID
+    leadtime: int
 
-# --- Schemas de Fornecedor ---
+class SupplierLeadtimeResponse(SupplierLeadtimeCreate):
+    leadtime_id: UUID
+
+# SCHEMAS DE FORNECEDORES
 class FornecedorCreate(BaseModel):
     name: str
-    budget: float
-    leadtime: int
-    start: date
-    end: date
+    is_active: bool
     external_id: Optional[str] = None
+    budget: Optional[float] = None
+    start: Optional[date] = None
+    end: Optional[date] = None
+    external_id: Optional[str] = None
+    leadtimes: Optional[List[SupplierLeadtimeCreate]] = []
 
 class FornecedorUpdate(BaseModel):
     name: str
     budget: float
-    leadtime: int
+    leadtimes: Optional[List[SupplierLeadtimeCreate]] = []
     start: date
     end: date
 
 class FornecedorResponse(BaseModel):
     supplier_id: UUID
     name: str
+    is_active: bool
+    external_id: Optional[str] = None
     budget: Optional[float] = None
-    leadtime: Optional[int] = None
     start: Optional[date] = None
     end: Optional[date] = None
-    external_id: Optional[str] = None
-    is_active: bool
     created_at: datetime
     update_at: Optional[datetime] = None
+    leadtimes: List[SupplierLeadtimeResponse] = []
 
-# --- Schemas de Pedido e Estoque ---
+# SCHEMAS DE PEDIDOS
 class PedidoCreate(BaseModel):
     sku_codigo: str          
     fornecedor_nome: str     
@@ -127,17 +136,6 @@ class PedidoResponse(BaseModel):
     quantity: int
     total_value: float
     data_entrega: Optional[date] = None
-    
-class StockItemResponse(BaseModel):
-    id: int # sku_id
-    codigo: str
-    item: str # nome do produto
-    categoria: Optional[str] = "Geral"
-    unidades: int
-    fornecedor: Optional[str] = "N/A"
-    filial: Optional[str] = "Matriz"
-    dias_cobertura: Optional[int] = 0
-    valor: Optional[float] = 0.0
 
 class OrderItemRequest(BaseModel):
     sku_id: int
@@ -149,6 +147,18 @@ class OrderItemRequest(BaseModel):
 class OrderUpdate(BaseModel):
     data_entrega: Optional[str] = None
     status: Optional[str] = None
+    
+# SCHEMAS DE ESTOQUE
+class StockItemResponse(BaseModel):
+    id: int # sku_id
+    codigo: str
+    item: str # nome do produto
+    categoria: Optional[str] = "Geral"
+    unidades: int
+    fornecedor: Optional[str] = "N/A"
+    filial: Optional[str] = "Matriz"
+    dias_cobertura: Optional[int] = 0
+    valor: Optional[float] = 0.0
 
 class BatchOrderItem(BaseModel):
     id: Optional[str] = None

@@ -57,7 +57,7 @@ def save_sku(row):
     if marca_limpa and sku_id:
         supplier_id = None
         
-        sup_check = supabase.table("suppliers").select("supplier_id").eq("name", marca_limpa).execute()
+        sup_check = supabase.table("suppliers").select("supplier_id").ilike("name", marca_limpa).execute()
         
         if sup_check.data:
             supplier_id = sup_check.data[0]['supplier_id']

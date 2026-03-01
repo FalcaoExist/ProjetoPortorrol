@@ -181,7 +181,7 @@ export default function SuppliersTable({
         },
          {
             field: "start",
-            headerName: "Início",
+            headerName: "Início de contrato",
             type: "date",
             minWidth: isCompactLayout ? 130 : 150,
             flex: 0.8,
@@ -193,7 +193,7 @@ export default function SuppliersTable({
         },
         {
             field: "end",
-            headerName: "Fim",
+            headerName: "Fim de contrato",
             type: "date",
             minWidth: isCompactLayout ? 130 : 150,
             flex: 0.8,

@@ -19,7 +19,7 @@ const historyColumns = [
     },
     {
         field: "start",
-        headerName: "Início",
+        headerName: "Início de contrato",
         type: "date",
         minWidth: 130,
         flex: 0.9,
@@ -29,7 +29,7 @@ const historyColumns = [
     },
     {
         field: "end",
-        headerName: "Fim",
+        headerName: "Fim de contrato",
         type: "date",
         minWidth: 130,
         flex: 0.9,

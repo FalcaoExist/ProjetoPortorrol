@@ -11,7 +11,6 @@ const mapStockToFrontend = (item, index) => {
         supplierStr = "";
     }
 
-    // A MÁGICA ESTÁ AQUI: Cria um ID composto para o React nunca reclamar
     const baseId = item.id || item.sku_id || "gen";
     const uniqueReactId = `${baseId}-${index}-${Math.random().toString(36).substr(2, 5)}`;
 
@@ -22,11 +21,9 @@ const mapStockToFrontend = (item, index) => {
         item: item.name || item.item || item.tb_skus?.nome_produto || "Item sem nome",
         categoria: item.category || item.categoria || "Geral",
         unidades: item.stock_quantity || item.unidades || item.estoque || item.estoque_soma || 0,
-        fornecedor: supplierStr, 
+            fornecedor: supplierStr, 
         dias_cobertura: item.coverage_days || item.dias_cobertura || 0,
         valor: item.unit_price || item.valor || item.preco || item.preco_custo || 0,
-        
-        // Recebe os dados de filiais diretamente do backend
         porto_alegre: item.porto_alegre || item.estoque_poa || 0,
         joinville: item.joinville || item.estoque_jv || 0,
         sao_paulo: item.sao_paulo || item.estoque_sp || 0,
@@ -57,6 +54,7 @@ export const getStockData = async (filial, fornecedor, status) => {
         return [];
     }
 };
+
 export const getSuppliers = async () => {
     try {
         let data = [];
@@ -99,23 +97,23 @@ export const createOrderBatch = async (items) => {
     }
 };
 
-export const importStockFromFile = async (file, token) => {
+export const importStockFromFile = async (file) => {
     const formData = new FormData();
     formData.append("file", file);
-
-    const headers = {};
-    if (token) headers['Authorization'] = `Bearer ${token}`;
-
+    
     const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
     const response = await fetch(`${API_URL}/stock/import`, {
         method: "POST",
-        headers: headers,
         body: formData,
+        // ESTA É A LINHA QUE RESOLVE O 401: Envia o cookie de login para o backend
+        credentials: "include",
     });
 
-    const data = await response.json();
-    if (!response.ok) throw new Error("Erro na requisição de importação");
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+        throw new Error(data.detail || data.message || "Erro na requisição de importação");
+    }
 
     return data;
 };

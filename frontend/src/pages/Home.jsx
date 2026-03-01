@@ -149,10 +149,7 @@ export default function Home() {
                 <p className="text-start font-bold text-primary text-2xl py-5">&nbsp;</p>
                 <div className="h-[128px] flex items-center">
                   {/* [AQUI] Passando o dado real calculado */}
-                  <LeadtimeSavingCard 
-                    leadtime={kpis ? kpis.coverageDays : 0} 
-                    saving={0} 
-                  />
+                  <LeadtimeSavingCard supplier={supplier} />
                 </div>
               </div>
             </div>

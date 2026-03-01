@@ -34,7 +34,7 @@ def save_sku(row):
     if not codigo or codigo.lower() == 'nan':
         return None
 
-    marca_limpa = marca if marca.lower() != 'nan' else None
+    marca_limpa = marca if marca.lower() != 'nan' and marca != '' else None
 
     sku_payload = {
         "codigo": codigo,
@@ -57,7 +57,7 @@ def save_sku(row):
     if marca_limpa and sku_id:
         supplier_id = None
         
-        sup_check = supabase.table("suppliers").select("supplier_id").ilike("name", marca_limpa).execute()
+        sup_check = supabase.table("suppliers").select("supplier_id").eq("name", marca_limpa).execute()
         
         if sup_check.data:
             supplier_id = sup_check.data[0]['supplier_id']
@@ -121,13 +121,12 @@ def save_history(row, sku_id):
         q_val = parse_value(row.get(q_col), int)
         v_val = parse_value(row.get(v_col), float) if v_col in row.index else 0.0
 
-        if q_val != 0 or v_val != 0.0:
-            batch.append({
-                "sku_id": sku_id,
-                "periodo_sequencia": seq,
-                "quantidade": q_val,
-                "valor": v_val
-            })
+        batch.append({
+            "sku_id": sku_id,
+            "periodo_sequencia": seq,
+            "quantidade": q_val,
+            "valor": v_val
+        })
         seq += 1
 
     if batch:

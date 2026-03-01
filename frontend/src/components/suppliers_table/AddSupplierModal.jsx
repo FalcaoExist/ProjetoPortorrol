@@ -13,10 +13,12 @@ export default function AddSupplierModal({
     start: "",
     end: "",
     budget: "",
+    leadtime: "",
   });
 
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState({ type: "", message: "" });
+  const [errors, setErrors] = useState({});
 
   useEffect(() => {
     if (!isOpen) {
@@ -25,8 +27,10 @@ export default function AddSupplierModal({
         start: "",
         end: "",
         budget: "",
+        leadtime: "",
       });
       setStatus({ type: "", message: "" });
+      setErrors({});
       setLoading(false);
     }
   }, [isOpen]);
@@ -38,9 +42,32 @@ export default function AddSupplierModal({
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    setLoading(true);
     setStatus({ type: "", message: "" });
+
+    // Validação dos campos
+    const newErrors = {};
+    if (!formData.name || !formData.name.trim()) newErrors.name = "Nome é obrigatório.";
+    if (!formData.start) newErrors.start = "Data de início é obrigatória.";
+    if (!formData.end) newErrors.end = "Data de término é obrigatória.";
+    const startDate = formData.start ? new Date(formData.start) : null;
+    const endDate = formData.end ? new Date(formData.end) : null;
+    if (startDate && isNaN(startDate.getTime())) newErrors.start = "Data de início inválida.";
+    if (endDate && isNaN(endDate.getTime())) newErrors.end = "Data de término inválida.";
+    if (startDate && endDate && startDate > endDate) newErrors.end = "Data de término deve ser igual ou posterior à data de início.";
+
+    const budgetNum = Number(formData.budget);
+    if (formData.budget === "" || Number.isNaN(budgetNum)) newErrors.budget = "Orçamento inválido.";
+    else if (budgetNum < 0) newErrors.budget = "Orçamento deve ser maior ou igual a 0.";
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      setStatus({ type: "error", message: "Corrija os campos destacados." });
+      setLoading(false);
+      return;
+    }
+
+    setErrors({});
+    setLoading(true);
 
     try {
       const payload = {
@@ -48,7 +75,7 @@ export default function AddSupplierModal({
         start: formData.start, // já vem YYYY-MM-DD
         end: formData.end,
         budget: Number(formData.budget),
-        leadtime: Number(formData.leadtime),
+        leadtime: Number(formData.leadtime) || 0,
       };
 
       await onSave(payload);
@@ -117,6 +144,8 @@ export default function AddSupplierModal({
             placeholder="Nome do fornecedor"
             required
             disabled={loading}
+            hasError={!!errors.name}
+            errorMessage={errors.name}
           />
 
           <InputField
@@ -127,6 +156,8 @@ export default function AddSupplierModal({
             onChange={handleChange}
             required
             disabled={loading}
+            hasError={!!errors.start}
+            errorMessage={errors.start}
           />
 
           <InputField
@@ -137,6 +168,8 @@ export default function AddSupplierModal({
             onChange={handleChange}
             required
             disabled={loading}
+            hasError={!!errors.end}
+            errorMessage={errors.end}
           />
 
           <InputField
@@ -148,6 +181,8 @@ export default function AddSupplierModal({
             placeholder="0"
             required
             disabled={loading}
+            hasError={!!errors.budget}
+            errorMessage={errors.budget}
           />
 
           <div className="flex justify-end gap-3 mt-8 pt-4 border-t border-gray-100">

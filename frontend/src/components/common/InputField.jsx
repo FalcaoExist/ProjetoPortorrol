@@ -10,6 +10,8 @@ const InputField = ({
   disabled = false,
   rightIcon = null,
   onIconClick = null,
+  hasError = false,
+  errorMessage = "",
 }) => {
   return (
     <div className="flex flex-col gap-1">
@@ -23,7 +25,8 @@ const InputField = ({
           onChange={onChange}
           placeholder={placeholder}
           disabled={disabled}
-          className={`border border-gray-300 rounded-xl p-2 focus:outline-none focus:ring-2 focus:ring-gray-400 w-full ${rightIcon ? 'pr-10' : ''} ${disabled ? "bg-gray-100 text-gray-500 cursor-not-allowed" : ""}`}
+          aria-invalid={hasError}
+          className={`border rounded-xl p-2 focus:outline-none focus:ring-2 w-full ${rightIcon ? 'pr-10' : ''} ${disabled ? "bg-gray-100 text-gray-500 cursor-not-allowed" : ""} ${hasError ? 'border-red-300 focus:ring-red-300' : 'border-gray-300 focus:ring-gray-400'}`}
         />
         {rightIcon ? (
           <button
@@ -36,6 +39,9 @@ const InputField = ({
           </button>
         ) : null}
       </div>
+      {hasError && errorMessage ? (
+        <p className="text-red-600 text-sm mt-1">{errorMessage}</p>
+      ) : null}
     </div>
   );
 };

@@ -123,6 +123,3 @@ class StockService:
 
         except Exception as e:
             return []
-
-    async def import_stock(self, file, current_user: dict):
-        return {"success": True, "message": "Importação em desenvolvimento."}

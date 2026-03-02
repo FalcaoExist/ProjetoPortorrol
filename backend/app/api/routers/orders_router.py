@@ -21,9 +21,9 @@ router = APIRouter()
 
 @router.get("/orders")
 def get_orders(
-    repo: OrderAggregateRepository = Depends(get_order_aggregate_repository)
+    service: OrderService = Depends(get_order_service)
 ):
-    return repo.get_all_orders()
+    return service.get_all_orders()
 
 @router.patch("/orders/{order_id}")
 def update_order(

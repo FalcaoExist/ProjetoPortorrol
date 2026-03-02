@@ -4,8 +4,7 @@ from app.core.supabase_client import supabase
 
 class SupplierLeadtimeRepository:
 
-    @staticmethod
-    def list_by_supplier(supplier_id: UUID):
+    def list_by_supplier(self, supplier_id: UUID):
         response = (
             supabase
             .table("supplier_leadtimes")
@@ -15,8 +14,7 @@ class SupplierLeadtimeRepository:
         )
         return response.data
 
-    @staticmethod
-    def delete_by_supplier(supplier_id: UUID):
+    def delete_by_supplier(self, supplier_id: UUID):
         (
             supabase
             .table("supplier_leadtimes")
@@ -25,8 +23,7 @@ class SupplierLeadtimeRepository:
             .execute()
         )
 
-    @staticmethod
-    def bulk_insert(leadtimes: List[dict]):
+    def bulk_insert(self, leadtimes: List[dict]):
         if not leadtimes:
             return []
 

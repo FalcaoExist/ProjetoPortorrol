@@ -3,8 +3,7 @@ from app.core.supabase_client import supabase
 
 class SupplierHistoryRepository:
 
-    @staticmethod
-    def insert(record: dict):
+    def insert(self, record: dict):
         response = (
             supabase
             .table("supplier_history")
@@ -13,8 +12,7 @@ class SupplierHistoryRepository:
         )
         return response.data
 
-    @staticmethod
-    def list_by_supplier(supplier_id: UUID):
+    def list_by_supplier(self, supplier_id: UUID):
         response = (
             supabase
             .table("supplier_history")

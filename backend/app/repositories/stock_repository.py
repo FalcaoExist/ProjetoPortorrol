@@ -1,63 +1,30 @@
-from typing import Optional
-from uuid import UUID
+from typing import Optional, List, Dict, Any
 from app.core.supabase_client import supabase
 
 class StockRepository:
+    def get_stock_analysis(self, filial: Optional[str] = None, fornecedor: Optional[str] = None) -> List[Dict[str, Any]]:
+        query = supabase.table("vw_analise_reposicao").select("*")
 
-    def get_skus(self):
-        return (
-            supabase
-            .table("tb_skus")
-            .select("id, codigo, nome_produto, classificacao")
-            .limit(5000000)
-            .execute()
-        )
+        if fornecedor and fornecedor != "Todos":
+            query = query.ilike("fornecedor", f"%{fornecedor}%")
 
-    def get_analise_compra(self):
-        return (
-            supabase
-            .table("tb_analise_compra")
-            .select("*")
-            .limit(5000000)
-            .execute()
-        )
+        response = query.execute()
+        data = response.data or []
 
-    def get_product_suppliers(self):
-        return (
-            supabase
-            .table("product_suppliers")
-            .select("sku_id, preco_custo, suppliers(name)")
-            .limit(5000000)
-            .execute()
-        )
+        if not filial or filial == "Todos":
+            return data
 
-    def get_stock_by_product(self, product_id: UUID) -> Optional[dict]:
-        resp = (
-            supabase.table("stock")
-            .select("*")
-            .filter("product_id", "eq", str(product_id))
-            .single()
-            .execute()
-        )
-        return resp.data
+        filtered_data = []
+        for item in data:
+            estoque_poa = item.get("estoque_poa") or 0
+            estoque_jv = item.get("estoque_jv") or 0
+            estoque_sp = item.get("estoque_sp") or 0
 
-    def update_stock(self, product_id: UUID, payload: dict) -> dict:
-        resp = (
-            supabase.table("stock")
-            .update(payload)
-            .filter("product_id", "eq", str(product_id))
-            .execute()
-        )
-        return resp.data[0] if resp.data else None
+            if filial == "Porto Alegre" and estoque_poa > 0:
+                filtered_data.append(item)
+            elif filial == "Joinville" and estoque_jv > 0:
+                filtered_data.append(item)
+            elif (filial == "São Paulo" or "Paulo" in filial) and estoque_sp > 0:
+                filtered_data.append(item)
 
-    def insert_movement(self, payload: dict) -> dict:
-        resp = (
-            supabase.table("stock_movements")
-            .insert(payload)
-            .execute()
-        )
-        return resp.data[0] if resp.data else None
-
-    def insert_stock(self, payload: dict) -> dict:
-        resp = supabase.table("stock").insert(payload).execute()
-        return resp.data[0] if resp.data else None
+        return filtered_data

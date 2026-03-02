@@ -4,7 +4,7 @@ from fastapi import (
     HTTPException, UploadFile, Path
 )
 from app.core.dependencies import get_current_user
-from app.repositories.import_repository import process_import_file
+from app.services.import_service import process_background
 from app.services.import_orders_service import ImportOrdersService
 
 router = APIRouter()
@@ -15,7 +15,7 @@ async def import_stock(background_tasks: BackgroundTasks, file: UploadFile = Fil
         raise HTTPException(400, "Envie um arquivo XLSX Excel")
     contents = await file.read()
     user_id = current_user.get("user_id")
-    background_tasks.add_task(process_import_file, contents, user_id)
+    background_tasks.add_task(process_background, contents, file.filename, user_id)
     return {"success": True, "message": "Processamento iniciado em segundo plano."}
 
 @router.post("/imports/pedidos/{supplier}")

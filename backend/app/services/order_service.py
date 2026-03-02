@@ -12,11 +12,13 @@ class OrderService:
         try:
             resp = self.repository.get_orders()
             formatted = []
+            
             for row in resp.data or []:
                 sup_data = row.get("suppliers")
                 items = row.get("purchase_order_items", [])
                 item_data = items[0] if items else {}
                 sku_data = item_data.get("tb_skus") or {}
+                
                 qty = item_data.get("quantity_ordered") or 0
                 cost = float(item_data.get("unit_cost") or 0.0)
 
@@ -31,7 +33,9 @@ class OrderService:
                     "total_value": qty * cost,
                     "data_entrega": row.get("expected_delivery_date")
                 })
+                
             return formatted
+        
         except Exception:
             return []
 

@@ -1,12 +1,11 @@
 import io
 import pandas as pd
-from app.repositories.import_repository import (save_analysis, save_history, save_sku)
 from app.audit.audit_actions import AuditAction
 from app.repositories.repositories_supabase import SupabaseUserRepository
+from app.repositories.import_repository import ImportRepository
 
-def process_background(file_contents: bytes, filename: str, user_id: str):
-    user_repo = SupabaseUserRepository()
-
+def process_background(file_contents: bytes, filename: str, user_id: str, user_repo: SupabaseUserRepository):
+    import_repo = ImportRepository()
     try:
         if filename.endswith(".csv"):
             try:
@@ -38,13 +37,13 @@ def process_background(file_contents: bytes, filename: str, user_id: str):
                 if row.isna().all():
                     continue
 
-                sku_id = save_sku(row)
+                sku_id = import_repo.save_sku(row)
                 if not sku_id:
                     errors += 1
                     continue
 
-                save_analysis(row, sku_id)
-                save_history(row, sku_id)
+                import_repo.save_analysis(row, sku_id)
+                import_repo.save_history(row, sku_id)
                 success += 1
 
             except Exception as e:

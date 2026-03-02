@@ -36,6 +36,10 @@ export default function useDashboardData() {
     savingPotential: 0 
   });
 
+  // ---> ADICIONADO: Estados para o orçamento <---
+  const [budgetInfo, setBudgetInfo] = useState({ valor_total: 0, valor_individual: 0, start: null, end: null });
+  const [totalSuggestedValue, setTotalSuggestedValue] = useState(0);
+
   // 1. CARGA INICIAL
   useEffect(() => {
     async function loadInitialData() {
@@ -84,9 +88,21 @@ export default function useDashboardData() {
     loadInitialData();
   }, [branch, supplier, user]); 
 
+  // ---> ADICIONADO: Busca orçamento ao mudar fornecedor <---
+  useEffect(() => {
+    async function fetchBudget() {
+        const info = await dashboardService.getSupplierBudget(supplier);
+        setBudgetInfo(info || { valor_total: 0, valor_individual: 0, start: null, end: null });
+    }
+    fetchBudget();
+  }, [supplier]);
+
   // 2. RECALCULAR GRÁFICOS E KPIs QUANDO SKU MUDAR
   useEffect(() => {
-    if (!allSkus || allSkus.length === 0) return;
+    if (!allSkus || allSkus.length === 0) {
+      setTotalSuggestedValue(0); // ADICIONADO: Zera se não houver dados
+      return;
+    }
 
     const preencherOpcoes = allSkus.map(r => ({
         label: `${r.codigo} - ${r.nome_produto}`,
@@ -94,6 +110,14 @@ export default function useDashboardData() {
         ...r
     }));
     setSkuOptions(preencherOpcoes);
+
+    // ---> ADICIONADO: Cálculo do custo total sugerido <---
+    const totalCusto = allSkus.reduce((acc, item) => {
+        const qtdSugerida = item.sugestao_compra || 0;
+        const preco = item.valor || 0;
+        return acc + (qtdSugerida * preco);
+    }, 0);
+    setTotalSuggestedValue(totalCusto);
 
     // A) Processamento dos Gráficos de Excesso e Ruptura (Gerais)
     const excessos = allSkus.filter(i => i.status === "EXCESSO");
@@ -127,14 +151,11 @@ export default function useDashboardData() {
 
     // B) LÓGICA DO KPI DE COBERTURA (ESTRITAMENTE INDIVIDUAL)
     if (sku) {
-        // Busca o item exato pelo ID para pegar os dias de cobertura
         const targetId = sku.value || sku.sku_id || sku.id;
         const skuDetails = allSkus.find(item => item.sku_id === targetId || item.id === targetId) || sku;
-        
         const atendimento = skuDetails.atendimento || 0;
         setKpis({ coverageDays: Math.round(atendimento), savingPotential: 0 });
     } else {
-        // ZERA o KPI se nenhum SKU estiver selecionado na barra de pesquisa
         setKpis({ coverageDays: 0, savingPotential: 0 });
     }
   }, [allSkus, sku]);
@@ -158,7 +179,6 @@ export default function useDashboardData() {
   // 4. Carregar Histórico do Gráfico de Linha (SOMENTE INDIVIDUAL)
   useEffect(() => {
     async function loadHistory() {
-      // Se não tem SKU selecionado, esvazia o gráfico (não busca soma de nada)
       if (!sku) {
         setMonthsData([]);
         return;
@@ -189,6 +209,8 @@ export default function useDashboardData() {
     stockOverview, 
     kpis, 
     STATUS_INDICATORS,
-    onSkuSearch
+    onSkuSearch,
+    budgetInfo,          
+    totalSuggestedValue  
   };
 }

@@ -1,8 +1,11 @@
-from typing import List
+import logging
+from typing import List, Any
 from datetime import datetime
 from itertools import groupby
 from uuid import uuid4
 from app.repositories.order_repository import OrdersRepository
+
+logger = logging.getLogger(__name__)
 
 class OrderService:
     def __init__(self):
@@ -24,7 +27,8 @@ class OrderService:
                 
                 try:
                     cost = float(item_data.get("unit_cost") or 0.0)
-                except:
+                except (TypeError, ValueError):
+                    logger.debug("Falha ao converter unit_cost para float")
                     cost = 0.0
 
                 supplier_name = "N/A"
@@ -53,7 +57,8 @@ class OrderService:
                 
             return formatted
         except Exception:
-            return []
+            logger.exception("Erro ao buscar pedidos")
+            raise
 
     def get_all_orders(self) -> List[dict]:
         all_orders = []
@@ -77,7 +82,7 @@ class OrderService:
             if res_sku and hasattr(res_sku, 'data') and res_sku.data:
                 skus_map = {k['id']: k['nome_produto'] for k in res_sku.data if isinstance(k, dict)}
         except Exception:
-            pass
+            logger.exception("Erro ao carregar dados auxiliares (suppliers, branches, skus)")
 
         try:
             res_manual = self.repository.get_manual_orders()
@@ -111,7 +116,8 @@ class OrderService:
                         unit_cost = i.get("unit_cost") or 0
                         try:
                             total_real = float(qtd_real) * float(unit_cost)
-                        except:
+                        except (TypeError, ValueError):
+                            logger.debug("Falha ao calcular total_real")
                             total_real = 0.0
                         
                         unique_id = f"{order_id}-{p_sku_id}-{idx}"
@@ -150,7 +156,8 @@ class OrderService:
                         "origem": "MANUAL"
                     })
         except Exception:
-            pass
+            logger.exception("Erro ao carregar pedidos manuais")
+            raise
 
         for table, label in [("orders_nsk", "NSK"), ("orders_timken", "TIMKEN")]:
             try:
@@ -172,7 +179,8 @@ class OrderService:
                         "created_at": d, 
                         "origem": label
                     })
-            except Exception: 
+            except Exception:
+                logger.exception("Erro ao carregar pedidos externos da tabela %s", table)
                 continue
 
         all_orders.sort(key=lambda x: str(x.get("created_at")), reverse=True)
@@ -180,7 +188,8 @@ class OrderService:
 
     def create_order(self, pedido, current_user: dict) -> dict:
         sup = self.repository.get_supplier_by_name(pedido.fornecedor_nome)
-        if not (sup.data):
+        if not sup or not sup.data:
+            logger.warning("Fornecedor não encontrado: %s", pedido.fornecedor_nome)
             raise ValueError("Fornecedor não encontrado.")
         supplier_id = sup.data[0]["supplier_id"]
 
@@ -188,13 +197,15 @@ class OrderService:
         if not sku.data:
             sku = self.repository.search_sku_by_nome(pedido.sku_codigo)
         if not sku.data:
+            logger.warning("Produto não encontrado: %s", pedido.sku_codigo)
             raise ValueError("Produto não encontrado.")
 
         sku_id, sku_name = sku.data[0]["id"], sku.data[0]["nome_produto"]
 
         order_res = self.repository.insert_order({
             "supplier_id": supplier_id,
-            "user_id": current_user["user_id"],
+            "user_id": current_user.get("user_id"),
+            "user_name": current_user.get("name") or current_user.get("nome") or current_user.get("email"), # <- ADICIONADO
             "status": "DRAFT",
             "expected_delivery_date": str(pedido.previsao_entrega) if pedido.previsao_entrega else None
         })
@@ -214,12 +225,27 @@ class OrderService:
             "total_value": pedido.quantidade * pedido.valor_unitario, "data_entrega": new_order.get("expected_delivery_date")
         }
 
-    def create_batch_orders(self, payload_items: List[dict], current_user: dict) -> int:
+    def create_batch_orders(self, payload_items: List[Any], current_user: dict) -> int:
+        
+        logger.info(
+            "Iniciando criação de pedidos em lote - usuário: %s - quantidade de itens: %d",
+            current_user.get("user_id"),
+            len(payload_items),
+        )
+
         all_suppliers = self.repository.get_all_suppliers()
         supplier_map = {s["name"].upper().strip(): s["supplier_id"] for s in all_suppliers.data}
 
         items_with_supplier = []
-        for item in payload_items:
+        
+        for item_obj in payload_items:
+            if hasattr(item_obj, "model_dump"):
+                item = item_obj.model_dump()
+            elif hasattr(item_obj, "dict"):
+                item = item_obj.dict()
+            else:
+                item = dict(item_obj)
+            
             raw_name = item.get("supplier_name") or "Fornecedor Genérico"
             sup_key = raw_name.upper().strip()
 
@@ -243,7 +269,8 @@ class OrderService:
             
             res_order = self.repository.insert_order({
                 "supplier_id": supplier_id,
-                "user_id": current_user["user_id"],
+                "user_id": current_user.get("user_id"),
+                "user_name": current_user.get("name") or current_user.get("nome") or current_user.get("email"), # <- ADICIONADO
                 "status": "PENDING",
                 "expected_delivery_date": group_items[0].get('expected_delivery_date')
             })
@@ -252,5 +279,11 @@ class OrderService:
                 count += 1
                 payloads = [{"order_id": new_id, "sku_id": i["sku_id"], "quantity_ordered": i["quantity"], "unit_cost": i["unit_cost"]} for i in group_items]
                 self.repository.insert_order_items(payloads)
+
+        logger.info(
+            "Pedidos em lote criados com sucesso - usuário: %s - pedidos criados: %d",
+            current_user.get("user_id"),
+            count,
+        )
 
         return count

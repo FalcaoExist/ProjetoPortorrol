@@ -4,6 +4,7 @@ from app.api.schemas import (
     ConfigUpdate, FilialResponse, SkuAnaliseResponse, StatusProduto,
 )
 from app.services.dashboard_service import DashboardService
+from app.core.dependencies import get_current_user
 
 router = APIRouter()
 
@@ -35,3 +36,16 @@ def atualizar_lead_time(config: ConfigUpdate, service: DashboardService = Depend
 @router.get("/dashboard/history")
 def get_product_history(sku_id: Optional[int] = None, service: DashboardService = Depends(get_dashboard_service)):
     return service.get_sku_history(sku_id)
+
+@router.get("/dashboard/config/{key}")
+async def get_config(key: str, current_user: dict = Depends(get_current_user)):
+    service = DashboardService()
+    config = service.get_configuration(key)
+    if not config:
+        return {"chave": key, "valor": "0"}
+    return config
+
+@router.get("/dashboard/budget")
+async def get_dashboard_budget(supplier: Optional[str] = Query(None)):
+    service = DashboardService()
+    return service.get_budget_context(supplier)

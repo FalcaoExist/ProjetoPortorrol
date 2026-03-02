@@ -44,7 +44,11 @@ class DashboardService:
                 "classificacao": item.get("classificacao") or "Geral",
                 "atendimento": round(coverage_days, 1),
                 "status": self._calculate_status(coverage_days),
-                "sugestao_compra": self._safe_int(item.get("quantidade_sugerida_compra")),
+                
+                # Extraindo os valores reais buscados diretamente das tabelas originais
+                "sugestao_compra": self._safe_int(item.get("sugestao_compra")),
+                "valor": self._safe_float(item.get("valor")), 
+                
                 "estoque_soma": self._safe_int(item.get("estoque_atual")),
                 "demanda_soma": self._safe_float(item.get("demanda_mensal_media")),
                 "filial_nome": branch_name if branch_name and branch_name != "Todas" else "Geral",
@@ -88,3 +92,28 @@ class DashboardService:
 
     def update_lead_time(self, value): return self.repo.update_configuration("lead_time_padrao", value)
     def update_budget(self, value): return self.repo.update_configuration("orcamento_mensal", value)
+    
+    def get_configuration(self, key: str):
+        return self.repo.get_configuration(key)
+
+    def get_budget_context(self, supplier_name: str = None):
+        global_info = self.repo.get_total_active_budget_info()
+        total_geral = global_info["total"]
+        
+        individual = total_geral
+        start = global_info["start"]
+        end = global_info["end"]
+        
+        if supplier_name and supplier_name != "Todos":
+            data = self.repo.get_supplier_budget(supplier_name)
+            if data:
+                individual = self._safe_float(data.get('budget'))
+                start = data.get('start')
+                end = data.get('end')
+        
+        return {
+            "valor_total": total_geral,
+            "valor_individual": individual,
+            "start": start,
+            "end": end                 
+        }

@@ -48,7 +48,7 @@ class DashboardRepository:
         response = supabase.table("tb_historico_vendas")\
                 .select("periodo_sequencia, quantidade")\
                 .order("periodo_sequencia", desc=True)\
-                .limit(5000)\
+                .limit(100000)\
                 .execute()
 
         rows = response.data
@@ -67,5 +67,38 @@ class DashboardRepository:
     def get_active_branches(self):
         return supabase.table("branches").select("branch_id, name").eq("is_active", True).execute().data
 
+    
     def get_configuration(self, key: str):
-        return supabase.table("tb_configuracoes").select("valor").eq("chave", key).single().execute().data
+        try:
+            response = supabase.table("tb_configuracoes").select("chave, valor").eq("chave", key).execute()
+            return response.data[0] if response.data else None
+        except Exception:
+            return None
+        
+    def get_supplier_budget(self, supplier_name: str):
+
+        response = supabase.table("suppliers")\
+            .select("budget, start, end")\
+            .ilike("name", f"%{supplier_name}%")\
+            .eq("is_active", True)\
+            .execute()
+        return response.data[0] if response.data else {}
+
+    def get_total_active_budget_info(self):
+        response = supabase.table("suppliers")\
+            .select("budget, start, end")\
+            .eq("is_active", True)\
+            .execute()
+        
+        rows = response.data or []
+        
+        total = sum(float(r.get('budget') or 0) for r in rows)
+        
+        starts = [r['start'] for r in rows if r.get('start')]
+        ends = [r['end'] for r in rows if r.get('end')]
+        
+        return {
+            "total": total,
+            "start": min(starts) if starts else None,
+            "end": max(ends) if ends else None
+        }

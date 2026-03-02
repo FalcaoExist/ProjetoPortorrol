@@ -1,6 +1,6 @@
 from datetime import date, datetime
 from enum import Enum
-from typing import List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 from uuid import UUID
 from pydantic import BaseModel, EmailStr
 
@@ -178,3 +178,7 @@ class BatchOrderResponse(BaseModel):
     success: bool
     message: str
     orders_created: int
+
+class StockImportPayload(BaseModel):
+    filename: str
+    data: List[Dict[str, Any]]

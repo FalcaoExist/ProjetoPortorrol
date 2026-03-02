@@ -97,12 +97,11 @@ class DashboardService:
         return self.repo.get_configuration(key)
 
     def get_budget_context(self, supplier_name: str = None):
-        global_info = self.repo.get_total_active_budget_info()
-        total_geral = global_info["total"]
+        total = self.repo.get_total_active_budget()
         
-        individual = total_geral
-        start = global_info["start"]
-        end = global_info["end"]
+        individual = total
+        start = None
+        end = None
         
         if supplier_name and supplier_name != "Todos":
             data = self.repo.get_supplier_budget(supplier_name)
@@ -112,8 +111,8 @@ class DashboardService:
                 end = data.get('end')
         
         return {
-            "valor_total": total_geral,
+            "valor_total": total,
             "valor_individual": individual,
             "start": start,
-            "end": end                 
+            "end": end
         }

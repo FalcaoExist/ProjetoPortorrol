@@ -1,8 +1,12 @@
-from typing import Optional, List
-from app.core.supabase_client import supabase
+from typing import Optional
 import uuid
+from app.repositories.stock_repository import StockRepository
 
 class StockService:
+    
+    def __init__(self):
+        self.repository = StockRepository()
+    
     def get_stock(
         self,
         filial: Optional[str] = None,
@@ -11,16 +15,16 @@ class StockService:
         current_user: Optional[dict] = None
     ) -> list:
         try:
-            skus_res = supabase.table("tb_skus").select("id, codigo, nome_produto, classificacao").limit(5000000).execute()
+            skus_res = self.repository.get_skus()
             sku_map = {s["id"]: s for s in (skus_res.data or [])}
             
             if not sku_map:
                 return []
 
-            query_analise = supabase.table("tb_analise_compra").select("*").limit(5000000)
-            analise_data = query_analise.execute().data or []
+            analise_res = self.repository.get_analise_compra()
+            analise_data = analise_res.data or []
 
-            ps_res = supabase.table("product_suppliers").select("sku_id, preco_custo, suppliers(name)").limit(5000000).execute()
+            ps_res = self.repository.get_product_suppliers()
             
             ps_map = {}
             for ps in (ps_res.data or []):

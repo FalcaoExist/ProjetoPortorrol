@@ -1,5 +1,5 @@
 import logging
-from typing import List
+from typing import List, Any
 from datetime import datetime
 from itertools import groupby
 from uuid import uuid4
@@ -204,7 +204,8 @@ class OrderService:
 
         order_res = self.repository.insert_order({
             "supplier_id": supplier_id,
-            "user_id": current_user["user_id"],
+            "user_id": current_user.get("user_id"),
+            "user_name": current_user.get("name") or current_user.get("nome") or current_user.get("email"),
             "status": "DRAFT",
             "expected_delivery_date": str(pedido.previsao_entrega) if pedido.previsao_entrega else None
         })
@@ -224,7 +225,7 @@ class OrderService:
             "total_value": pedido.quantidade * pedido.valor_unitario, "data_entrega": new_order.get("expected_delivery_date")
         }
 
-    def create_batch_orders(self, payload_items: List[dict], current_user: dict) -> int:
+    def create_batch_orders(self, payload_items: List[Any], current_user: dict) -> int:
         
         logger.info(
             "Iniciando criação de pedidos em lote - usuário: %s - quantidade de itens: %d",
@@ -236,7 +237,15 @@ class OrderService:
         supplier_map = {s["name"].upper().strip(): s["supplier_id"] for s in all_suppliers.data}
 
         items_with_supplier = []
-        for item in payload_items:
+
+        for item_obj in payload_items:
+            if hasattr(item_obj, "model_dump"):
+                item = item_obj.model_dump()
+            elif hasattr(item_obj, "dict"):
+                item = item_obj.dict()
+            else:
+                item = dict(item_obj)
+
             raw_name = item.get("supplier_name") or "Fornecedor Genérico"
             sup_key = raw_name.upper().strip()
 
@@ -260,7 +269,8 @@ class OrderService:
             
             res_order = self.repository.insert_order({
                 "supplier_id": supplier_id,
-                "user_id": current_user["user_id"],
+                "user_id": current_user.get("user_id"),
+                "user_name": current_user.get("name") or current_user.get("nome") or current_user.get("email"),
                 "status": "PENDING",
                 "expected_delivery_date": group_items[0].get('expected_delivery_date')
             })

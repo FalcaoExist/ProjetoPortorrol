@@ -1,9 +1,12 @@
 import uuid
+import logging
 from typing import Any, Dict, List, Optional
 from fastapi import HTTPException, status
 from app.core.interfaces import IPasswordHasher, IUserRepository
 from .service_models import UserCreateRequest, UserUpdateRequest
 from app.audit.audit_actions import AuditAction
+
+logger = logging.getLogger(__name__)
 
 class UserService:
     
@@ -42,13 +45,21 @@ class UserService:
                     entity_id=new_user_id,
                     extra={"name": created_user["name"], "role": created_user["role"]}
                 )
-            except Exception as e: 
-                _ = e
+            except Exception as e:
+                logger.error(
+                    "Falha ao registrar auditoria de criação de usuário - user_id: %s - erro: %s",
+                    new_user_id,
+                    str(e),
+                )
 
             return created_user
         
-        except Exception as e:
-            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Erro ao salvar usuário: {str(e)}")
+        except Exception:
+            logger.exception("Erro ao criar usuário - email: %s", data.email)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Erro ao salvar usuário.",
+            )
 
     def get_formatted_users(self, name: Optional[str] = None, email: Optional[str] = None) -> Dict[str, Any]:
         try:
@@ -68,8 +79,12 @@ class UserService:
                 users_list.append(user)
             
             return {"success": True, "users": users_list, "total": len(users_list)}
-        except Exception as e:
-            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Erro ao buscar usuários: {str(e)}")
+        except Exception:
+            logger.exception("Erro ao buscar usuários")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Erro ao buscar usuários.",
+            )
 
     def get_user_by_id(self, user_id: str) -> Dict[str, Any]:
         user = self.user_repo.get_user_by_id(user_id)
@@ -97,14 +112,19 @@ class UserService:
         if updates:
             try:
                 self.user_repo.update_user(user_id, updates)
-            except Exception as e: 
-                raise e 
+            except Exception:
+                logger.exception("Erro ao atualizar usuário - user_id: %s", user_id)
+                raise
 
         if supplier_list is not None:
             try:
                 self.user_repo.sync_user_suppliers(user_id, supplier_list)
-            except Exception as e: 
-                raise e 
+            except Exception:
+                logger.exception(
+                    "Erro ao sincronizar fornecedores do usuário - user_id: %s",
+                    user_id,
+                )
+                raise
         
         try:
             changed_fields = {}
@@ -123,8 +143,11 @@ class UserService:
                     entity_id=user_id,
                     extra=changed_fields
                 )
-        except Exception as e: 
-            _ = e
+        except Exception as e:
+            logger.error(
+                "Falha ao registrar auditoria de atualização de usuário - user_id: %s - erro: %s",
+                user_id, str(e),
+            )
         
         return self.get_user_by_id(user_id)
   
@@ -144,12 +167,19 @@ class UserService:
                     entity_id=user_id,
                     extra={"deleted_user": user.get("email")}
                 )
-            except Exception as e: 
-                _ = e
+            except Exception as e:
+                logger.error(
+                    "Falha ao registrar auditoria de exclusão de usuário - user_id: %s - erro: %s",
+                    user_id, str(e),
+                )
 
             return True
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Erro ao excluir: {str(e)}")
+        except Exception:
+            logger.exception("Erro ao excluir usuário - user_id: %s", user_id)
+            raise HTTPException(
+                status_code=500,
+                detail="Erro ao excluir usuário.",
+            )
 
     def get_available_suppliers(self) -> List[str]:
         return self.user_repo.get_all_suppliers()
@@ -175,6 +205,10 @@ class UserService:
                 extra={"message": "Senha alterada pelo próprio usuário"}
             )
         except Exception as e:
-            _ = e
+            logger.error(
+                "Falha ao registrar auditoria de alteração de senha - user_id: %s - erro: %s",
+                user_id,
+                str(e),
+            )
 
         return True

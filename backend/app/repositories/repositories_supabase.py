@@ -1,12 +1,10 @@
+import logging
 from typing import Any, Dict, List, Optional
-
 from fastapi import HTTPException
-
 from app.core.interfaces import IUserRepository
-
-# Importa o cliente supabase já configurado
 from app.core.supabase_client import supabase
 
+logger = logging.getLogger(__name__)
 
 class SupabaseUserRepository(IUserRepository):
     """Repositório de usuários baseado em tabela do Supabase."""
@@ -18,25 +16,21 @@ class SupabaseUserRepository(IUserRepository):
                 return None
             return response.data[0]
         except Exception as e:
-            print(f"[ERRO SUPABASE - get_user_by_email] {e}")
+            logger.exception("Erro ao buscar usuário por email: %s", email)
             return None
 
     def get_suppliers_for_user(self, user_id: str) -> List[str]:
         try:
-            # 1. Pega os IDs na tabela de junção
             response_ids = supabase.table("user_suppliers").select("supplier_id").eq("user_id", user_id).execute()
             
             if not response_ids.data:
                 return []
-            
-            # Extrai lista de IDs
+      
             supplier_ids = [item["supplier_id"] for item in response_ids.data]
             
             if not supplier_ids:
                 return []
 
-            # 2. Busca os nomes na tabela 'suppliers'
-            # Tenta filtrar por 'id' ou 'supplier_id' para garantir compatibilidade
             try:
                 response_names = supabase.table("suppliers").select("name").in_("id", supplier_ids).execute()
             except Exception:
@@ -45,7 +39,7 @@ class SupabaseUserRepository(IUserRepository):
             return [item["name"] for item in response_names.data]
 
         except Exception as e:
-            print(f"[ERRO SUPABASE - get_suppliers_for_user] {e}")
+            logger.exception("Erro ao buscar fornecedores do usuário - user_id: %s", user_id)
             return []
 
     def get_all_users(self) -> List[Dict[str, Any]]:
@@ -54,18 +48,14 @@ class SupabaseUserRepository(IUserRepository):
         Carrega tudo de uma vez e monta na memória.
         """
         try:
-            # 1. Busca TODOS os usuários
             users_response = supabase.table("users").select("*").execute()
             if not users_response.data:
                 return []
 
-            # 2. Busca TODAS as relações user_suppliers
             rels_response = supabase.table("user_suppliers").select("*").execute()
-            
-            # 3. Busca TODOS os fornecedores
+
             suppliers_response = supabase.table("suppliers").select("*").execute()
 
-            # --- PROCESSAMENTO EM MEMÓRIA ---
             supplier_map = {}
             if suppliers_response.data:
                 for s in suppliers_response.data:
@@ -101,7 +91,7 @@ class SupabaseUserRepository(IUserRepository):
             return final_users_list
 
         except Exception as e:
-            print(f"[ERRO SUPABASE - get_all_users] {e}")
+            logger.exception("Erro ao buscar todos os usuários")
             raise HTTPException(
                 status_code=500,
                 detail="Erro ao buscar usuários no banco de dados."
@@ -114,8 +104,8 @@ class SupabaseUserRepository(IUserRepository):
                 return response.data[0]
             raise Exception("Erro ao inserir: Nenhum dado retornado.")
         except Exception as e:
-            print(f"[ERRO SUPABASE - create_user] {e}")
-            raise e
+            logger.exception("Erro ao criar usuário - email: %s", user_data.get("email"))
+            raise
 
     def get_user_by_id(self, user_id: str) -> Optional[Dict[str, Any]]:
         try:
@@ -124,7 +114,7 @@ class SupabaseUserRepository(IUserRepository):
                 return response.data[0]
             return None
         except Exception as e:
-            print(f"[ERRO SUPABASE - get_user_by_id] {e}")
+            logger.exception("Erro ao buscar usuário por ID - user_id: %s", user_id)
             return None
 
     def update_user(self, user_id: str, updates: dict) -> Dict[str, Any]:
@@ -134,8 +124,8 @@ class SupabaseUserRepository(IUserRepository):
                 return response.data[0]
             raise Exception("Usuário não encontrado para atualização.")
         except Exception as e:
-            print(f"[ERRO SUPABASE - update_user] {e}")
-            raise e
+            logger.exception("Erro ao atualizar usuário - user_id: %s", user_id)
+            raise
 
     def sync_user_suppliers(self, user_id: str, supplier_names: List[str]) -> None:
         try:
@@ -162,8 +152,8 @@ class SupabaseUserRepository(IUserRepository):
                 supabase.table("user_suppliers").insert(records_to_insert).execute()
 
         except Exception as e:
-            print(f"[ERRO SUPABASE - sync_user_suppliers] {e}")
-            raise e
+            logger.exception("Erro ao sincronizar fornecedores do usuário - user_id: %s", user_id)
+            raise
 
     def get_all_suppliers(self) -> List[str]:
         try:
@@ -172,22 +162,20 @@ class SupabaseUserRepository(IUserRepository):
                 return []
             return [item["name"] for item in response.data]
         except Exception as e:
-            print(f"[ERRO SUPABASE - get_all_suppliers] {e}")
+            logger.exception("Erro ao buscar lista de fornecedores")
             return []
         
     def delete_user(self, user_id: str) -> None:
             try:
-                    supabase.table("user_suppliers").delete().eq("user_id", user_id).execute()
-                    response = supabase.table("users").delete().eq("user_id", user_id).execute()
+                supabase.table("user_suppliers").delete().eq("user_id", user_id).execute()
+                response = supabase.table("users").delete().eq("user_id", user_id).execute()
                     
-                    if not response.data:
-                        print(f"[AVISO] Usuário {user_id} não encontrado ou já deletado.")
+                if not response.data:
+                    logger.warning("Usuário %s não encontrado ou já deletado", user_id)
 
             except Exception as e:
-                    print(f"[ERRO SUPABASE - delete_user] {e}")
-                    raise e
-
-    # --- AUDITORIA ---
+                    logger.exception("Erro ao deletar usuário - user_id: %s", user_id)
+                    raise
 
     def insert_audit_log(self, performed_by: str, action: str, entity: str, entity_id: Optional[str], extra: Optional[dict] = None) -> None:
         try:
@@ -200,7 +188,7 @@ class SupabaseUserRepository(IUserRepository):
             }
             supabase.table("audit_logs").insert(payload).execute()
         except Exception as e:
-            print(f"[ERRO SUPABASE - insert_audit_log] {e}")
+            logger.error("Erro ao inserir log de auditoria - entity: %s - erro: %s", entity, str(e))
 
     def insert_login_attempt(self, email_attempted: str, success: bool, user_id: Optional[str], ip_address: Optional[str] = None) -> None:
         try:
@@ -212,14 +200,17 @@ class SupabaseUserRepository(IUserRepository):
             }
             supabase.table("login_attempts").insert(payload).execute()
         except Exception as e:
-            print(f"[ERRO SUPABASE - insert_login_attempt] {e}")
+            logger.error(
+                "Erro ao registrar tentativa de login - email: %s - erro: %s",
+                email_attempted,
+                str(e),
+            )
 
     def get_audit_logs(self, filters: dict) -> List[Dict[str, Any]]:
         """
         Busca logs e substitui IDs de usuário pelos seus nomes (JOIN manual).
         """
         try:
-            # 1. Busca os Logs
             query = supabase.table("audit_logs").select("*")
             
             if filters.get("user_id"): 
@@ -248,39 +239,30 @@ class SupabaseUserRepository(IUserRepository):
             if not logs:
                 return []
 
-            # 2. COLETA IDs ÚNICOS PARA TRADUÇÃO
             user_ids = set()
             for log in logs:
                 uid = log.get("user_id")
-                # Filtra apenas UUIDs válidos (ignora 'system' ou 'teste-admin')
                 if uid and len(str(uid)) == 36 and uid != "system":
                     user_ids.add(uid)
             
-            # 3. BUSCA OS NOMES NA TABELA DE USUÁRIOS
             user_map = {}
             if user_ids:
                 try:
-                    # Busca apenas user_id e name
                     users_resp = supabase.table("users").select("user_id, name").in_("user_id", list(user_ids)).execute()
                     if users_resp.data:
                         for u in users_resp.data:
                             user_map[u["user_id"]] = u["name"]
-                except Exception:
-                    # Se falhar a busca de nomes, não quebra a requisição
-                    pass
+                except Exception as e:
+                    logger.warning("Falha ao resolver nomes de usuários nos logs: %s", str(e))
 
-            # 4. INSERE O NOME NO LOG
             for log in logs:
                 uid = log.get("user_id")
                 
                 if uid in user_map:
-                    # Caso ideal: ID encontrado na tabela de usuários
                     log["user_name"] = user_map[uid]
                 elif uid == "system":
                     log["user_name"] = "Sistema"
                 else:
-                    # Fallback: Se não achou nome (ex: usuario deletado), mantém o ID
-                    # Se tiver dados extras de 'create_user', tenta pegar o nome de lá
                     if log.get("extra") and isinstance(log["extra"], dict) and log["extra"].get("name"):
                          log["user_name"] = f"{log['extra']['name']} (Excluído)"
                     else:
@@ -288,11 +270,10 @@ class SupabaseUserRepository(IUserRepository):
 
             return logs
 
-        except Exception as e:
-            print(f"[ERRO SUPABASE - get_audit_logs] {e}")
+        except Exception:
+            logger.exception("Erro ao buscar logs de auditoria")
             return []
     
-    # MÉTODO PARA LISTAR TENTATIVAS DE LOGIN
     def get_login_attempts(self, limit: int = 200, offset: int = 0) -> List[Dict[str, Any]]:
         try:
             query = (
@@ -304,5 +285,5 @@ class SupabaseUserRepository(IUserRepository):
             response = query.execute()
             return response.data or []
         except Exception as e:
-            print(f"[ERRO SUPABASE - get_login_attempts] {e}")
+            logger.exception("Erro ao buscar tentativas de login")
             return []

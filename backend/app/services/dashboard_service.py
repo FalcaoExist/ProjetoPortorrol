@@ -1,7 +1,10 @@
+import logging
 import unicodedata
 from datetime import datetime, timedelta
 from app.api.schemas import StatusProduto
 from app.repositories.dashboard_repository import DashboardRepository
+
+logger = logging.getLogger(__name__)
 
 class DashboardService:
     def __init__(self):
@@ -18,7 +21,8 @@ class DashboardService:
             if val is None:
                 return default
             return float(val)
-        except Exception:
+        except (TypeError, ValueError) as e:
+            logger.debug("Falha ao converter valor para float: %s", val)
             return default
 
     def _safe_int(self, val, default=0):
@@ -26,7 +30,8 @@ class DashboardService:
             if val is None:
                 return default
             return int(float(val))
-        except Exception:
+        except (TypeError, ValueError) as e:
+            logger.debug("Falha ao converter valor para int: %s", val)
             return default
 
     def _calculate_status(self, coverage_days: float) -> StatusProduto:
@@ -91,7 +96,12 @@ class DashboardService:
         return processed_data
 
     def get_filtered_skus(self, status_filter: str = None, branch: str = None, supplier: str = None):
-        raw_data = self.repo.get_all_skus_with_analysis()
+        try:
+            raw_data = self.repo.get_all_skus_with_analysis()
+        except Exception as e:
+            logger.exception("Erro ao buscar SKUs para dashboard")
+            raise
+
         all_products = self._format_output(raw_data)
 
         result = []
@@ -133,16 +143,26 @@ class DashboardService:
     def search_products(self, term: str):
         if not term:
             return []
-        raw_data = self.repo.search_by_term(term)
+        
+        try:
+            raw_data = self.repo.search_by_term(term)
+        except Exception as e:
+            logger.exception("Erro ao buscar produtos pelo termo: %s", term)
+            raise
+        
         return self._format_output(raw_data)
 
     def get_sku_history(self, sku_id: int = None):
-        if sku_id:
-            data = self.repo.get_history_by_sku(sku_id)
-            field = 'quantidade'
-        else:
-            data = self.repo.get_aggregate_history()
-            field = 'total_quantidade'
+        try:
+            if sku_id:
+                data = self.repo.get_history_by_sku(sku_id)
+                field = 'quantidade'
+            else:
+                data = self.repo.get_aggregate_history()
+                field = 'total_quantidade'
+        except Exception as e:
+            logger.exception("Erro ao buscar histórico de SKU")
+            raise
 
         if not data:
             return []
@@ -154,7 +174,8 @@ class DashboardService:
                 months_back = 24 - seq_int
                 target = today - timedelta(days=months_back * 30)
                 return target.strftime("%m/%y")
-            except:
+            except (TypeError, ValueError) as e:
+                logger.debug("Erro ao calcular label de data para sequencia: %s", seq)
                 return f"P{seq}"
 
         return [
@@ -166,13 +187,27 @@ class DashboardService:
         ]
 
     def get_branches(self):
-        raw_branches = self.repo.get_active_branches()
+    
+        try:
+            raw_branches = self.repo.get_active_branches()
+        except Exception as e:
+            logger.exception("Erro ao buscar filiais ativas")
+            raise
+
         if not raw_branches:
             return []
         return [{"id": str(b["branch_id"]), "nome": b["name"]} for b in raw_branches]
 
     def update_lead_time(self, value):
-        return self.repo.update_configuration("lead_time_padrao", value)
+        try:
+            return self.repo.update_configuration("lead_time_padrao", value)
+        except Exception as e:
+            logger.exception("Erro ao atualizar lead_time_padrao")
+            raise
 
     def update_budget(self, value):
-        return self.repo.update_configuration("orcamento_mensal", value)
+        try:
+            return self.repo.update_configuration("orcamento_mensal", value)
+        except Exception as e:
+            logger.exception("Erro ao atualizar orcamento_mensal")
+            raise

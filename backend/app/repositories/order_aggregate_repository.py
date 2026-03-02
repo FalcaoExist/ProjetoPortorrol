@@ -1,5 +1,8 @@
-from app.core.supabase_client import supabase
+import logging
 from datetime import datetime
+from app.core.supabase_client import supabase
+
+logger = logging.getLogger(__name__)
 
 class OrderAggregateRepository:
 
@@ -32,8 +35,9 @@ class OrderAggregateRepository:
                     "origem": "MANUAL"
                 })
 
-        except Exception as e:
-            raise RuntimeError(f"Erro ao buscar pedidos manuais: {str(e)}")
+        except Exception:
+            logger.exception("Erro ao buscar pedidos manuais (purchase_orders)")
+            raise
 
         for table, label in self.EXTERNAL_TABLES:
             try:
@@ -52,6 +56,10 @@ class OrderAggregateRepository:
                     })
 
             except Exception:
+                logger.exception(
+                    "Erro ao buscar pedidos externos - tabela: %s",
+                    table,
+                )
                 continue
 
         all_orders.sort(

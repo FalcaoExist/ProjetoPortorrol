@@ -1,6 +1,8 @@
+import logging
 import pandas as pd
 from app.repositories.import_orders_repository import ImportOrdersRepository
-from app.repositories.repositories_supabase import SupabaseUserRepository
+
+logger = logging.getLogger(__name__)
 
 class ImportOrdersService:
 
@@ -17,14 +19,22 @@ class ImportOrdersService:
         return value
 
     def _parse_int(self, value):
-        if pd.isna(value):
+        try:
+            if pd.isna(value):
+                return None
+            return int(value)
+        except (TypeError, ValueError):
+            logger.debug("Falha ao converter valor para int: %s", value)
             return None
-        return int(value)
 
     def _parse_float(self, value):
-        if pd.isna(value):
+        try:
+            if pd.isna(value):
+                return None
+            return float(value)
+        except (TypeError, ValueError):
+            logger.debug("Falha ao converter valor para float: %s", value)
             return None
-        return float(value)
 
     def _clean_record(self, record: dict) -> dict:
         cleaned = {}
@@ -40,10 +50,17 @@ class ImportOrdersService:
     # IMPORTAÇÃO
 
     async def import_file(self, supplier: str, file):
-        user_repo = SupabaseUserRepository()
+
+        logger.info("Iniciando importação de pedidos - fornecedor: %s", supplier)
+
         repo = ImportOrdersRepository()
 
-        df = pd.read_excel(file.file)
+        try:
+            df = pd.read_excel(file.file)
+        except Exception as e:
+            logger.exception("Erro ao ler arquivo Excel para fornecedor: %s", supplier)
+            raise
+
         supplier = supplier.lower()
 
         if supplier == "nsk":
@@ -55,6 +72,7 @@ class ImportOrdersService:
             table = "orders_timken"
 
         else:
+            logger.warning("Tentativa de importação para fornecedor não suportado: %s", supplier)
             raise ValueError("Fornecedor não suportado")
 
         records = [
@@ -64,10 +82,20 @@ class ImportOrdersService:
         ]
 
         if not records:
+            logger.info("Importação concluída - nenhum registro válido encontrado - fornecedor: %s", supplier)
             return 0
 
-        result = repo.insert_many(table, records)
-        return result
+        try:
+            result = repo.insert_many(table, records)
+            logger.info(
+                "Importação concluída com sucesso - fornecedor: %s - registros inseridos: %d",
+                supplier,
+                result,
+            )
+            return result
+        except Exception as e:
+            logger.exception("Erro ao inserir registros na tabela %s", table)
+            raise
 
     # NSK
 

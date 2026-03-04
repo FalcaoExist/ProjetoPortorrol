@@ -15,14 +15,18 @@ const margin = {
 
 function CustomTooltip({ payload, label, active }) {
     if (active && payload && payload.length) {
+        const row = payload[0].payload || {};
+        const supplierName = row.supplier_name || row.fornecedor || row.primary_supplier || row.suppliers?.name || "";
         return (
             <div className="border border-[#d88488] bg-white p-[10px] rounded-[5px] shadow-[1px_1px_2px_rgba(216,132,136,1)]">
-                <p className="m-0 font-bold">{`${label} : ${payload[0].value} dias de cobertura`}</p>
-                <p className="m-0 font-bold">{`Estoque total: ${payload[0].payload.estoque_atual}`}</p>
-                <p className="m-0 font-bold">{`Demanda mensal: ${parseFloat(payload[0].payload.demanda_mensal_media).toFixed(1)}`}</p>
-                <p className="m-0 font-bold">{`Demanda diária: ${parseFloat(payload[0].payload.demanda_diaria).toFixed(1)}`}</p>
-                <p className="m-0 font-bold">{`Ranking Global: ${(payload[0].payload.ranking_global)}`}</p>
-                <p className="m-0 font-bold">{`Ranking Fornecedor: ${(payload[0].payload.ranking_fornecedor)}`}</p>
+                <p className="m-0 font-bold">{`${label} : ${row.dias_cobertura} dias de cobertura`}</p>
+                {supplierName && <p className="m-0 font-bold">{`Fornecedor: ${supplierName}`}</p>}
+                <p className="m-0 font-bold">{`Estoque total: ${row.estoque_atual}`}</p>
+                <p className="m-0 font-bold">{`Demanda mensal: ${(parseFloat(row.demanda_mensal_media) || 0).toFixed(1)}`}</p>
+                <p className="m-0 font-bold">{`Demanda diária: ${(parseFloat(row.demanda_diaria) || 0).toFixed(1)}`}</p>
+                <p className="m-0 font-bold">{`Ranking Global: ${(row.ranking_global)}`}</p>
+                <p className="m-0 font-bold">{`Ranking Fornecedor: ${(row.ranking_fornecedor)}`}</p>
+                
             </div>
         );
     }
@@ -40,12 +44,22 @@ export default function CriticsChart({
 }) {
     const navigate = useNavigate();
     const hasData = Array.isArray(data) && data.length > 0;
-    const sortedData = hasData ? [...data].sort((a, b) => asc ? a.qtd - b.qtd : b.qtd - a.qtd) : [];
+    const isAllSuppliers = !supplier || supplier === "Todos";
+    const chartData = hasData
+        ? data.map((row) => {
+            const supplierName = row.supplier_name || row.fornecedor || row.primary_supplier || row.suppliers?.name || "";
+            return {
+                ...row,
+                skuName: row.name,
+                displayName: isAllSuppliers && supplierName ? `${row.name} - ${supplierName}` : row.name,
+            };
+        })
+        : [];
 
-    const handleNavigation = (name) => {
-        if (!name) return;
+    const handleNavigation = (skuName) => {
+        if (!skuName) return;
         const params = new URLSearchParams();
-        params.set('sku', name);
+        params.set('sku', skuName);
         if (supplier && supplier !== 'Todos') params.set('supplier', supplier);
         if (branch && branch !== 'Todos') params.set('branch', branch);
         navigate(`/stock?${params.toString()}`);
@@ -55,7 +69,7 @@ export default function CriticsChart({
         <g transform={`translate(${x},${y})`}>
             <text x={0} y={0} dy={16} textAnchor="end" transform="rotate(-45)" 
             style={{ cursor: 'pointer', pointerEvents: 'all' }} 
-            onClick={(e) => { e.stopPropagation(); payload && payload.value && handleNavigation(payload.value); }} 
+            onClick={(e) => { e.stopPropagation(); payload?.payload?.skuName && handleNavigation(payload.payload.skuName); }} 
             >
                 {payload.value}
             </text>
@@ -78,15 +92,15 @@ export default function CriticsChart({
 
     return (
         <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={sortedData} margin={margin} onClick={(e) => handleNavigation(e?.activeLabel)}>
-                <XAxis  dataKey="name"  interval={0}  height={90} tick={<CustomTick />}/>
+            <BarChart data={chartData} margin={margin} onClick={(e) => handleNavigation(e?.activePayload?.[0]?.payload?.skuName)}>
+                <XAxis  dataKey="displayName"  interval={0}  height={90} tick={<CustomTick />}/>
                 <Label value="Dias de cobertura" angle={-90} position="left" dx={-40} style={{ textAnchor: 'middle' }} />
                 <YAxis ticks={[0, 20, 40, 60, 80]} domain={[0, 100]} />
                 <CartesianGrid stroke="#e6e6e6" horizontal={true} vertical={false} />
                 {/* Linha horizontal personalizada (ex: meta em 60) - lisa e atrás das barras */}
                 <ReferenceLine y={60} stroke="#d88488" strokeWidth={1} isFront={false} label={{ value: '', position: 'right', fill: '#E75656' }} />
                 <Tooltip content={CustomTooltip} />
-                <Bar dataKey="qtd" fill="#212560" barSize={25} onClick={(data) => handleNavigation(data?.name)} />            
+                <Bar dataKey="qtd" fill="#212560" barSize={25} onClick={(entry) => handleNavigation(entry?.skuName)} />            
             </BarChart>
         </ResponsiveContainer>
 

@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import httpClient from "../services/validators/api/httpClient";
 import { getSuppliers } from "../services/stockService";
 import { logger } from "../utils/logger";
@@ -12,6 +12,7 @@ const removeAcentos = (str) => {
 
 export function useOrders() {
     const { user } = useAuth();
+    const hasAutoAppliedSupplier = useRef(false);
     const [ordersData, setOrdersData] = useState([]);
     const [loading, setLoading] = useState(true);
     
@@ -45,6 +46,7 @@ export function useOrders() {
     }, []);
 
     useEffect(() => {
+        if (hasAutoAppliedSupplier.current) return;
         if (fornecedorFilter && String(fornecedorFilter).trim() !== "") return;
         if (!user || !Array.isArray(user.supplier) || user.supplier.length === 0) return;
 
@@ -53,6 +55,7 @@ export function useOrders() {
 
         if (normalized) {
             setFornecedorFilter(normalized);
+            hasAutoAppliedSupplier.current = true;
         }
     }, [user, fornecedorFilter]);
 

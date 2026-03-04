@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import dashboardService from "../services/dashboardService";
 import * as supplierService from "../services/supplierService";
 import { logger } from "../utils/logger";
@@ -13,6 +13,7 @@ const STATUS_INDICATORS = {
 };
 
 export default function useDashboardData() {
+  const hasAutoAppliedSupplier = useRef(false);
   const [branch, setBranch] = useState("");
   const [supplier, setSupplier] = useState(() => getPersistedSupplierFilter());
   const [sku, setSku] = useState(null);
@@ -65,11 +66,13 @@ export default function useDashboardData() {
             setSupplierOptions(optionsSuppliers);
 
             try {
+              if (hasAutoAppliedSupplier.current) return;
               if ((!supplier || supplier === "") && user && Array.isArray(user.supplier) && user.supplier.length > 0) {
                 const first = user.supplier[0];
                 const normalized = typeof first === 'string' ? first : (first?.name || first?.nome || "");
                 if (normalized) {
                   setSupplier(normalized);
+                  hasAutoAppliedSupplier.current = true;
                   autoSelectedSupplier = true;
                 }
               }

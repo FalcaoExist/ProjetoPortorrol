@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { getStockData, createOrderBatch, getSuppliers } from "../services/stockService";
 import { logger } from "../utils/logger";
 import { useAuth } from "../context/authContext";
@@ -15,6 +15,7 @@ const getStatusText = (dias) => {
 
 export const useStock = () => {
     const { user } = useAuth();
+    const hasAutoAppliedSupplier = useRef(false);
     // --- 1. ESTADOS DE DADOS ---
     const [stockData, setStockData] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -56,6 +57,7 @@ export const useStock = () => {
     }, []);
 
     useEffect(() => {
+        if (hasAutoAppliedSupplier.current) return;
         if (fornecedor && String(fornecedor).trim() !== "") return;
         if (!user || !Array.isArray(user.supplier) || user.supplier.length === 0) return;
 
@@ -64,6 +66,7 @@ export const useStock = () => {
 
         if (normalized) {
             setFornecedor(normalized);
+            hasAutoAppliedSupplier.current = true;
         }
     }, [user, fornecedor]);
 

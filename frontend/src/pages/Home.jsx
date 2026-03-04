@@ -34,6 +34,7 @@ export default function Home() {
     months, 
     data,
     dataCritic,
+    loading,
     stockOverview,
     kpis, 
     STATUS_INDICATORS,
@@ -108,13 +109,14 @@ export default function Home() {
             
             <div className="border border-1 rounded-lg w-full min-h-96">
               <h2 className="ml-16 p-3 pb-0 text-[#464255] font-poppins font-bold text-lg">SKUs mais Críticos</h2>
-              <CriticosChart branch={branch} supplier={supplier} data={dataCritic} />
+              <CriticosChart branch={branch} supplier={supplier} data={dataCritic} loading={loading} />
               <div className="">
                <StockRangeGraph 
                     data={stockOverview ? stockOverview.data : STATUS_INDICATORS} 
                 totalItems={stockOverview ? stockOverview.total : 0}
                 branch={branch}
                 supplier={supplier}
+                loading={loading}
                 />
               </div>
             </div>
@@ -170,7 +172,7 @@ export default function Home() {
                 />
               </div>
               <h2 className="ml-16 p-3 pb-0 text-[#464255] font-poppins font-bold text-lg">SKUs em excesso</h2>
-              <OverstokChart branch={branch} supplier={supplier} data={data} />
+              <OverstokChart branch={branch} supplier={supplier} data={data} loading={loading} />
             </div>
 
             <div className="flex justify-end mb-24">

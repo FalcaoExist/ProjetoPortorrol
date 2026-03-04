@@ -1,5 +1,6 @@
 import { Bar, BarChart, Tooltip, XAxis, YAxis, ResponsiveContainer, Label, CartesianGrid, ReferenceLine } from 'recharts';
 import { useNavigate } from 'react-router-dom';
+import BarChartSkeleton from './BarChartSkeleton';
 
 
 
@@ -29,7 +30,7 @@ function CustomTooltip({ payload, label, active }) {
     return null;
 }
 
-export default function CriticsChart({ data, asc = true, branch, supplier }) {
+export default function CriticsChart({ data = [], asc = true, branch, supplier, loading = false }) {
     const navigate = useNavigate();
     const sortedData = [...data].sort((a, b) => asc ? a.qtd - b.qtd : b.qtd - a.qtd);
 
@@ -52,6 +53,10 @@ export default function CriticsChart({ data, asc = true, branch, supplier }) {
             </text>
         </g>
     );
+
+    if (loading) {
+        return <BarChartSkeleton />;
+    }
 
     return (
         <ResponsiveContainer width="100%" height={300}>

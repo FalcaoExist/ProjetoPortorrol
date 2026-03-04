@@ -25,6 +25,7 @@ export default function useDashboardData() {
   const [dataOverstock, setDataOverstock] = useState([]);
   const [dataCritic, setDataCritic] = useState([]);
   const [monthsData, setMonthsData] = useState([]);
+  const [loading, setLoading] = useState(true);
   
   const [stockOverview, setStockOverview] = useState({
     data: { ok: 0, excesso: 0, rupturaIminente: 0, subdimensionado: 0 },
@@ -41,6 +42,7 @@ export default function useDashboardData() {
   useEffect(() => {
     async function loadInitialData() {
       let autoSelectedSupplier = false;
+      setLoading(true);
       try {
         if (branchOptions.length === 0) {
             const filiais = (await dashboardService.getFiliais()) || [];
@@ -126,6 +128,8 @@ export default function useDashboardData() {
 
       } catch (error) {
         logger.error("Erro dashboard:", error);
+      } finally {
+        setLoading(false);
       }
     }
     loadInitialData();
@@ -202,6 +206,7 @@ export default function useDashboardData() {
     months: monthsData,
     data: dataOverstock,
     dataCritic: dataCritic,
+    loading,
     stockOverview, 
     kpis, 
     STATUS_INDICATORS,

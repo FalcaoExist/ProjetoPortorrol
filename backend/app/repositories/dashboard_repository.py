@@ -137,17 +137,3 @@ class DashboardRepository:
         except Exception:
             logger.exception("Erro ao buscar configuração - chave: %s", key)
             return None
-
-    def get_configuration(self, key: str):
-        try:
-            response = (
-                supabase.table("tb_configuracoes")
-                .select("valor")
-                .eq("chave", key)
-                .single()
-                .execute()
-            )
-            return response.data
-        except Exception:
-            logger.exception("Erro ao buscar configuração - chave: %s", key)
-            return None

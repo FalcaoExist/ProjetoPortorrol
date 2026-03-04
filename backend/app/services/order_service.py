@@ -135,7 +135,7 @@ class OrderService:
                             "status": row.get("status", "Aprovado"),
                             "created_at": raw_date,
                             "previsao_entrega": row.get("expected_delivery_date"), 
-                            "data_entrega": row.get("data_entrega") if row.get("status") == "Aprovado" else None, 
+                            "data_entrega": row.get("data_entrega") if row.get("status") in ["Aprovado", "Finalizado"] else None, 
                             "origem": "MANUAL"
                         })
                 else:
@@ -152,7 +152,7 @@ class OrderService:
                         "status": row.get("status", "Aprovado"),
                         "created_at": raw_date,
                         "previsao_entrega": row.get("expected_delivery_date"), 
-                        "data_entrega": row.get("data_entrega") if row.get("status") == "Aprovado" else None, 
+                        "data_entrega": row.get("data_entrega") if row.get("status") in ["Aprovado", "Finalizado"] else None, 
                         "origem": "MANUAL"
                     })
         except Exception:
@@ -185,6 +185,14 @@ class OrderService:
 
         all_orders.sort(key=lambda x: str(x.get("created_at")), reverse=True)
         return all_orders
+
+    def update_order(self, order_id: str, payload: Any):
+        try:
+            update_dict = payload.model_dump(exclude_unset=True) if hasattr(payload, "model_dump") else payload
+            return self.repository.update_order(order_id, update_dict)
+        except Exception as e:
+            logger.error(f"Erro ao atualizar pedido {order_id}: {e}")
+            raise
 
     def create_order(self, pedido, current_user: dict) -> dict:
         sup = self.repository.get_supplier_by_name(pedido.fornecedor_nome)

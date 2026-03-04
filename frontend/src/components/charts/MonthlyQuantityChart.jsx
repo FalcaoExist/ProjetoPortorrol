@@ -16,7 +16,7 @@ const CustomTooltip = ({ active, payload, label }) => {
   return null;
 };
 
-export default function MonthlyQuantityChart({ data, sku }) {
+export default function MonthlyQuantityChart({ data = [], sku }) {
 
   const displayData = data || [];
 
@@ -27,7 +27,7 @@ export default function MonthlyQuantityChart({ data, sku }) {
           <Label value="Quantidade" angle={-90} position="left" dx={-60} style={{ textAnchor: 'middle' }} />
           <CartesianGrid vertical={false} stroke="#f2f2f2" />
           <XAxis dataKey="month" tick={{ fill: "#bdbdbd", fontSize: 14 }} axisLine={false} tickLine={false} />
-          <YAxis tick={{ fill: "#bdbdbd", fontSize: 14 }} axisLine={false} tickLine={false} domain={[0, 900]} />
+          <YAxis tick={{ fill: "#bdbdbd", fontSize: 14 }} axisLine={false} tickLine={false}  />
           <Tooltip content={<CustomTooltip />} cursor={{ stroke: "#bdbdbd", strokeDasharray: "3 3" }} />
           <Line type="monotone" dataKey="value" stroke="#5E4D9E" strokeWidth={4} dot={{ r: 0, fill: "#fff", stroke: "#5E4D9E", strokeWidth: 3 }} activeDot={{ r: 10, fill: "#fff", stroke: "#5E4D9E", strokeWidth: 4 }} />
         </LineChart>

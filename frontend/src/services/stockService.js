@@ -21,12 +21,15 @@ const mapStockToFrontend = (item, index) => {
         item: item.name || item.item || item.tb_skus?.nome_produto || "Item sem nome",
         categoria: item.category || item.categoria || "Geral",
         unidades: item.stock_quantity || item.unidades || item.estoque || item.estoque_soma || 0,
-            fornecedor: supplierStr, 
-        dias_cobertura: item.coverage_days || item.dias_cobertura || 0,
+        fornecedor: supplierStr, 
+        dias_cobertura: item.dias_cobertura, 
         valor: item.unit_price || item.valor || item.preco || item.preco_custo || 0,
         porto_alegre: item.porto_alegre || item.estoque_poa || 0,
         joinville: item.joinville || item.estoque_jv || 0,
         sao_paulo: item.sao_paulo || item.estoque_sp || 0,
+        rop: Math.ceil(item.rop || 0),
+        qtd_sugerida: Math.ceil(item.qtd_sugerida || 0),
+        leadtime: item.leadtime || 0,
         _raw: item
     };
 };

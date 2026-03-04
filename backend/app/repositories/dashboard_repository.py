@@ -1,4 +1,5 @@
 import logging
+from typing import Any, Dict, List
 from app.core.supabase_client import supabase
 
 logger = logging.getLogger(__name__)
@@ -124,16 +125,53 @@ class DashboardRepository:
             logger.exception("Erro ao buscar filiais ativas")
             return []
 
-    def get_configuration(self, key: str):
+    def get_supplier_status(self) -> List[Dict[str, Any]]:
         try:
-            response = (
-                supabase.table("tb_configuracoes")
-                .select("valor")
-                .eq("chave", key)
-                .single()
-                .execute()
-            )
-            return response.data
-        except Exception:
-            logger.exception("Erro ao buscar configuração - chave: %s", key)
-            return None
+            response = supabase.table("vw_cobertura_fornecedor_wide").select("*").execute()
+            if response.data:
+                return response.data
+            return []
+        except Exception as e:
+            logger.exception(f"[ERRO SUPABASE - get_supplier_status] {e}")
+            return []
+        
+    def get_critical_skus(self, limit: int, supplier: str = None):
+        """
+        Consulta a view vw_skus_criticos_ruptura.
+        Se fornecedor for passado, filtra por ele e usa ranking_fornecedor.
+        Caso contrário, usa ranking_global.
+        """
+        try:
+            query = supabase.table("vw_skus_criticos_ruptura").select("*")
+
+            if supplier and supplier.strip():
+                query = query.eq("fornecedor", supplier)\
+                            .lte("ranking_fornecedor", limit)\
+                            .order("ranking_fornecedor")
+            else:
+                query = query.lte("ranking_global", limit)\
+                            .order("ranking_global")
+
+            return query.execute().data
+        except Exception as e:
+            logger.exception(f"[ERRO SUPABASE - get_critical_skus] {e}")
+            return []
+
+
+    def get_excess_skus(self, limit: int, supplier: str = None):
+        """
+        Consulta a view vw_skus_excesso_estoque.
+        Se fornecedor for passado, filtra por ele e usa ranking_fornecedor.
+        Caso contrário, usa ranking_global.
+        """
+        query = supabase.table("vw_skus_excesso_estoque").select("*")
+
+        if supplier and supplier.strip():
+            query = query.eq("fornecedor", supplier)\
+                         .lte("ranking_fornecedor", limit)\
+                         .order("ranking_fornecedor")
+        else:
+            query = query.lte("ranking_global", limit)\
+                         .order("ranking_global")
+
+        return query.execute().data

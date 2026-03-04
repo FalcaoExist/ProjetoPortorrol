@@ -1,3 +1,4 @@
+from http.client import HTTPException
 import logging
 import unicodedata
 from datetime import datetime, timedelta
@@ -211,3 +212,35 @@ class DashboardService:
         except Exception as e:
             logger.exception("Erro ao atualizar orcamento_mensal")
             raise
+
+    def get_supplier_status(self) -> list:
+        try:
+            return self.repo.get_supplier_status()
+        except Exception as e:
+            logger.exception(f"Erro ao buscar status dos fornecedores: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Erro ao buscar status dos fornecedores: {str(e)}")
+
+
+    def get_supplier_status_by_name(self, supplier_name: str) -> list:
+        try:
+            suppliers = self.repo.get_supplier_status()
+            result = next((supplier for supplier in suppliers if supplier.get("fornecedor") == supplier_name), None)
+            return [result] if result else []
+        except Exception as e:
+            logger.exception(f"Erro ao buscar status do fornecedor por nome: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Erro ao buscar status do fornecedor por nome: {str(e)}")
+
+    def get_critical_items(self, limit: int = 20, supplier: str = None):
+        try:
+            return self.repo.get_critical_skus(limit, supplier)
+        except Exception as e:
+            logger.exception(f"Erro ao buscar SKUs criticos: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Erro ao buscar SKUs criticos: {str(e)}")
+
+
+    def get_excess_items(self, limit: int = 20, supplier: str = None):
+        try:
+            return self.repo.get_excess_skus(limit, supplier)
+        except Exception as e:
+            logger.exception(f"Erro ao buscar SKUs em excesso: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Erro ao buscar SKUs em excesso: {str(e)}")

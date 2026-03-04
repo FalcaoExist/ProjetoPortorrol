@@ -31,9 +31,10 @@ export default function useDashboardData() {
     total: 0
   });
 
+  const [orders, setOrders] = useState({ approved: 0, late: 0 });
+
   const [kpis, setKpis] = useState({
-    coverageDays: 0,
-    savingPotential: 0 
+    coverageDays: 0
   });
 
   // 1. CARGA INICIAL
@@ -43,8 +44,8 @@ export default function useDashboardData() {
       try {
         if (branchOptions.length === 0) {
             const filiais = (await dashboardService.getFiliais()) || [];
-            const uniqueFiliais = Array.from(new Map(filiais.map(item => [item.nome, item])).values());
-            const options = uniqueFiliais.map(f => ({ value: f.nome, label: f.nome }));
+            const uniqueNomes = [...new Set(filiais.map(item => item.nome))];
+            const options = uniqueNomes.map(nome => ({ value: nome, label: nome }));
             options.unshift({ value: "", label: "Todas" });
             setBranchOptions(options);
         }
@@ -73,9 +74,55 @@ export default function useDashboardData() {
         }
         if (autoSelectedSupplier) return;
 
+        // Skus
         const response = await dashboardService.getSkus(null, branch, supplier);
         const fetchedSkus = Array.isArray(response) ? response : [];
         setAllSkus(fetchedSkus); 
+
+        // Itens criticos
+        const criticalItems = await dashboardService.getCriticalItems(20, supplier);
+        const mappedCritical = criticalItems.map(item => ({
+             name: item.codigo,
+             qtd: item.estoque_atual,
+             dias: item.dias_cobertura,
+             demanda_real: item.demanda_mensal_media,
+             ...item
+        }));
+        setDataCritic(mappedCritical);
+
+        // Itens em excesso
+        const excessItems = await dashboardService.getExcessItems(20, supplier);
+        const mappedExcess = excessItems.map(item => ({
+             name: item.codigo,
+             qtd: item.dias_cobertura, 
+             dias: item.dias_cobertura,
+             stock: item.estoque_atual,
+             ...item
+        }));
+        setDataOverstock(mappedExcess);
+
+        
+        // BUSCA DADOS AGREGADOS PARA PREENCHER O STOCK RANGE GRAPH
+        const statusResponse = await dashboardService.getSupplierStatus(branch, supplier);
+        if (Array.isArray(statusResponse)) {
+           let acc = { excesso: 0, rupturaIminente: 0, subdimensionado: 0, ok: 0 };
+           let totalAcc = 0;
+
+           statusResponse.forEach(item => {
+               acc.excesso += Number(item.qtd_excesso || item.excesso || item.EXCESSO || 0);
+               acc.rupturaIminente += Number(item.qtd_ruptura || item.ruptura || item.RUPTURA || 0); 
+               acc.subdimensionado += Number(item.qtd_subdimensionado || item.subdimensionado || item.SUBDIMENSIONADO || 0);
+               acc.ok += Number(item.qtd_ok || item.ok || item.OK || item.normal || 0);
+           });
+           
+           totalAcc = acc.excesso + acc.rupturaIminente + acc.subdimensionado + acc.ok;
+           setStockOverview({ data: acc, total: totalAcc });
+        }
+
+        // =========================================================
+        // BUSCA STATUS DE PEDIDOS (ORDERS)
+        // =========================================================
+       
 
       } catch (error) {
         logger.error("Erro dashboard:", error);
@@ -95,47 +142,15 @@ export default function useDashboardData() {
     }));
     setSkuOptions(preencherOpcoes);
 
-    // A) Processamento dos Gráficos de Excesso e Ruptura (Gerais)
-    const excessos = allSkus.filter(i => i.status === "EXCESSO");
-    excessos.sort((a, b) => b.estoque_soma - a.estoque_soma); 
-    setDataOverstock(excessos.map(item => ({
-      name: item.codigo,
-      qtd: item.estoque_soma,
-      dias: item.atendimento,
-      ...item
-    })).slice(0, 20));
-
-    const rupturas = allSkus.filter(i => i.status === "RUPTURA");
-    rupturas.sort((a, b) => a.estoque_soma - b.estoque_soma); 
-    setDataCritic(rupturas.map(item => ({
-      name: item.codigo,
-      qtd: item.estoque_soma, 
-      demanda_real: item.demanda_soma,
-      dias: item.atendimento,
-      ...item
-    })).slice(0, 20));
-
-    const counts = { ok: 0, excesso: 0, rupturaIminente: 0, subdimensionado: 0 };
-    allSkus.forEach(item => {
-        const st = item.status; 
-        if (st === 'OK') counts.ok++;
-        else if (st === 'EXCESSO') counts.excesso++;
-        else if (st === 'RUPTURA') counts.rupturaIminente++;
-        else if (st === 'SUBDIMENSIONADO') counts.subdimensionado++;
-    });
-    setStockOverview({ data: counts, total: allSkus.length });
-
-    // B) LÓGICA DO KPI DE COBERTURA (ESTRITAMENTE INDIVIDUAL)
+  
     if (sku) {
-        // Busca o item exato pelo ID para pegar os dias de cobertura
         const targetId = sku.value || sku.sku_id || sku.id;
         const skuDetails = allSkus.find(item => item.sku_id === targetId || item.id === targetId) || sku;
         
         const atendimento = skuDetails.atendimento || 0;
-        setKpis({ coverageDays: Math.round(atendimento), savingPotential: 0 });
+        setKpis({ coverageDays: Math.round(atendimento) });
     } else {
-        // ZERA o KPI se nenhum SKU estiver selecionado na barra de pesquisa
-        setKpis({ coverageDays: 0, savingPotential: 0 });
+        setKpis({ coverageDays: 0 });
     }
   }, [allSkus, sku]);
 
@@ -183,6 +198,7 @@ export default function useDashboardData() {
     branchOptions,
     supplierOptions,
     skuOptions,
+    orders,
     months: monthsData,
     data: dataOverstock,
     dataCritic: dataCritic,

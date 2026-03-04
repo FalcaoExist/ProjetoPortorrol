@@ -16,7 +16,7 @@ import NewOrderTable from "../components/new_order_table/NewOrderTable";
 import ConfirmationModal from "../components/common/ConfirmationModal";
 import ExportDropdown from "../components/common/ExportDropdown";
 
-const statusOptions = ["Ok", "Subdimensionado", "Ruptura iminente", "Excesso"];
+const statusOptions = ["Ok", "Subdimensionado", "Ruptura iminente", "Excesso", "Sem demanda"];
 const filialOptions = ["Porto Alegre", "Joinville", "São Paulo"];
 
 

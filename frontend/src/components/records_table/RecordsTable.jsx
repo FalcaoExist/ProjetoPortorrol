@@ -167,6 +167,7 @@ export default function RecordsTable({ records = [] }) {
       <BaseDataGrid
         rows={formattedRows}
         columns={columns}
+        sx={{height:650}}
       />
 
       <Dialog

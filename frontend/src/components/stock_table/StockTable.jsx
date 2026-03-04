@@ -6,6 +6,9 @@ import { getStockRowId } from "../../utils/rowIds";
 
 // Função para determinar o status e a cor de fundo com base nos dias de cobertura
 const getStatus = (diasDeCobertura) => {
+    if (diasDeCobertura === null || diasDeCobertura === undefined) {
+        return { text: "Sem demanda", bgColor: "bg-gray-100", textColor: "text-gray-500" };
+    }
     if (diasDeCobertura <= 30) {
         return { text: "Ruptura iminente", bgColor: "bg-red-200", textColor: "text-red-800" };
     }

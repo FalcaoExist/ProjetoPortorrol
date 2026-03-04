@@ -97,13 +97,6 @@ export default function Home() {
 
           <section className="pl-20 md:px-12 mt-3">
             <div className="flex gap-5 my-5">
-                <Filter 
-                  label={"Filial"} 
-                  options={branchOptions} 
-                  value={branch} 
-                  onChange={setBranch} 
-                  className="text-lg"
-                />
                 <Filter
                   label={"Fornecedor"}
                   options={supplierOptions}
@@ -168,13 +161,6 @@ export default function Home() {
 
             <div className="border border-1 rounded-lg w-full min-h-72 mb-10">
               <div className="flex items-center gap-3 ml-6 mt-4">
-                <Filter 
-                  label={"Filial"} 
-                  options={branchOptions} 
-                  value={branch} 
-                  onChange={setBranch}
-                  className="text-lg" 
-                />
                 <Filter 
                   label={"Fornecedor"} 
                   options={supplierOptions} 

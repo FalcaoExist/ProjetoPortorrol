@@ -149,7 +149,7 @@ export default function AddSupplierModal({
           />
 
           <InputField
-            label="Início de contrato"
+            label="Início"
             type="date"
             name="start"
             value={formData.start}
@@ -161,7 +161,7 @@ export default function AddSupplierModal({
           />
 
           <InputField
-            label="Fim de contrato"
+            label="Fim"
             type="date"
             name="end"
             value={formData.end}

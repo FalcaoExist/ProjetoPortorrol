@@ -1,121 +1,165 @@
 import pandas as pd
+import numpy as np
+import math
+import logging
+import io
+from datetime import datetime
 from app.repositories.import_orders_repository import ImportOrdersRepository
-from app.repositories.repositories_supabase import SupabaseUserRepository
+from app.core.supabase_client import supabase
+
+logger = logging.getLogger(__name__)
 
 class ImportOrdersService:
-
     def _parse_date(self, value):
-        if pd.isna(value):
+        if pd.isna(value) or str(value).strip().lower() in ["", "nan", "null", "nat"]: 
+            return None
+        try:
+            if isinstance(value, (pd.Timestamp, datetime)):
+                return value.strftime('%Y-%m-%d')
+            s = str(value).strip().split(' ')[0].replace('/', '-')
+            if len(s) >= 10 and s[2] == '-': # DD-MM-YYYY
+                p = s.split('-')
+                return f"{p[2]}-{p[1]}-{p[0]}"
+            if len(s) >= 10 and s[4] == '-': # YYYY-MM-DD
+                return s[:10]
+            return s
+        except: 
             return None
 
-        if isinstance(value, pd.Timestamp):
-            return value.date().isoformat()
+    def _parse_num(self, value, is_float=False):
+        """
+        Converte valores para número tratando o problema dos zeros extras (5.000 -> 5).
+        """
+        if pd.isna(value) or value is None:
+            return 0.0 if is_float else 0
+        
+        # Se já for um número (float/int do Pandas), não fazemos replace de string
+        if isinstance(value, (int, float, np.number)):
+            val = float(value)
+            if math.isnan(val) or math.isinf(val):
+                return 0.0 if is_float else 0
+            return val if is_float else int(val)
 
-        if hasattr(value, "isoformat"):
-            return value.isoformat()
+        try:
+            s = str(value).replace('R$', '').replace(' ', '').strip()
+            if ',' in s:
+                s = s.replace('.', '').replace(',', '.')
+            
+            val = float(s)
+            if math.isnan(val) or math.isinf(val):
+                return 0.0 if is_float else 0
+            return val if is_float else int(val)
+        except: 
+            return 0.0 if is_float else 0
 
-        return value
+    def _safe_str(self, val):
+        if pd.isna(val) or val is None: return None
+        s = str(val).strip()
+        return None if s.lower() in ["nan", "none", "null", "", "nat"] else s
 
-    def _parse_int(self, value):
-        if pd.isna(value):
-            return None
-        return int(value)
-
-    def _parse_float(self, value):
-        if pd.isna(value):
-            return None
-        return float(value)
-
-    def _clean_record(self, record: dict) -> dict:
-        cleaned = {}
-        for key, value in record.items():
-            if pd.isna(value):
-                cleaned[key] = None
-            elif hasattr(value, "item"):
-                cleaned[key] = value.item()
-            else:
-                cleaned[key] = value
-        return cleaned
-
-    # IMPORTAÇÃO
+    def get_col(self, row, possible_names):
+        row_keys_upper = {str(k).replace(" ", "").upper(): k for k in row.keys()}
+        for name in possible_names:
+            name_clean = str(name).replace(" ", "").upper()
+            if name_clean in row_keys_upper:
+                return row[row_keys_upper[name_clean]]
+        return None
 
     async def import_file(self, supplier: str, file):
-        user_repo = SupabaseUserRepository()
-        repo = ImportOrdersRepository()
+        supplier_key = supplier.lower()
+        try:
+            await file.seek(0)
+            content = await file.read()
+            df = pd.read_excel(io.BytesIO(content), engine='openpyxl')
+            
+            # Ajuste dinâmico de cabeçalho para Timken se necessário
+            if supplier_key == "timken":
+                cols_upper = [str(c).upper().replace(" ", "") for c in df.columns]
+                if "PURCHASEORDERNUMBER" not in cols_upper:
+                    df = pd.read_excel(io.BytesIO(content), engine='openpyxl', header=1)
+            
+            df.columns = [str(c).replace('\n', ' ').strip() for c in df.columns]
+        except Exception as e:
+            logger.error(f"Erro ao ler arquivo Excel: {e}")
+            raise ValueError(f"Erro ao processar o Excel: {str(e)}")
 
-        df = pd.read_excel(file.file)
-        supplier = supplier.lower()
+        records = []
+        try:
+            pos_response = supabase.table("purchase_orders").select("order_id").execute()
+            all_pos = [p["order_id"] for p in pos_response.data] if pos_response.data else []
+        except Exception as e:
+            logger.error(f"Erro ao buscar POs para vínculo: {e}")
+            all_pos = []
 
-        if supplier == "nsk":
-            records = self._map_nsk(df)
-            table = "orders_nsk"
+        def find_po(ref_text):
+            val = str(ref_text).strip().upper()
+            if not val or val in ["NAN", "NULL", "NONE"]: return None
+            ref_clean = val.replace('MAN-', '').split('-')[0].strip()
+            for po in all_pos:
+                if ref_clean in str(po).upper(): return po
+            return None
 
-        elif supplier == "timken":
-            records = self._map_timken(df)
-            table = "orders_timken"
+        for _, row in df.iterrows():
+            if supplier_key == "nsk":
+                ped_cli = self._safe_str(self.get_col(row, ["Ped. Cli.", "Ped.Cli."]))
+                if not ped_cli: continue
+                
+                records.append({
+                    "ped_cli": ped_cli,
+                    "ped_item": self._safe_str(self.get_col(row, ["Ped. Item"])),
+                    "codigo_cliente": self._safe_str(self.get_col(row, ["Código Cliente"])),
+                    "ped_nsk": self._safe_str(self.get_col(row, ["Ped. NSK"])),
+                    "produto": self._safe_str(self.get_col(row, ["Produto", "Unnamed: 4"])) or "N/A",
+                    "data_solicitada": self._parse_date(self.get_col(row, ["Data Solicitada (DD/MM/AAAA)"])),
+                    "data_entrega": self._parse_date(self.get_col(row, ["Data Entrega (DD/MM/AAAA)"])),
+                    "qtd_solicitada": self._parse_num(self.get_col(row, ["Qtd Solicitada"])),
+                    "qtde_nao_aceita": self._parse_num(self.get_col(row, ["Qtde não aceita"])),
+                    "em_analise": self._parse_num(self.get_col(row, ["Em Análise"])),
+                    "qtde_confirmada": self._parse_num(self.get_col(row, ["Qtde Confirmada"])),
+                    "qtde_reservada": self._parse_num(self.get_col(row, ["Qtde Reservada"])),
+                    "qtde_em_separacao": self._parse_num(self.get_col(row, ["Qtde em separação"])),
+                    "qtde_faturada": self._parse_num(self.get_col(row, ["Qtde Faturada"])),
+                    "preco_unitario": self._parse_num(self.get_col(row, ["Preço Unitário"]), True),
+                    "n_nota_fiscal": self._safe_str(self.get_col(row, ["Nº Nota Fiscal"])),
+                    "transportadora": self._safe_str(self.get_col(row, ["Transportadora"])),
+                    "purchase_order_id": find_po(ped_cli)
+                })
 
-        else:
-            raise ValueError("Fornecedor não suportado")
-
-        records = [
-            self._clean_record(r)
-            for r in records
-            if any(v is not None and v != "" for v in r.values())
-        ]
+            elif supplier_key == "timken":
+                po_ref = self._safe_str(self.get_col(row, ["Purchase order number"]))
+                if not po_ref: continue
+                records.append({
+                    "sold_to_party": self._safe_str(self.get_col(row, ["Sold-to party"])),
+                    "name_1": self._safe_str(self.get_col(row, ["Name 1"])),
+                    "sales_doc": self._safe_str(self.get_col(row, ["Sales Doc."])),
+                    "item": self._parse_num(self.get_col(row, ["Item"])),
+                    "header_po_number": self._safe_str(self.get_col(row, ["Header PO number"])),
+                    "purchase_order_number": po_ref,
+                    "po_item": self._safe_str(self.get_col(row, ["POItem"])),
+                    "material": self._safe_str(self.get_col(row, ["Material"])),
+                    "material_full_description": self._safe_str(self.get_col(row, ["Material full Description"])),
+                    "customer_material_number": self._safe_str(self.get_col(row, ["Customer Material Number"])),
+                    "confirmed_qty": self._parse_num(self.get_col(row, ["Confirmed Qty"])),
+                    "requested_date": self._parse_date(self.get_col(row, ["Requested date"])),
+                    "confirmed_date": self._parse_date(self.get_col(row, ["Confirmed date"])),
+                    "dn_number": self._safe_str(self.get_col(row, ["DN number"])),
+                    "delivery_date": self._parse_date(self.get_col(row, ["Delivery.Date"])),
+                    "open_qty": self._parse_num(self.get_col(row, ["Open Qty"])),
+                    "status": self._safe_str(self.get_col(row, ["Status"])),
+                    "sales_unit_price": self._parse_num(self.get_col(row, ["Sales unit price"]), True),
+                    "strategic_grp_desc": self._safe_str(self.get_col(row, ["Strategic Grp Desc"])),
+                    "product_allocation": self._safe_str(self.get_col(row, ["Product allocation"])),
+                    "nc_nr": self._safe_str(self.get_col(row, ["NC/NR"])),
+                    "purchase_order_id": find_po(po_ref)
+                })
 
         if not records:
-            return 0
+            raise ValueError(f"Não foram encontrados dados válidos no arquivo da {supplier.upper()}.")
 
-        result = repo.insert_many(table, records)
-        return result
-
-    # NSK
-
-    def _map_nsk(self, df):
-        records = []
-
-        for _, row in df.iterrows():
-            records.append({
-                "pedido_cliente": row.get("Ped. Cli."),
-                "pedido_item": row.get("Ped. Item"),
-                "codigo_cliente": row.get("Código Cliente"),
-                "pedido_nsk": row.get("Ped. NSK"),
-                "produto": row.get("Unnamed: 4"),
-                "data_solicitada": self._parse_date(row.get("Data Solicitada (DD/MM/AAAA)")),
-                "data_entrega": self._parse_date(row.get("Data Entrega (DD/MM/AAAA)")),
-                "qtd_solicitada": self._parse_int(row.get("Qtd Solicitada")),
-                "qtd_confirmada": self._parse_int(row.get("Qtde Confirmada")),
-                "qtd_faturada": self._parse_int(row.get("Qtde Faturada")),
-                "preco_unitario": self._parse_float(row.get("Preço Unitário")),
-                "nota_fiscal": row.get("Nº Nota Fiscal"),
-                "transportadora": row.get("Transportadora"),
-            })
-
-        return records
-
-    # TIMKEN
-
-    def _map_timken(self, df):
-        records = []
-
-        for _, row in df.iterrows():
-            records.append({
-                "sold_to": row.get("Sold-to party"),
-                "cliente": row.get("Name 1"),
-                "sales_doc": row.get("Sales Doc."),
-                "item": self._parse_int(row.get("Item")),
-                "po_header": row.get("Header PO number"),
-                "po_number": row.get("Purchase order number"),
-                "material": row.get("Material"),
-                "descricao": row.get("Material full Description"),
-                "material_cliente": row.get("Customer Material Number"),
-                "qtd_confirmada": self._parse_int(row.get("Confirmed Qty")),
-                "data_solicitada": self._parse_date(row.get("Requested date")),
-                "data_confirmada": self._parse_date(row.get("Confirmed date")),
-                "open_qty": self._parse_int(row.get("Open Qty")),
-                "preco_unitario": self._parse_float(row.get("Sales unit price")),
-                "status": row.get("Status"),
-                "nc_nr": row.get("NC/NR"),
-            })
-
-        return records
+        lote_size = 500
+        total_inserido = 0
+        for i in range(0, len(records), lote_size):
+            lote = records[i:i + lote_size]
+            res = supabase.table(f"orders_{supplier_key}").insert(lote).execute()
+            total_inserido += len(res.data) if res.data else 0
+        return total_inserido

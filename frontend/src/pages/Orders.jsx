@@ -9,6 +9,7 @@ import { exportRowsXLSX } from "../services/xlsxExporter";
 import OrderDetailsModal from "../components/order_details_modal/OrderDetailsModal.jsx";
 import OrdersFilter from "../components/orders_filter/OrdersFilter.jsx";
 import { useRef, useState, useEffect } from "react";
+import ordersService from "../services/ordersService";
 import ConfirmationModal from "../components/common/ConfirmationModal";
 import { importOrdersFromExcel } from "../services/ordersImporter";
 import ExportDropdown from "../components/common/ExportDropdown";
@@ -81,13 +82,22 @@ export default function Orders() {
     };
 
     const handleConfirmImport = async () => {
-        if (selectedFile) {
-            try {
-                const processed = await importOrdersFromExcel(selectedFile);
-                // TODO: Process the imported data and add it to the orders table
-            } catch (err) {
-                logger.error('Erro ao importar arquivo: ' + err.message);
-            }
+        if (!selectedFile) return;
+        
+        try {
+            // Agora sim enviamos o arquivo para o Python processar e salvar no Banco!
+            const resultado = await ordersService.importOrdersFromFile(selectedFile);
+            
+            // Avisa que deu certo
+            alert(resultado.message || "Pedidos importados com sucesso!");
+            
+            // Recarrega a página para os novos pedidos aparecerem na tabela na hora
+            window.location.reload(); 
+            
+        } catch (err) {
+            alert("Erro: " + err.message);
+            console.error('Erro ao importar arquivo: ', err);
+        } finally {
             setSelectedFile(null);
             setIsImportConfirmModalOpen(false);
         }

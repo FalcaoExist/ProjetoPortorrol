@@ -3,6 +3,7 @@ import dashboardService from "../services/dashboardService";
 import * as supplierService from "../services/supplierService";
 import { logger } from "../utils/logger";
 import { useAuth } from "../context/authContext";
+import { getPersistedSupplierFilter, setPersistedSupplierFilter } from "../utils/supplierFilterPersistence";
 
 const STATUS_INDICATORS = {
   RUPTURA: { color: "#e54c4c", label: "Ruptura" },
@@ -13,7 +14,7 @@ const STATUS_INDICATORS = {
 
 export default function useDashboardData() {
   const [branch, setBranch] = useState("");
-  const [supplier, setSupplier] = useState("");
+  const [supplier, setSupplier] = useState(() => getPersistedSupplierFilter());
   const [sku, setSku] = useState(null);
 
   const [branchOptions, setBranchOptions] = useState([]);
@@ -134,6 +135,10 @@ export default function useDashboardData() {
     }
     loadInitialData();
   }, [branch, supplier, user]); 
+
+  useEffect(() => {
+    setPersistedSupplierFilter(supplier);
+  }, [supplier]);
 
   // 2. RECALCULAR GRÁFICOS E KPIs QUANDO SKU MUDAR
   useEffect(() => {

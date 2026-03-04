@@ -123,6 +123,11 @@ export default function Orders() {
                             rows={groupedAndFilteredOrders}
                             columns={mainOrdersColumns}
                             loading={loading}
+                            initialState={{
+                                sorting: {
+                                    sortModel: [{ field: "data_pedido", sort: "desc" }],
+                                },
+                            }}
                         />
 
                         <div className="flex justify-end mt-4 space-x-2">

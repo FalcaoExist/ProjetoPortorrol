@@ -2,6 +2,8 @@ import { useState, useMemo, useEffect, useCallback } from "react";
 import httpClient from "../services/validators/api/httpClient";
 import { getSuppliers } from "../services/stockService";
 import { logger } from "../utils/logger";
+import { useAuth } from "../context/authContext";
+import { getPersistedSupplierFilter, setPersistedSupplierFilter } from "../utils/supplierFilterPersistence";
 // Função utilitária para remover acentos e facilitar a busca
 const removeAcentos = (str) => {
     if (!str) return "";
@@ -9,6 +11,7 @@ const removeAcentos = (str) => {
 };
 
 export function useOrders() {
+    const { user } = useAuth();
     const [ordersData, setOrdersData] = useState([]);
     const [loading, setLoading] = useState(true);
     
@@ -21,7 +24,7 @@ export function useOrders() {
     // Estados do Modal
     const [modalOpen, setModalOpen] = useState(false);
     const [selectedOrderItems, setSelectedOrderItems] = useState([]);
-    const [fornecedorFilter, setFornecedorFilter] = useState("");
+    const [fornecedorFilter, setFornecedorFilter] = useState(() => getPersistedSupplierFilter());
     const [supplierOptions, setSupplierOptions] = useState([]);
 
     useEffect(() => {
@@ -40,6 +43,22 @@ export function useOrders() {
         };
         loadSuppliers();
     }, []);
+
+    useEffect(() => {
+        if (fornecedorFilter && String(fornecedorFilter).trim() !== "") return;
+        if (!user || !Array.isArray(user.supplier) || user.supplier.length === 0) return;
+
+        const first = user.supplier[0];
+        const normalized = typeof first === "string" ? first : (first?.name || first?.nome || "");
+
+        if (normalized) {
+            setFornecedorFilter(normalized);
+        }
+    }, [user, fornecedorFilter]);
+
+    useEffect(() => {
+        setPersistedSupplierFilter(fornecedorFilter);
+    }, [fornecedorFilter]);
 
     useEffect(() => {
         try {

@@ -1,6 +1,8 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { getStockData, createOrderBatch, getSuppliers } from "../services/stockService";
 import { logger } from "../utils/logger";
+import { useAuth } from "../context/authContext";
+import { getPersistedSupplierFilter, setPersistedSupplierFilter } from "../utils/supplierFilterPersistence";
 
 // Função auxiliar para definir status textual baseado nos dias de cobertura
 const getStatusText = (dias) => {
@@ -12,6 +14,7 @@ const getStatusText = (dias) => {
 };
 
 export const useStock = () => {
+    const { user } = useAuth();
     // --- 1. ESTADOS DE DADOS ---
     const [stockData, setStockData] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -27,7 +30,7 @@ export const useStock = () => {
     // --- 3. FILTROS ---
     const [searchQuery, setSearchQuery] = useState("");
     const [statusFilter, setStatusFilter] = useState("");
-    const [fornecedor, setFornecedor] = useState("");
+    const [fornecedor, setFornecedor] = useState(() => getPersistedSupplierFilter());
     const [filial, setFilial] = useState("");
 
     // --- 4. MODAIS E UTILITÁRIOS ---
@@ -51,6 +54,22 @@ export const useStock = () => {
         };
         loadSuppliers();
     }, []);
+
+    useEffect(() => {
+        if (fornecedor && String(fornecedor).trim() !== "") return;
+        if (!user || !Array.isArray(user.supplier) || user.supplier.length === 0) return;
+
+        const first = user.supplier[0];
+        const normalized = typeof first === "string" ? first : (first?.name || first?.nome || "");
+
+        if (normalized) {
+            setFornecedor(normalized);
+        }
+    }, [user, fornecedor]);
+
+    useEffect(() => {
+        setPersistedSupplierFilter(fornecedor);
+    }, [fornecedor]);
 
     // Carrega dados do estoque aplicando filtros de servidor
     const fetchStock = useCallback(async (filters = {}) => {

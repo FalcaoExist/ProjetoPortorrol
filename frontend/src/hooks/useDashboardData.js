@@ -14,8 +14,9 @@ const STATUS_INDICATORS = {
 
 export default function useDashboardData() {
   const hasAutoAppliedSupplier = useRef(false);
+  const hasInitializedSupplierFromStorage = useRef(false);
   const [branch, setBranch] = useState("");
-  const [supplier, setSupplier] = useState(() => getPersistedSupplierFilter());
+  const [supplier, setSupplier] = useState("");
   const [sku, setSku] = useState(null);
 
   const [branchOptions, setBranchOptions] = useState([]);
@@ -39,6 +40,18 @@ export default function useDashboardData() {
   const [kpis, setKpis] = useState({
     coverageDays: 0
   });
+
+  useEffect(() => {
+    if (hasInitializedSupplierFromStorage.current) return;
+    if (!user?.id) return;
+
+    const persistedSupplier = getPersistedSupplierFilter(user.id);
+    if (persistedSupplier) {
+      setSupplier(persistedSupplier);
+    }
+
+    hasInitializedSupplierFromStorage.current = true;
+  }, [user]);
 
   // 1. CARGA INICIAL
   useEffect(() => {
@@ -64,6 +77,10 @@ export default function useDashboardData() {
             const optionsSuppliers = nomesUnicos.map(nome => ({ value: nome, label: nome }));
             optionsSuppliers.unshift({ value: "", label: "Todos" });
             setSupplierOptions(optionsSuppliers);
+
+            if (supplier && !optionsSuppliers.some(option => option.value === supplier)) {
+              setSupplier("");
+            }
 
             try {
               if (hasAutoAppliedSupplier.current) return;
@@ -140,8 +157,9 @@ export default function useDashboardData() {
   }, [branch, supplier, user]); 
 
   useEffect(() => {
-    setPersistedSupplierFilter(supplier);
-  }, [supplier]);
+    if (!user?.id) return;
+    setPersistedSupplierFilter(supplier, user.id);
+  }, [supplier, user]);
 
   // 2. RECALCULAR GRÁFICOS E KPIs QUANDO SKU MUDAR
   useEffect(() => {

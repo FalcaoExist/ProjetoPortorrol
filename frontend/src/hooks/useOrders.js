@@ -13,6 +13,7 @@ const removeAcentos = (str) => {
 export function useOrders() {
     const { user } = useAuth();
     const hasAutoAppliedSupplier = useRef(false);
+    const hasInitializedSupplierFromStorage = useRef(false);
     const [ordersData, setOrdersData] = useState([]);
     const [loading, setLoading] = useState(true);
     
@@ -25,8 +26,20 @@ export function useOrders() {
     // Estados do Modal
     const [modalOpen, setModalOpen] = useState(false);
     const [selectedOrderItems, setSelectedOrderItems] = useState([]);
-    const [fornecedorFilter, setFornecedorFilter] = useState(() => getPersistedSupplierFilter());
+    const [fornecedorFilter, setFornecedorFilter] = useState("");
     const [supplierOptions, setSupplierOptions] = useState([]);
+
+    useEffect(() => {
+        if (hasInitializedSupplierFromStorage.current) return;
+        if (!user?.id) return;
+
+        const persistedSupplier = getPersistedSupplierFilter(user.id);
+        if (persistedSupplier) {
+            setFornecedorFilter(persistedSupplier);
+        }
+
+        hasInitializedSupplierFromStorage.current = true;
+    }, [user]);
 
     useEffect(() => {
         const loadSuppliers = async () => {
@@ -46,6 +59,14 @@ export function useOrders() {
     }, []);
 
     useEffect(() => {
+        if (!fornecedorFilter) return;
+        if (!Array.isArray(supplierOptions) || supplierOptions.length === 0) return;
+        if (!supplierOptions.includes(fornecedorFilter)) {
+            setFornecedorFilter("");
+        }
+    }, [fornecedorFilter, supplierOptions]);
+
+    useEffect(() => {
         if (hasAutoAppliedSupplier.current) return;
         if (fornecedorFilter && String(fornecedorFilter).trim() !== "") return;
         if (!user || !Array.isArray(user.supplier) || user.supplier.length === 0) return;
@@ -60,8 +81,9 @@ export function useOrders() {
     }, [user, fornecedorFilter]);
 
     useEffect(() => {
-        setPersistedSupplierFilter(fornecedorFilter);
-    }, [fornecedorFilter]);
+        if (!user?.id) return;
+        setPersistedSupplierFilter(fornecedorFilter, user.id);
+    }, [fornecedorFilter, user]);
 
     useEffect(() => {
         try {

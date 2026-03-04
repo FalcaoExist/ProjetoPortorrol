@@ -51,7 +51,7 @@ class OrderService:
                     "supplier_name": supplier_name,
                     "item_name": item_name,
                     "quantity": qty,
-                    "total_value": qty * cost,
+                    "total_value": cost,
                     "data_entrega": row.get("expected_delivery_date")
                 })
                 
@@ -76,7 +76,8 @@ class OrderService:
                 for b in res_branch.data:
                     if isinstance(b, dict):
                         b_id = b.get('id') or b.get('branch_id') or b.get('filial_id')
-                        if b_id: branches_map[b_id] = b.get('name')
+                        if b_id:
+                            branches_map[str(b_id)] = b.get('name')
 
             res_sku = self.repository.get_all_skus()
             if res_sku and hasattr(res_sku, 'data') and res_sku.data:
@@ -115,9 +116,9 @@ class OrderService:
                         qtd_real = i.get("quantity_ordered") or 0
                         unit_cost = i.get("unit_cost") or 0
                         try:
-                            total_real = float(qtd_real) * float(unit_cost)
+                            total_real = float(unit_cost)
                         except (TypeError, ValueError):
-                            logger.debug("Falha ao calcular total_real")
+                            logger.debug("Falha ao converter unit_cost para float")
                             total_real = 0.0
                         
                         unique_id = f"{order_id}-{p_sku_id}-{idx}"
@@ -129,7 +130,7 @@ class OrderService:
                             "responsavel": nome_responsavel,
                             "supplier_name": nome_fornecedor,
                             "item_name": nome_item_real,
-                            "branch_name": branches_map.get(row.get("target_branch_id"), "Matriz"),
+                            "branch_name": branches_map.get(str(row.get("target_branch_id")), "Matriz"),
                             "quantity": qtd_real,
                             "valor": total_real,
                             "status": row.get("status", "Aprovado"),
@@ -146,7 +147,7 @@ class OrderService:
                         "responsavel": nome_responsavel,
                         "supplier_name": nome_fornecedor,
                         "item_name": "Pedido sem itens",
-                        "branch_name": branches_map.get(row.get("target_branch_id"), "Matriz"),
+                        "branch_name": branches_map.get(str(row.get("target_branch_id")), "Matriz"),
                         "quantity": row.get("quantity_ordered", 0),
                         "valor": 0,
                         "status": row.get("status", "Aprovado"),
@@ -230,7 +231,7 @@ class OrderService:
             "id": new_order["order_id"], "order_id": new_order["order_id"], "status": new_order["status"],
             "created_at": new_order["created_at"], "supplier_name": pedido.fornecedor_nome,
             "item_name": sku_name, "quantity": pedido.quantidade,
-            "total_value": pedido.quantidade * pedido.valor_unitario, "data_entrega": new_order.get("expected_delivery_date")
+            "total_value": pedido.valor_unitario, "data_entrega": new_order.get("expected_delivery_date")
         }
 
     def create_batch_orders(self, payload_items: List[Any], current_user: dict) -> int:
@@ -245,6 +246,16 @@ class OrderService:
         supplier_map = {s["name"].upper().strip(): s["supplier_id"] for s in all_suppliers.data}
 
         items_with_supplier = []
+        branches_response = self.repository.get_all_branches()
+        branch_by_name = {}
+        if branches_response and hasattr(branches_response, "data") and branches_response.data:
+            for branch in branches_response.data:
+                if not isinstance(branch, dict):
+                    continue
+                branch_name = str(branch.get("name") or "").strip()
+                branch_id = branch.get("id") or branch.get("branch_id") or branch.get("filial_id")
+                if branch_name and branch_id:
+                    branch_by_name[branch_name.upper()] = branch_id
 
         for item_obj in payload_items:
             if hasattr(item_obj, "model_dump"):
@@ -268,11 +279,16 @@ class OrderService:
 
             item_copy = dict(item)
             item_copy["supplier_id"] = supplier_map[sup_key]
+            filial_nome = str(item.get("filial") or "").strip()
+            item_copy["target_branch_id"] = branch_by_name.get(filial_nome.upper()) if filial_nome else None
             items_with_supplier.append(item_copy)
 
-        items_with_supplier.sort(key=lambda x: x["supplier_id"])
+        items_with_supplier.sort(key=lambda x: (x["supplier_id"], str(x.get("target_branch_id") or "")))
         count = 0
-        for supplier_id, group in groupby(items_with_supplier, key=lambda x: x["supplier_id"]):
+        for (supplier_id, target_branch_id), group in groupby(
+            items_with_supplier,
+            key=lambda x: (x["supplier_id"], x.get("target_branch_id")),
+        ):
             group_items = list(group)
             
             res_order = self.repository.insert_order({
@@ -280,7 +296,8 @@ class OrderService:
                 "user_id": current_user.get("user_id"),
                 "user_name": current_user.get("name") or current_user.get("nome") or current_user.get("email"),
                 "status": "PENDING",
-                "expected_delivery_date": group_items[0].get('expected_delivery_date')
+                "expected_delivery_date": group_items[0].get('expected_delivery_date'),
+                "target_branch_id": target_branch_id,
             })
             if res_order.data:
                 new_id = res_order.data[0]["order_id"]

@@ -16,6 +16,7 @@ const getStatusText = (dias) => {
 export const useStock = () => {
     const { user } = useAuth();
     const hasAutoAppliedSupplier = useRef(false);
+    const hasInitializedSupplierFromStorage = useRef(false);
     // --- 1. ESTADOS DE DADOS ---
     const [stockData, setStockData] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -31,7 +32,7 @@ export const useStock = () => {
     // --- 3. FILTROS ---
     const [searchQuery, setSearchQuery] = useState("");
     const [statusFilter, setStatusFilter] = useState("");
-    const [fornecedor, setFornecedor] = useState(() => getPersistedSupplierFilter());
+    const [fornecedor, setFornecedor] = useState("");
     const [filial, setFilial] = useState("");
 
     // --- 4. MODAIS E UTILITÁRIOS ---
@@ -42,6 +43,18 @@ export const useStock = () => {
 
     // EFEITOS DE CARREGAMENTO (INIT)
     // Carrega a lista de fornecedores para os filtros
+    useEffect(() => {
+        if (hasInitializedSupplierFromStorage.current) return;
+        if (!user?.id) return;
+
+        const persistedSupplier = getPersistedSupplierFilter(user.id);
+        if (persistedSupplier) {
+            setFornecedor(persistedSupplier);
+        }
+
+        hasInitializedSupplierFromStorage.current = true;
+    }, [user]);
+
     useEffect(() => {
         const loadSuppliers = async () => {
             try {
@@ -55,6 +68,14 @@ export const useStock = () => {
         };
         loadSuppliers();
     }, []);
+
+    useEffect(() => {
+        if (!fornecedor) return;
+        if (!Array.isArray(supplierOptions) || supplierOptions.length === 0) return;
+        if (!supplierOptions.includes(fornecedor)) {
+            setFornecedor("");
+        }
+    }, [fornecedor, supplierOptions]);
 
     useEffect(() => {
         if (hasAutoAppliedSupplier.current) return;
@@ -71,8 +92,9 @@ export const useStock = () => {
     }, [user, fornecedor]);
 
     useEffect(() => {
-        setPersistedSupplierFilter(fornecedor);
-    }, [fornecedor]);
+        if (!user?.id) return;
+        setPersistedSupplierFilter(fornecedor, user.id);
+    }, [fornecedor, user]);
 
     // Carrega dados do estoque aplicando filtros de servidor
     const fetchStock = useCallback(async (filters = {}) => {
@@ -120,6 +142,7 @@ export const useStock = () => {
                         real_sku_id: item.real_sku_id, 
                         unidades: item.qtd_sugerida !== undefined ? item.qtd_sugerida : 0,
                         quantidade: item.qtd_sugerida !== undefined ? item.qtd_sugerida : 0,
+                        filial: item.filial || "",
                         // Setada para o leadtime vindo do back
                         previsao_entrega: new Date(Date.now() + (item.leadtime || 15) * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
                         status: "Pendente"
@@ -212,10 +235,11 @@ export const useStock = () => {
 
         try {
             const itemsList = newOrderRows.map((row) => ({
-                sku_id: parseInt(row.real_sku_id, 10), 
-                quantity: parseInt(row.quantidade, 10),
+                sku_id: parseInt(row.real_sku_id, 10),
+                quantity: parseInt(row.unidades ?? row.quantidade ?? 0, 10),
                 unit_cost: parseFloat(row.valor || 0),
                 supplier_name: row.fornecedor || "Não informado",
+                filial: row.filial || null,
                 expected_delivery_date: row.previsao_entrega || null
             }));
 

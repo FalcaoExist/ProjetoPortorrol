@@ -2,6 +2,14 @@ import httpClient from './validators/api/httpClient';
 import { exportStockCSV } from "./csvExporter";
 import { logger } from "../utils/logger";
 
+const FILIAL_OPTIONS = ["Porto Alegre", "Joinville", "São Paulo"];
+
+const normalizeFilial = (value) => {
+    const text = String(value || "").trim();
+    if (!text) return "";
+    return FILIAL_OPTIONS.includes(text) ? text : "";
+};
+
 // Adicionado o parâmetro 'index' para criar uma chave única
 const mapStockToFrontend = (item, index) => {
     let rawSupplier = item.primary_supplier || item.supplier_name || item.fornecedor || item.supplier || item.suppliers?.name;
@@ -22,6 +30,7 @@ const mapStockToFrontend = (item, index) => {
         categoria: item.category || item.categoria || "Geral",
         unidades: item.stock_quantity || item.unidades || item.estoque || item.estoque_soma || 0,
         fornecedor: supplierStr, 
+        filial: normalizeFilial(item.filial || item.branch_name || item.branch || item.filial_nome),
         dias_cobertura: item.dias_cobertura, 
         valor: item.unit_price || item.valor || item.preco || item.preco_custo || 0,
         porto_alegre: item.porto_alegre || item.estoque_poa || 0,

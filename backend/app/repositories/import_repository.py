@@ -3,34 +3,26 @@ from app.core.supabase_client import supabase
 class ImportRepository:
 
     def parse_value(self, value, type_cast=float, default=0):
-        """
-        Converte valores para números. Se encontrar texto (como deslocamento de colunas),
-        retorna 0 por padrão. Trata símbolos e formatação brasileira.
-        """
         if value is None or str(value).strip() == "" or str(value).lower() == 'nan':
             return default
         
-        # Limpeza de caracteres não numéricos
         s = str(value).strip()
         s = s.replace('R$', '').replace(' ', '').replace('"', '').replace("'", "")
         
         if not s:
             return default
             
-        # Normalização de separadores decimais e de milhar
-        if ',' in s:
-            if '.' in s: 
-                s = s.replace('.', '').replace(',', '.') # 1.234,56 -> 1234.56
-            else: 
-                s = s.replace(',', '.') # 1234,56 -> 1234.56
-        elif s.count('.') > 1:
-            s = s.replace('.', '') # 1.000.000 -> 1000000
+        if s.count(',') > 1:
+            s = s.replace(',', '')
+        else:
+            if ',' in s and '.' in s: s = s.replace('.', '').replace(',', '.')
+            elif ',' in s: s = s.replace(',', '.')
             
         try:
             val_float = float(s)
-            return type_cast(val_float)
-        except (ValueError, TypeError):
-            # Se for um texto puro (ex: "ANEL DE BLOQUEIO"), retorna 0
+            final_value = type_cast(val_float)
+            return final_value if final_value > 0 else 0
+        except ValueError:
             return default
 
     def process_batch(self, batch: list) -> int:

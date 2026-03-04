@@ -85,11 +85,7 @@ export default function Orders() {
         if (!selectedFile) return;
         
         try {
-            // Agora sim enviamos o arquivo para o Python processar e salvar no Banco!
-            const resultado = await ordersService.importOrdersFromFile(selectedFile);
-            
-            // Avisa que deu certo
-            alert(resultado.message || "Pedidos importados com sucesso!");
+            // Agora sim enviamos o arquivo para o Python processar e salvar no Banco!  
             
             // Recarrega a página para os novos pedidos aparecerem na tabela na hora
             window.location.reload(); 

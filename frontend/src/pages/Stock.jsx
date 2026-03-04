@@ -17,7 +17,6 @@ import ConfirmationModal from "../components/common/ConfirmationModal";
 import ExportDropdown from "../components/common/ExportDropdown";
 
 const statusOptions = ["Ok", "Subdimensionado", "Ruptura iminente", "Excesso", "Sem demanda"];
-const filialOptions = ["Porto Alegre", "Joinville", "São Paulo"];
 
 
 export default function Stock() {
@@ -75,7 +74,6 @@ export default function Stock() {
         handleDeleteClick,
         confirmDelete,
         handleCreateOrder,
-        // Novos dados vindos do Hook (Banco de Dados)
         supplierOptions, 
         loading 
     } = useStock(); 
@@ -142,7 +140,6 @@ export default function Stock() {
                             />
                         </div>
 
-                        {/* AQUI: Adicionei 'key' e 'loading' para estabilidade, sem mudar o visual */}
                         <StockTable 
                             key={isNewOrderVisible ? "selection-mode" : "view-mode"}
                             rows={filteredRows}

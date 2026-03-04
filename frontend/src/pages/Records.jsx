@@ -107,15 +107,7 @@ export default function Records() {
                 />
 
                 <section className="px-8 md:px-12 pb-10">
-                    {loading ? (
-                        <div className="p-10 text-center text-gray-500 font-poppins animate-pulse">
-                            Carregando registros...
-                        </div>
-                    ) : (
-                        <RecordsTable records={filteredRecords} />
-                    )}
-
-                   
+                    <RecordsTable records={filteredRecords} loading={loading} />
                 </section>
             </main>
         </div>

@@ -17,7 +17,8 @@ export default function SuppliersTable({
     rows = [],
     setRows,
     onRequestDelete,
-    onRegisterCurrentSnapshot = () => ({})
+    onRegisterCurrentSnapshot = () => ({}),
+    loading = false
 }) {
 
     const isCompactLayout = useMediaQuery("(max-width:1279px)");
@@ -270,6 +271,7 @@ export default function SuppliersTable({
             <BaseDataGrid
                 rows={rows}
                 columns={columns}
+                loading={loading}
                 editMode="row"
                 rowModesModel={rowModesModel}
                 onRowModesModelChange={setRowModesModel}

@@ -75,9 +75,11 @@ export default function LeadtimeHistoryModal({
     const [editingBranchId, setEditingBranchId] = useState(null);
     const [tempLeadtime, setTempLeadtime] = useState("");
     const [historyRows, setHistoryRows] = useState([]);
+    const [historyLoading, setHistoryLoading] = useState(false);
 
     const fetchHistory = async (supplierId) => {
         if (!supplierId) return;
+        setHistoryLoading(true);
 
         try {
             const data = await getSupplierHistory(supplierId);
@@ -92,6 +94,8 @@ export default function LeadtimeHistoryModal({
 
         } catch (error) {
             console.error("Erro ao buscar histórico:", error);
+        } finally {
+            setHistoryLoading(false);
         }
     };
 
@@ -99,6 +103,7 @@ export default function LeadtimeHistoryModal({
         if (!supplier || !isOpen) return;
 
         (async () => {
+            setHistoryLoading(true);
             try {
                 const [filiais, freshSupplier] = await Promise.all([dashboardService.getFiliais(), getSupplierById(supplier.id)]);
                 const supplierLeadtimes = (freshSupplier && (freshSupplier.leadtimes || [])) || [];
@@ -117,6 +122,8 @@ export default function LeadtimeHistoryModal({
 
             } catch (error) {
                 console.error("Erro ao inicializar modal de leadtimes:", error);
+            } finally {
+                setHistoryLoading(false);
             }
         })();
 
@@ -129,6 +136,7 @@ export default function LeadtimeHistoryModal({
         setHistoryRows([]);
         setEditingBranchId(null);
         setTempLeadtime("");
+        setHistoryLoading(false);
     }, [isOpen]);
 
     const handleEdit = (branch) => {
@@ -276,6 +284,7 @@ export default function LeadtimeHistoryModal({
                         <BaseDataGrid
                             rows={rows}
                             columns={columns}
+                            loading={historyLoading}
                             headerStyle="alternative"
                             disableColumnFilter={false}
                             disableColumnMenu={false}

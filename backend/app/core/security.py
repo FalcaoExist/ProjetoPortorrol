@@ -2,7 +2,6 @@
 import os
 from datetime import datetime, timedelta
 from typing import Optional
-
 from dotenv import load_dotenv
 from jose import jwt
 

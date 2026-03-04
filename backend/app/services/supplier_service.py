@@ -1,54 +1,48 @@
+import logging
 from typing import List, Optional
 from uuid import uuid4, UUID
 from datetime import datetime, date
-from app.core.supabase_client import supabase
+from app.repositories.supplier_repository import SupplierRepository
 from app.repositories.supplier_leadtime_repository import SupplierLeadtimeRepository
-from app.repositories.dashboard_repository import DashboardRepository
 from app.repositories.supplier_history_repository import SupplierHistoryRepository
+from app.repositories.dashboard_repository import DashboardRepository
+
+logger = logging.getLogger(__name__)
 
 class SupplierService:
 
+    def __init__(self):
+        self.repository = SupplierRepository()
+        self.leadtime_repo = SupplierLeadtimeRepository()
+        self.history_repo = SupplierHistoryRepository()
+        self.dashboard_repo = DashboardRepository()
+
     def get_active_suppliers(self) -> List[dict]:
         try:
-            resp = (
-                supabase.table("suppliers")
-                .select("*")
-                .filter("is_active", "eq", True)
-                .order("name")
-                .execute()
-            )
-
-            suppliers = resp.data or []
-
+            suppliers = self.repository.list_active()
+            
             for supplier in suppliers:
-                leadtimes = SupplierLeadtimeRepository.list_by_supplier(
-                    supplier["supplier_id"]
-                )
+                leadtimes = self.leadtime_repo.list_by_supplier(supplier["supplier_id"])
                 supplier["leadtimes"] = leadtimes or []
-
+                
             return suppliers
-        except Exception as e:
-            raise Exception(f"Erro ao buscar fornecedores: {e}")
+        except Exception:
+            logger.exception("Erro ao buscar fornecedores ativos")
+            raise
 
     def get_supplier_by_id(self, supplier_id: UUID) -> Optional[dict]:
         try:
-            resp = (
-                supabase.table("suppliers")
-                .select("*")
-                .filter("supplier_id", "eq", str(supplier_id))
-                .single()
-                .execute()
-            )
-
-            if not resp.data:
+            supplier = self.repository.get_by_id(supplier_id)
+            
+            if not supplier:
                 return None
 
-            supplier = resp.data
-            leadtimes = SupplierLeadtimeRepository.list_by_supplier(supplier_id)
+            leadtimes = self.leadtime_repo.list_by_supplier(supplier_id)
             supplier["leadtimes"] = leadtimes or []
             return supplier
-        except Exception as e:
-            raise Exception(f"Erro ao buscar fornecedor: {e}")
+        except Exception:
+            logger.exception("Erro ao buscar fornecedor - supplier_id: %s", supplier_id)
+            raise
 
     def create_supplier(
         self,
@@ -60,46 +54,47 @@ class SupplierService:
         external_id: Optional[str] = None,
     ) -> dict:
 
-        ext_id = external_id or str(uuid4())[:8]
-        now = datetime.utcnow().isoformat()
+        logger.info("Criando fornecedor - nome: %s", name)
 
-        payload = {
-            "name": name,
-            "budget": budget,
-            "start": start.isoformat() if start else None,
-            "end": end.isoformat() if end else None,
-            "external_id": ext_id,
-            "is_active": True,
-            "created_at": now,
-            "updated_at": now,
-        }
+        try:
+            ext_id = external_id or str(uuid4())[:8]
+            now = datetime.utcnow().isoformat()
 
-        resp = supabase.table("suppliers").insert(payload).execute()
+            payload = {
+                "name": name,
+                "budget": budget,
+                "start": start.isoformat() if start else None,
+                "end": end.isoformat() if end else None,
+                "external_id": ext_id,
+                "is_active": True,
+                "created_at": now,
+                "updated_at": now,
+            }
 
-        if not resp.data:
-            raise Exception("Erro ao inserir fornecedor")
+            created_supplier = self.repository.insert(payload)
+            supplier_id = created_supplier["supplier_id"]
 
-        created_supplier = resp.data[0]
-        supplier_id = created_supplier["supplier_id"]
+            if leadtimes:
+                leadtimes_payload = [
+                    {
+                        "supplier_id": supplier_id,
+                        "branch_id": str(lt["branch_id"]),
+                        "leadtime": lt["leadtime"],
+                        "created_at": now,
+                        "updated_at": now,
+                    }
+                    for lt in leadtimes
+                ]
 
-        if leadtimes:
-            leadtimes_payload = [
-                {
-                    "supplier_id": supplier_id,
-                    "branch_id": str(lt["branch_id"]),
-                    "leadtime": lt["leadtime"],
-                    "created_at": now,
-                    "updated_at": now,
-                }
-                for lt in leadtimes
-            ]
+                inserted_leadtimes = self.leadtime_repo.bulk_insert(leadtimes_payload)
+                created_supplier["leadtimes"] = inserted_leadtimes
+            else:
+                created_supplier["leadtimes"] = []
 
-            inserted_leadtimes = SupplierLeadtimeRepository.bulk_insert(leadtimes_payload)
-            created_supplier["leadtimes"] = inserted_leadtimes
-        else:
-            created_supplier["leadtimes"] = []
-
-        return created_supplier
+            return created_supplier
+        except Exception:
+            logger.exception("Erro ao criar fornecedor - nome: %s", name)
+            raise
     
     def update_supplier(
         self,
@@ -111,49 +106,40 @@ class SupplierService:
         leadtimes: Optional[List[dict]] = None,
     ) -> dict:
 
+        logger.info("Atualizando fornecedor - supplier_id: %s", supplier_id)
+
+        try:
             now = datetime.utcnow().isoformat()
+            current_data = self.repository.get_by_id(supplier_id)
 
-            current = (
-                supabase.table("suppliers")
-                .select("*")
-                .filter("supplier_id", "eq", str(supplier_id))
-                .single()
-                .execute()
-            )
-
-            if not current.data:
+            if not current_data:
                 raise ValueError("Fornecedor não encontrado")
 
-            current_data = current.data
-
-            current_leadtimes = SupplierLeadtimeRepository.list_by_supplier(supplier_id)
-
+            current_leadtimes = self.leadtime_repo.list_by_supplier(supplier_id)
             new_lt_map = {str(lt.get("branch_id")): lt.get("leadtime") for lt in (leadtimes or [])}
 
-            # General changes: only record if any of budget/start/end changed
             after_start = start.isoformat() if start else None
             after_end = end.isoformat() if end else None
             after_budget = budget
 
             changes = []
-            # Detect name change
+            
             before_name = current_data.get("name")
             after_name = name
             if before_name != after_name:
                 changes.append(f"nome: {before_name} -> {after_name}")
 
-            # Orçamento (budget)
             if (current_data.get("budget") != after_budget):
                 changes.append(f"Alteração de orçamento: {current_data.get('budget')} -> {after_budget}")
 
-            # Início (start) and Fim (end)
             if (str(current_data.get("start")) != str(after_start)):
                 changes.append(f"Início: {current_data.get('start')} -> {after_start}")
+        
             if (str(current_data.get("end")) != str(after_end)):
                 changes.append(f"Fim: {current_data.get('end')} -> {after_end}")
 
             if changes:
-                SupplierHistoryRepository.insert({
+                self.history_repo.insert({
                     "supplier_id": str(supplier_id),
                     "budget": current_data.get("budget"),
                     "start": current_data.get("start"),
@@ -163,11 +149,11 @@ class SupplierService:
                     "updated_at": now,
                 })
 
-            # Obter o nome das filiais (para notas mais amigáveis)
             try:
-                branches = DashboardRepository().get_active_branches() or []
+                branches = self.dashboard_repo.get_active_branches() or []
                 branches_map = {str(b.get("branch_id")): b.get("name") for b in branches}
             except Exception:
+                logger.exception("Erro ao buscar filiais ativas para histórico de fornecedor")
                 branches_map = {}
 
             for lt in current_leadtimes:
@@ -182,7 +168,7 @@ class SupplierService:
                     else:
                         notes_lt = f"Alteração de leadtime: {before_lt} -> {after_lt}"
 
-                    SupplierHistoryRepository.insert({
+                    self.history_repo.insert({
                         "supplier_id": str(supplier_id),
                         "branch_id": branch_id,
                         "leadtime": before_lt,
@@ -194,7 +180,6 @@ class SupplierService:
                         "updated_at": now,
                     })
 
-            # Registrar leadtimes criados pela primeira vez (não existiam antes)
             existing_branch_ids = {str(lt.get("branch_id")) for lt in current_leadtimes}
             for branch_id_str, after_lt in new_lt_map.items():
                 if branch_id_str not in existing_branch_ids:
@@ -204,7 +189,7 @@ class SupplierService:
                     else:
                         notes_lt = f"Criação de leadtime: None -> {after_lt}"
 
-                    SupplierHistoryRepository.insert({
+                    self.history_repo.insert({
                         "supplier_id": str(supplier_id),
                         "branch_id": branch_id_str,
                         "leadtime": None,
@@ -216,7 +201,6 @@ class SupplierService:
                         "updated_at": now,
                     })
 
-            # Atualiza os dados do fornecedor (fora do loop)
             payload = {
                 "name": name,
                 "budget": budget,
@@ -225,19 +209,9 @@ class SupplierService:
                 "updated_at": now,
             }
 
-            resp = (
-                supabase.table("suppliers")
-                .update(payload)
-                .filter("supplier_id", "eq", str(supplier_id))
-                .execute()
-            )
+            updated_supplier = self.repository.update(supplier_id, payload)
 
-            if not resp.data:
-                raise ValueError("Fornecedor não encontrado")
-
-            updated_supplier = resp.data[0]
-
-            SupplierLeadtimeRepository.delete_by_supplier(supplier_id)
+            self.leadtime_repo.delete_by_supplier(supplier_id)
 
             if leadtimes:
                 leadtimes_payload = [
@@ -251,46 +225,33 @@ class SupplierService:
                     for lt in leadtimes
                 ]
 
-                inserted_leadtimes = SupplierLeadtimeRepository.bulk_insert(leadtimes_payload)
+                inserted_leadtimes = self.leadtime_repo.bulk_insert(leadtimes_payload)
                 updated_supplier["leadtimes"] = inserted_leadtimes
             else:
                 updated_supplier["leadtimes"] = []
 
             return updated_supplier
+        except Exception:
+            logger.exception("Erro ao atualizar fornecedor - supplier_id: %s", supplier_id)
+            raise
 
     def get_supplier_history(self, supplier_id: UUID):
-        return SupplierHistoryRepository.list_by_supplier(supplier_id)
+        return self.history_repo.list_by_supplier(supplier_id)
 
     def deactivate_supplier(self, supplier_id: str) -> dict:
         try:
-            # 1. Buscar fornecedor
-            current = (
-                supabase.table("suppliers")
-                .select("*")
-                .filter("supplier_id", "eq", str(supplier_id))
-                .single()
-                .execute()
-            )
+            current = self.repository.get_by_id(supplier_id)
 
-            if not current.data:
+            if not current:
                 raise ValueError("Fornecedor não encontrado.")
 
-            if not current.data["is_active"]:
+            if not current.get("is_active"):
                 raise ValueError("Fornecedor já está desativado.")
 
             now = datetime.utcnow().isoformat()
 
-            resp = (
-                supabase.table("suppliers")
-                .update({
-                    "is_active": False,
-                    "updated_at": now
-                })
-                .filter("supplier_id", "eq", str(supplier_id))
-                .execute()
-            )
+            return self.repository.deactivate(supplier_id, now)
 
-            return resp.data[0]
-
-        except Exception as e:
-            raise Exception(f"Erro ao desativar fornecedor: {e}")
+        except Exception:
+            logger.exception("Erro ao desativar fornecedor - supplier_id: %s", supplier_id)
+            raise

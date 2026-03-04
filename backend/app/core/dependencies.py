@@ -3,20 +3,19 @@ from typing import Optional
 
 from dotenv import load_dotenv
 from fastapi import Cookie, Depends, HTTPException, status
-from jose import JWTError, jwt  # CORRIGIDO: O import estava quebrado com uma URL
+from jose import JWTError, jwt 
 
 from app.core.hashers import BcryptHasher
 from app.core.interfaces import IPasswordHasher, IUserRepository
 from app.repositories.repositories_supabase import SupabaseUserRepository
 
-# Serviços
 from app.services.audit_service import AuditService
 from app.services.auth_service import AuthService
 from app.services.user_service import UserService
 from app.services.supplier_service import SupplierService
 from app.services.order_service import OrderService
 from app.services.stock_service import StockService
-from app.repositories.orders_repository import OrdersRepository
+from app.repositories.order_aggregate_repository import OrderAggregateRepository
 
 load_dotenv()
 
@@ -56,8 +55,8 @@ def get_supplier_service() -> SupplierService:
 def get_order_service() -> OrderService:
     return OrderService()
 
-def get_orders_repo():
-    return OrdersRepository()
+def get_order_aggregate_repository():
+    return OrderAggregateRepository()
 
 def get_stock_service() -> StockService:
     return StockService()

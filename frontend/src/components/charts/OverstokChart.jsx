@@ -30,9 +30,16 @@ function CustomTooltip({ payload, label, active }) {
     return null;
 }
 
-export default function OverstokChart({ data = [], branch, supplier, loading = false }) {
+export default function OverstokChart({
+    data = [],
+    branch,
+    supplier,
+    loading = false,
+    emptyMessage = "Não foram encontrados SKUs em excesso para esse fornecedor.",
+}) {
     const navigate = useNavigate();
-    const sortedData = [...data].sort((a, b) => b.qtd - a.qtd);
+    const hasData = Array.isArray(data) && data.length > 0;
+    const sortedData = hasData ? [...data].sort((a, b) => b.qtd - a.qtd) : [];
 
     const handleNavigation = (name) => {
         if (!name) return;
@@ -56,6 +63,16 @@ export default function OverstokChart({ data = [], branch, supplier, loading = f
 
     if (loading) {
         return <BarChartSkeleton />;
+    }
+
+    if (!hasData) {
+        return (
+            <div className="h-[300px] w-full px-16 py-4">
+                <div className="h-full w-full rounded-lg border border-gray-100 bg-gray-50 p-4 flex items-center justify-center">
+                    <p className="text-gray-500 font-poppins">{emptyMessage}</p>
+                </div>
+            </div>
+        );
     }
 
     return (

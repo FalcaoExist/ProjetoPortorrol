@@ -16,12 +16,18 @@ const CustomTooltip = ({ active, payload, label }) => {
   return null;
 };
 
-export default function MonthlyQuantityChart({ data = [], sku }) {
+export default function MonthlyQuantityChart({ data = [], sku, onUserInteraction = () => {} }) {
 
   const displayData = data || [];
 
   return (
-    <div className="w-full h-[300px] min-h-[200px] bg-white rounded-[20px] p-6 relative">
+    <div
+      className="w-full h-[300px] min-h-[200px] bg-white rounded-[20px] p-6 relative"
+      onMouseEnter={onUserInteraction}
+      onMouseMove={onUserInteraction}
+      onClick={onUserInteraction}
+      onTouchStart={onUserInteraction}
+    >
       <ResponsiveContainer width="100%" height={270}>
         <LineChart data={displayData} margin={{ top: 30, right: 30, left: 10, bottom: 10 }}>
           <Label value="Quantidade" angle={-90} position="left" dx={-60} style={{ textAnchor: 'middle' }} />

@@ -56,6 +56,12 @@ export default function CriticsChart({
         })
         : [];
 
+    const resolveSkuName = (value) => {
+        if (!value) return "";
+        const found = chartData.find((row) => row.skuName === value || row.displayName === value || row.name === value);
+        return found?.skuName || value;
+    };
+
     const handleNavigation = (skuName) => {
         if (!skuName) return;
         const params = new URLSearchParams();
@@ -69,7 +75,11 @@ export default function CriticsChart({
         <g transform={`translate(${x},${y})`}>
             <text x={0} y={0} dy={16} textAnchor="end" transform="rotate(-45)" 
             style={{ cursor: 'pointer', pointerEvents: 'all' }} 
-            onClick={(e) => { e.stopPropagation(); payload?.payload?.skuName && handleNavigation(payload.payload.skuName); }} 
+            onClick={(e) => {
+                e.stopPropagation();
+                const targetSku = resolveSkuName(payload?.payload?.skuName || payload?.value);
+                if (targetSku) handleNavigation(targetSku);
+            }} 
             >
                 {payload.value}
             </text>
@@ -92,7 +102,12 @@ export default function CriticsChart({
 
     return (
         <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={chartData} margin={margin} onClick={(e) => handleNavigation(e?.activePayload?.[0]?.payload?.skuName)}>
+            <BarChart data={chartData} margin={margin}
+                onClick={(e) => {
+                    const targetSku = resolveSkuName(e?.activePayload?.[0]?.payload?.skuName || e?.activeLabel);
+                    if (targetSku) handleNavigation(targetSku);
+                }}
+            >
                 <XAxis  dataKey="displayName"  interval={0}  height={90} tick={<CustomTick />}/>
                 <Label value="Dias de cobertura" angle={-90} position="left" dx={-40} style={{ textAnchor: 'middle' }} />
                 <YAxis ticks={[0, 20, 40, 60, 80]} domain={[0, 100]} />
@@ -100,7 +115,12 @@ export default function CriticsChart({
                 {/* Linha horizontal personalizada (ex: meta em 60) - lisa e atrás das barras */}
                 <ReferenceLine y={60} stroke="#d88488" strokeWidth={1} isFront={false} label={{ value: '', position: 'right', fill: '#E75656' }} />
                 <Tooltip content={CustomTooltip} />
-                <Bar dataKey="qtd" fill="#212560" barSize={25} onClick={(entry) => handleNavigation(entry?.skuName)} />            
+                <Bar dataKey="qtd" fill="#212560" barSize={25}
+                    onClick={(entry) => {
+                        const targetSku = resolveSkuName(entry?.skuName || entry?.name || entry?.displayName);
+                        if (targetSku) handleNavigation(targetSku);
+                    }}
+                />            
             </BarChart>
         </ResponsiveContainer>
 

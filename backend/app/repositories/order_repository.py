@@ -44,3 +44,6 @@ class OrdersRepository:
 
     def insert_supplier(self, payload: dict):
         return supabase.table("suppliers").insert(payload).execute()
+    
+    def insert_branch(self, payload: dict):
+        return supabase.table("branches").insert(payload).execute()

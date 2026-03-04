@@ -23,7 +23,7 @@ class DashboardRepository:
             elif st == "SUBDIMENSIONADO": query = query.gte("dias_cobertura", 30).lt("dias_cobertura", 60)
             elif st == "RUPTURA": query = query.lt("dias_cobertura", 30)
 
-        return query.order("dias_cobertura", desc=True).limit(limit).execute().data
+        return query.order("nome_produto", desc=False).limit(limit).execute().data
 
     def get_dashboard_summary(self):
         res_rup = supabase.table("vw_analise_reposicao").select("sku_id", count="exact").lt("dias_cobertura", 30).execute()
@@ -40,32 +40,13 @@ class DashboardRepository:
         return supabase.table("tb_historico_vendas")\
                 .select("periodo_sequencia, quantidade")\
                 .eq("sku_id", sku_id)\
-                .order("periodo_sequencia", desc=True)\
+                .order("periodo_sequencia", desc=False)\
                 .limit(24)\
                 .execute().data
                 
-    def get_aggregate_history(self):
-        response = supabase.table("tb_historico_vendas")\
-                .select("periodo_sequencia, quantidade")\
-                .order("periodo_sequencia", desc=True)\
-                .limit(100000)\
-                .execute()
-
-        rows = response.data
-        if not rows: return []
-
-        aggregated = {}
-        for row in rows:
-            seq = row.get('periodo_sequencia')
-            qty = row.get('quantidade', 0)
-            aggregated[seq] = aggregated.get(seq, 0) + qty
-
-        result = [{"periodo_sequencia": s, "total_quantidade": q} for s, q in aggregated.items()]
-        result.sort(key=lambda x: x['periodo_sequencia'])
-        return result[-24:] 
 
     def get_active_branches(self):
-        return supabase.table("branches").select("branch_id, name").eq("is_active", True).execute().data
+        return supabase.table("branches").select("name, branch_id").eq("is_active", True).order("name").execute().data
 
     
     def get_configuration(self, key: str):

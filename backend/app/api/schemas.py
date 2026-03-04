@@ -143,6 +143,7 @@ class OrderItemRequest(BaseModel):
     unit_cost: float
     expected_delivery_date: Optional[str] = None 
     supplier_name: Optional[str] = None
+    branch_name: Optional[str] = None
 
 class OrderUpdate(BaseModel):
     data_entrega: Optional[str] = None
@@ -167,6 +168,10 @@ class BatchOrderItem(BaseModel):
     unit_cost: float
     supplier_name: Optional[str] = None
     expected_delivery_date: Optional[Union[date, datetime, str]] = None
+    branch_name: Optional[str] = None
+    
+    class Config:
+        extra = "allow"
 
 class UpdateItemDate(BaseModel):
     delivery_date: str | None

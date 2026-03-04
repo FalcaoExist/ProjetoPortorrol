@@ -64,7 +64,6 @@ export function useOrders() {
             const formattedData = rawData.map((item, index) => {
                 const finalId = item.id || `temp-${index}`;
                 
-                // 🔥 ISOLAMENTO E TRAVA DE ESPELHAMENTO
                 const previsaoRaw = item.expected_delivery_date || item.previsao_entrega || null;
                 const entregaRaw = item.data_entrega || null;
                 
@@ -107,7 +106,7 @@ export function useOrders() {
                     data_pedido: dataCriacao, 
                     created_at: dataCriacao,
                     previsao_entrega: previsaoRaw,
-                    data_entrega: entregaRaw, // Aqui a data de entrega entra vazia
+                    data_entrega: entregaRaw, 
                     status: statusBinario,
                     _raw: item 
                 };

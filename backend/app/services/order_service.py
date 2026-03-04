@@ -226,7 +226,6 @@ class OrderService:
         }
 
     def create_batch_orders(self, payload_items: List[Any], current_user: dict) -> int:
-        
         logger.info(
             "Iniciando criação de pedidos em lote - usuário: %s - quantidade de itens: %d",
             current_user.get("user_id"),
@@ -235,6 +234,14 @@ class OrderService:
 
         all_suppliers = self.repository.get_all_suppliers()
         supplier_map = {s["name"].upper().strip(): s["supplier_id"] for s in all_suppliers.data}
+
+        all_branches = self.repository.get_all_branches()
+        branch_map = {}
+        if all_branches and hasattr(all_branches, 'data') and all_branches.data:
+            for b in all_branches.data:
+                b_id = b.get("branch_id") or b.get("id")
+                if b.get("name") and b_id:
+                    branch_map[b["name"].upper().strip()] = b_id
 
         items_with_supplier = []
         
@@ -253,27 +260,46 @@ class OrderService:
                 new_sup = self.repository.insert_supplier({
                     "name": raw_name,
                     "is_active": True,
-                    "lead_time_days": 30,
                     "external_id": str(uuid4())[:8]
                 })
                 supplier_map[sup_key] = new_sup.data[0]["supplier_id"]
 
             item_copy = dict(item)
             item_copy["supplier_id"] = supplier_map[sup_key]
+
+            raw_branch = item.get("branch_name") or "Matriz"
+            branch_key = raw_branch.upper().strip()
+
+            if branch_key not in branch_map:
+                try:
+                    new_branch = self.repository.insert_branch({
+                        "name": raw_branch,
+                        "is_active": True
+                    })
+                    if new_branch and hasattr(new_branch, 'data') and new_branch.data:
+                        b_id = new_branch.data[0].get("branch_id")
+                        branch_map[branch_key] = b_id
+                except Exception as e:
+                    logger.error("Erro ao criar filial %s: %s", raw_branch, e)
+
+            item_copy["target_branch_id"] = branch_map.get(branch_key)
             items_with_supplier.append(item_copy)
 
-        items_with_supplier.sort(key=lambda x: x["supplier_id"])
+        items_with_supplier.sort(key=lambda x: (x["supplier_id"], str(x.get("target_branch_id"))))
         count = 0
-        for supplier_id, group in groupby(items_with_supplier, key=lambda x: x["supplier_id"]):
+        
+        for (supplier_id, branch_id), group in groupby(items_with_supplier, key=lambda x: (x["supplier_id"], x.get("target_branch_id"))):
             group_items = list(group)
             
             res_order = self.repository.insert_order({
                 "supplier_id": supplier_id,
                 "user_id": current_user.get("user_id"),
-                "user_name": current_user.get("name") or current_user.get("nome") or current_user.get("email"), # <- ADICIONADO
+                "user_name": current_user.get("name") or current_user.get("nome") or current_user.get("email"),
                 "status": "PENDING",
-                "expected_delivery_date": group_items[0].get('expected_delivery_date')
+                "expected_delivery_date": group_items[0].get('expected_delivery_date'),
+                "target_branch_id": branch_id
             })
+            
             if res_order.data:
                 new_id = res_order.data[0]["order_id"]
                 count += 1

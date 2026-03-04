@@ -105,7 +105,7 @@ export default function useDashboardData() {
     }
 
     const preencherOpcoes = allSkus.map(r => ({
-        label: `${r.codigo} - ${r.nome_produto}`,
+        label: `${r.nome_produto} - ${r.codigo}`,
         value: r.sku_id || r.id,
         ...r
     }));
@@ -166,7 +166,7 @@ export default function useDashboardData() {
     try {
         const results = await dashboardService.searchSkus(query);
         const options = results.map(r => ({ 
-          label: `${r.codigo} - ${r.nome_produto}`, 
+          label: `${r.nome_produto} - ${r.codigo}`, 
           value: r.sku_id || r.id, 
           ...r 
         }));

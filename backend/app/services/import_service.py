@@ -151,7 +151,7 @@ def process_background(file_contents: bytes, filename: str, user_id: str):
 
         data_batch = df.to_dict('records')
         success = 0
-        chunk_size = 250
+        chunk_size = 1000
         for i in range(0, len(data_batch), chunk_size):
             success += process_batch(data_batch[i:i + chunk_size], import_repo)
 

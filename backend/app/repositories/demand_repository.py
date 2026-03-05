@@ -22,7 +22,12 @@ class DemandRepository:
             return
 
         try:
-            supabase.table("tb_demanda_mensal").upsert(demand_data).execute()
+            # Adicionado on_conflict="sku_id" para garantir que ele atualize 
+            # se o SKU já existir, em vez de tentar criar um novo.
+            supabase.table("tb_demanda_mensal").upsert(
+                demand_data, 
+                on_conflict="sku_id"
+            ).execute()
         except Exception as e:
             logging.error(f"Erro ao salvar demanda mensal: {e}")
 

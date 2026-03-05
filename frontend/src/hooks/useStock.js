@@ -95,11 +95,11 @@ export const useStock = () => {
                     // Cria novo item para a tabela de pedido com valores padrão
                     return {
                         ...item,
-                        real_sku_id: item.sku_id || item.id, // ID real da tb_skus para o backend
-                        quantidade: 100, // Sugestão inicial
+                        real_sku_id: item.sku_id || item.id, 
+                        quantidade: 100, 
                         previsao_entrega: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
                         status: "Pendente",
-                        filial: item.filial && ["Porto Alegre", "Joinville", "São Paulo"].includes(item.filial) ? item.filial : ""
+                        filial: item.filial || filial || ""
                     };
                 });
             return selectedRows;
@@ -183,8 +183,8 @@ export const useStock = () => {
                     quantity: quantidadeTratada,
                     unit_cost: parseFloat(row.valor || 0) / quantidadeTratada, 
                     supplier_name: row.fornecedor || "Não informado",
-                    expected_delivery_date: row.previsao_entrega || null,
-                    branch_name: row.filial 
+                    branch_name: row.filial && row.filial !== "Todos" ? row.filial : "",
+                    expected_delivery_date: row.previsao_entrega || null
                 };
             });
 

@@ -1,8 +1,8 @@
+import io
+import logging
+import math
 import pandas as pd
 import numpy as np
-import math
-import logging
-import io
 from datetime import datetime
 from app.repositories.import_orders_repository import ImportOrdersRepository
 from app.core.supabase_client import supabase
@@ -16,6 +16,10 @@ class ImportOrdersService:
         try:
             if isinstance(value, (pd.Timestamp, datetime)):
                 return value.strftime('%Y-%m-%d')
+            # Mantida a segurança extra da branch dev para outros formatos de data
+            if hasattr(value, "isoformat"):
+                return value.isoformat()[:10]
+            
             s = str(value).strip().split(' ')[0].replace('/', '-')
             if len(s) >= 10 and s[2] == '-': # DD-MM-YYYY
                 p = s.split('-')

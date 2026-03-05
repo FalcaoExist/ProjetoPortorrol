@@ -81,7 +81,8 @@ const ordersService = {
                 // O backend espera 'valor_unitario' e não 'unit_cost'
                 valor_unitario: Number(orderData.valor) / Number(orderData.quantidade || 1),
                 // O backend espera 'previsao_entrega'
-                previsao_entrega: orderData.previsao_entrega || null 
+                previsao_entrega: orderData.previsao_entrega || null,
+                branch_name: orderData.filial || "Geral"
             };
             
             return await httpClient.post("/orders", payload);

@@ -97,6 +97,11 @@ export default function useDashboardData() {
     fetchBudget();
   }, [supplier]);
 
+  useEffect(() => {
+    if (!user?.id) return;
+    setPersistedSupplierFilter(supplier, user.id);
+  }, [supplier, user]);
+
   // 2. RECALCULAR GRÁFICOS E KPIs QUANDO SKU MUDAR
   useEffect(() => {
     if (!allSkus || allSkus.length === 0) {

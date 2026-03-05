@@ -25,7 +25,7 @@ const mapStockToFrontend = (item, index) => {
         dias_cobertura: item.coverage_days || item.dias_cobertura || 0,
         valor: item.unit_price || item.valor || item.preco || item.preco_custo || 0,
         porto_alegre: item.porto_alegre || item.estoque_poa || 0,
-        joinville: item.joinville || item.estoque_jv || 0,
+        joinville: item.joinville || item.estoque_jv || 0,  
         sao_paulo: item.sao_paulo || item.estoque_sp || 0,
         _raw: item
     };

@@ -126,6 +126,7 @@ class PedidoCreate(BaseModel):
     quantidade: int
     valor_unitario: float
     previsao_entrega: Optional[date] = None
+    branch_name: Optional[str] = "Geral"
 
 class PedidoResponse(BaseModel):
     order_id: UUID

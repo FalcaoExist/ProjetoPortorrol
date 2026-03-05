@@ -1,4 +1,8 @@
+import logging
+import pandas as pd
 from app.core.supabase_client import supabase
+
+logger = logging.getLogger(__name__)
 
 class ImportRepository:
 
@@ -27,7 +31,7 @@ class ImportRepository:
 
     def process_batch(self, batch: list) -> int:
         """
-        Processa o lote de importação. 
+        Processa o lote de importação de forma otimizada. 
         Identifica produtos pelo par (REFERENCIA + NOME) para importar todas as linhas.
         """
         if not batch:
@@ -38,7 +42,6 @@ class ImportRepository:
         # 1. Organizar dados de entrada usando Chave Composta
         for row in batch:
             keys = list(row.keys())
-            # Tenta encontrar a coluna de nome (ajusta para nomes deslocados se necessário)
             col_nome = ' ' if ' ' in keys else (keys[0] if keys else 'nome_produto')
             
             nome_produto = str(row.get(col_nome, '')).strip()
@@ -47,11 +50,10 @@ class ImportRepository:
             if not codigo or codigo.lower() == 'nan':
                 continue
             
-            # Chave única para preservar itens com mesmo código mas nomes diferentes
             unique_key = f"{codigo}|{nome_produto}"
             incoming_data[unique_key] = {
                 "codigo": codigo,
-                "nome_produto": nome_produto,
+                "nome_produto": nome_produto if nome_produto.lower() != 'nan' else 'Item sem nome',
                 "marca": str(row.get('MARCA', '')).strip(),
                 "classificacao": str(row.get('CLASSIFICACAO', '')).strip(),
                 "row": row
@@ -61,13 +63,12 @@ class ImportRepository:
             return 0
 
         # 2. Upsert dos SKUs (Sincroniza tb_skus)
-        # Importante: on_conflict="codigo, nome_produto" deve existir no banco
         skus_payload = [
             {
                 "codigo": info["codigo"],
                 "nome_produto": info["nome_produto"],
-                "marca": info["marca"] if info["marca"].lower() != 'nan' else None,
-                "classificacao": info["classificacao"]
+                "marca": info["marca"] if info["marca"].lower() != 'nan' and info["marca"] != '' else None,
+                "classificacao": info["classificacao"] if info["classificacao"].lower() != 'nan' else 'Geral'
             }
             for info in incoming_data.values()
         ]
@@ -80,7 +81,6 @@ class ImportRepository:
         if not res_skus.data:
             return 0
 
-        # Mapeia a chave composta para o ID gerado pelo Supabase
         key_to_sku_id = {f"{item['codigo']}|{item['nome_produto']}": item['id'] for item in res_skus.data}
         sku_ids = list(key_to_sku_id.values())
 
@@ -94,7 +94,6 @@ class ImportRepository:
         for key, sku_id in key_to_sku_id.items():
             row = incoming_data[key]["row"]
             
-            # Montagem do payload de Análise de Compra
             ana_rec = {
                 "sku_id": sku_id,
                 "demanda_poa": self.parse_value(row.get('DEMANDA_10'), int),
@@ -122,7 +121,6 @@ class ImportRepository:
                 ana_rec["id"] = sku_to_ana_id[sku_id]
             analises_payload.append(ana_rec)
 
-            # Montagem do Histórico de Vendas
             qtd_cols = [c for c in row.keys() if str(c).startswith('QTD_')]
             for idx, q_col in enumerate(sorted(qtd_cols), start=1):
                 mes_ano = q_col.replace('QTD_', '')
@@ -137,11 +135,10 @@ class ImportRepository:
                         "valor": v_val
                     })
 
-        # 4. Gravação Final
+        # 4. Gravação Final em Lote
         if analises_payload:
             supabase.table("tb_analise_compra").upsert(analises_payload).execute()
         
-        # Limpa histórico antigo apenas dos itens que estão sendo atualizados agora
         supabase.table("tb_historico_vendas").delete().in_("sku_id", sku_ids).execute()
         if history_payload:
             supabase.table("tb_historico_vendas").insert(history_payload).execute()

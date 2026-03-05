@@ -6,7 +6,12 @@ class OrdersRepository:
         self.table_items = "purchase_order_items"
 
     def get_orders(self):
-        query = "order_id, status, created_at, expected_delivery_date, suppliers(name), purchase_order_items(quantity_ordered, unit_cost, tb_skus(nome_produto))"
+        query = (
+            "order_id, status, created_at, expected_delivery_date, target_branch_id, "
+            "branches(name), " 
+            "suppliers(name), "
+            "purchase_order_items(quantity_ordered, unit_cost, tb_skus(nome_produto))"
+        )
         return supabase.table(self.table_header).select(query).order("created_at", desc=True).execute()
 
     def get_manual_orders(self):

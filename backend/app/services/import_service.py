@@ -12,19 +12,26 @@ logger = logging.getLogger(__name__)
 def parse_value(value, type_cast=float, default=0):
     if value is None or str(value).strip() == "" or str(value).lower() == 'nan':
         return default
+    
     s = str(value).strip().replace('R$', '').replace(' ', '').replace('"', '').replace("'", "")
-    if not s: return default
-    if s.count(',') > 1: s = s.replace(',', '')
+    
+    if not s: 
+        return default
+        
+    if s.count(',') > 1: 
+        s = s.replace(',', '')
     else:
-        if ',' in s and '.' in s: s = s.replace('.', '').replace(',', '.')
-        elif ',' in s: s = s.replace(',', '.')
+        if ',' in s and '.' in s: 
+            s = s.replace('.', '').replace(',', '.')
+        elif ',' in s: 
+            s = s.replace(',', '.')
+            
     try:
         val_float = float(s)
         final_value = type_cast(val_float)
-        return final_value if final_value > 0 else 0
+        return final_value if final_value >= 0 else 0
     except (ValueError, TypeError):
         return default
-
 def process_batch(batch: list, import_repo: ImportRepository) -> int:
     if not batch: return 0
     incoming_data = {}

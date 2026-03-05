@@ -158,7 +158,7 @@ class StockItemResponse(BaseModel):
     categoria: Optional[str] = "Geral"
     unidades: int
     fornecedor: Optional[str] = "N/A"
-    filial: Optional[str] = "Matriz"
+    filial: Optional[str] = None
     dias_cobertura: Optional[int] = 0
     valor: Optional[float] = 0.0
 

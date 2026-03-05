@@ -32,6 +32,7 @@ class ImportOrdersService:
             return None
 
     def _parse_num(self, value, is_float=False):
+
         if pd.isna(value) or value is None:
             return 0.0 if is_float else 0
         
@@ -49,8 +50,10 @@ class ImportOrdersService:
             val = float(s)
             if math.isnan(val) or math.isinf(val):
                 return 0.0 if is_float else 0
-            return val if is_float else int(val)
-        except: 
+                
+            result = val if val >= 0 else 0.0
+            return result if is_float else int(result)
+        except (ValueError, TypeError): 
             return 0.0 if is_float else 0
 
     def _safe_str(self, val):

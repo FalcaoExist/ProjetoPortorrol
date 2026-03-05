@@ -140,7 +140,7 @@ export function useOrders() {
                     responsavel: item.responsavel || "Sistema", 
                     item: item.item_name || item.item || "Item",
                     fornecedor: item.supplier_name || item.fornecedor || "Desc.", 
-                    filial: item.branch_name || item.filial || "Matriz", 
+                    filial: item.branch_name || item.filial || "", 
                     quantidade: Number(item.quantity || item.quantidade || 0),
                     valor: Number(item.total_value || item.valor || 0),
                     data_pedido: dataCriacao, 

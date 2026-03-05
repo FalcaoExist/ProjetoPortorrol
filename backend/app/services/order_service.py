@@ -82,7 +82,7 @@ class OrderService:
                 raw_date = row.get("created_at")
                 nome_responsavel = row.get("user_name") or "Sistema"
                 nome_fornecedor = suppliers_map.get(row.get("supplier_id"), "Manual")
-                nome_filial = branches_map.get(str(row.get("target_branch_id")), "Matriz")
+                nome_filial = branches_map.get(str(row.get("target_branch_id")), "")
                 
                 items = row.get("purchase_order_items", [])
                 if isinstance(items, dict): items = [items]
@@ -189,7 +189,7 @@ class OrderService:
         sku_id, sku_name = sku.data[0]["id"], sku.data[0]["nome_produto"]
 
         branch_id = None
-        nome_filial = getattr(pedido, 'branch_name', None) or getattr(pedido, 'filial', None) or "Matriz"
+        nome_filial = getattr(pedido, 'branch_name', None) or getattr(pedido, 'filial', None) or ""
         res_branches = self.repository.get_all_branches()
         if res_branches and res_branches.data:
             for b in res_branches.data:
@@ -254,7 +254,7 @@ class OrderService:
                 new_sup = self.repository.insert_supplier({"name": sup_name, "is_active": True, "external_id": str(uuid4())[:8]})
                 supplier_map[sup_key] = new_sup.data[0]["supplier_id"]
 
-            raw_branch = item.get("branch_name") or item.get("filial") or "Matriz"
+            raw_branch = item.get("branch_name") or item.get("filial") or ""
             branch_key = str(raw_branch).upper().strip()
             if branch_key not in branch_map:
                 new_branch = self.repository.insert_branch({"name": raw_branch, "is_active": True})

@@ -1,25 +1,7 @@
 import React, { useMemo } from "react";
 import { BaseDataGrid } from "../common/BaseDataGrid";
 import { logger } from "../../utils/logger";
-
-const getStatusStyles = (status) => {
-    if (status === "Aprovado") {
-        return { bgColor: "bg-green-200", textColor: "text-green-800" };
-    }
-    if (status === "Atrasado") {
-        return { bgColor: "bg-red-200", textColor: "text-red-800" };
-    }
-    return { bgColor: "bg-gray-200", textColor: "text-gray-800" };
-};
-
-const StatusCell = ({ value }) => {
-    const styles = getStatusStyles(value);
-    return (
-        <div className={`inline-block px-2 py-1 text-center rounded-full text-xs font-semibold ${styles.bgColor} ${styles.textColor}`}>
-            {value}
-        </div>
-    );
-};
+import { StatusCell } from "../../pages/ordersConfig";
 
 const EditDateCell = (props) => {
     const { id, value, field, api } = props;

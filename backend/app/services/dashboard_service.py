@@ -20,12 +20,22 @@ class DashboardService:
         return unicodedata.normalize('NFKD', str(text)).encode('ASCII', 'ignore').decode('utf-8').lower().strip()
 
     def _safe_float(self, val, default=0.0):
-        try: return float(val) if val is not None else default
-        except (TypeError, ValueError): return default
+        try:
+            if val is None:
+                return default
+            return float(val)
+        except (TypeError, ValueError) as e:
+            logger.debug("Falha ao converter valor para float: %s", val)
+            return default
 
     def _safe_int(self, val, default=0):
-        try: return int(float(val)) if val is not None else default
-        except (TypeError, ValueError): return default
+        try:
+            if val is None:
+                return default
+            return int(float(val))
+        except (TypeError, ValueError) as e:
+            logger.debug("Falha ao converter valor para int: %s", val)
+            return default
 
     def _calculate_status(self, coverage_days: float) -> StatusProduto:
         if coverage_days <= 30: 
@@ -122,7 +132,11 @@ class DashboardService:
             raise
 
     def update_lead_time(self, value):
-        return self.repo.update_configuration("lead_time_padrao", value)
+        try:
+            return self.repo.update_configuration("lead_time_padrao", value)
+        except Exception as e:
+            logger.exception("Erro ao atualizar lead_time_padrao")
+            raise
 
     def update_budget(self, value):
         return self.repo.update_configuration("orcamento_mensal", value)

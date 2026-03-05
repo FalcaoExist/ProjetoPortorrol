@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import LeadtimeSavingCard from "../components/charts/LeadtimeSavingCard";
 import Navbar from "../components/nav_bar/NavBar";
 import Header from "../components/header/Header";
@@ -29,6 +29,9 @@ const formatDate = (dateString) => {
 };
 
 export default function Home() {
+  const AUTO_SKU_INTERVAL_MS = 7000;
+  const USER_IDLE_RESUME_MS = 300000;
+
   const { user } = useAuth();
   const navigate = useNavigate();
 
@@ -41,6 +44,7 @@ export default function Home() {
     months, 
     data,
     dataCritic,
+    loading,
     stockOverview,
     kpis, 
     STATUS_INDICATORS,
@@ -52,7 +56,8 @@ export default function Home() {
     totalSuggestedValue  
   } = useDashboardData();
 
-  const { ordersData } = useOrders();
+  const { ordersData, loading: ordersLoading } = useOrders();
+  const lastSkuInteractionAtRef = useRef(0);
 
   const atrasadosCount = ordersData?.filter(o => o.status === "Atrasado").length || 0;
   const aprovadosCount = ordersData?.filter(o => o.status === "Aprovado").length || 0;
@@ -87,6 +92,39 @@ export default function Home() {
     });
   };
 
+  useEffect(() => {
+    if (!Array.isArray(skuOptions) || skuOptions.length === 0) return;
+
+    const intervalId = setInterval(() => {
+      const userIsActive = Date.now() - lastSkuInteractionAtRef.current < USER_IDLE_RESUME_MS;
+      if (userIsActive) return;
+
+      setSku((currentSku) => {
+        if (!currentSku?.value) {
+          return skuOptions[0];
+        }
+
+        const currentIndex = skuOptions.findIndex((option) => option?.value === currentSku.value);
+        const nextIndex = currentIndex >= 0
+          ? (currentIndex + 1) % skuOptions.length
+          : 0;
+
+        return skuOptions[nextIndex];
+      });
+    }, AUTO_SKU_INTERVAL_MS);
+
+    return () => clearInterval(intervalId);
+  }, [skuOptions, setSku]);
+
+  const handleSkuChange = (newVal) => {
+    lastSkuInteractionAtRef.current = Date.now();
+    setSku(newVal);
+  };
+
+  const handleSkuUserInteraction = () => {
+    lastSkuInteractionAtRef.current = Date.now();
+  };
+
    const handleOrderClick = (status) => {
     const params = new URLSearchParams();
     params.set("status", status);
@@ -103,13 +141,6 @@ export default function Home() {
 
           <section className="pl-20 md:px-12 mt-3">
             <div className="flex gap-5 my-5">
-                <Filter 
-                  label={"Filial"} 
-                  options={branchOptions} 
-                  value={branch} 
-                  onChange={setBranch} 
-                  className="text-lg"
-                />
                 <Filter
                   label={"Fornecedor"}
                   options={supplierOptions}
@@ -121,13 +152,20 @@ export default function Home() {
             
             <div className="border border-1 rounded-lg w-full min-h-96">
               <h2 className="ml-16 p-3 pb-0 text-[#464255] font-poppins font-bold text-lg">SKUs mais Críticos</h2>
-              <CriticosChart branch={branch} supplier={supplier} data={dataCritic} />
+              <CriticosChart
+                branch={branch}
+                supplier={supplier}
+                data={dataCritic}
+                loading={loading}
+                emptyMessage="Não foram encontrados SKUs críticos para esse fornecedor."
+              />
               <div className="">
                <StockRangeGraph 
                     data={stockOverview ? stockOverview.data : STATUS_INDICATORS} 
                 totalItems={stockOverview ? stockOverview.total : 0}
                 branch={branch}
                 supplier={supplier}
+                loading={loading}
                 />
               </div>
             </div>
@@ -136,8 +174,8 @@ export default function Home() {
               <div className="flex-1 min-w-0">
                 <p className="text-start font-semibold text-primary text-2xl py-5">Pedidos</p>
                 <div className="flex gap-2 h-[128px]">
-                  <Orders text={"Atrasados"} img={lateOrdersImg} number={atrasadosCount} onClick={() => handleOrderClick("Atrasado")}/>
-                  <Orders text={"Aprovados"}  img={aprovedorders} number={aprovadosCount} onClick={() => handleOrderClick("Aprovado")}/>
+                  <Orders text={"Atrasados"} img={lateOrdersImg} number={atrasadosCount} loading={ordersLoading} onClick={() => handleOrderClick("Atrasado")}/>
+                  <Orders text={"Aprovados"}  img={aprovedorders} number={aprovadosCount} loading={ordersLoading} onClick={() => handleOrderClick("Aprovado")}/>
                 </div>
               </div>
               <div className="flex-1 min-w-0">
@@ -164,23 +202,20 @@ export default function Home() {
               <div className="flex items-center gap-3 ml-6 mt-4 w-full pr-6">
                 <SkuAutocomplete 
                     value={sku} 
-                    onChange={(newVal) => setSku(newVal)} 
+                  onChange={handleSkuChange} 
                     options={skuOptions} 
                     placeholder="Procurar SKU" 
                 />
               </div>
-              <MonthlyQuantityChart data={months} sku={sku?.value} />
+              <MonthlyQuantityChart
+                data={months}
+                sku={sku?.value}
+                onUserInteraction={handleSkuUserInteraction}
+              />
             </div>
 
             <div className="border border-1 rounded-lg w-full min-h-72 mb-10">
               <div className="flex items-center gap-3 ml-6 mt-4">
-                <Filter 
-                  label={"Filial"} 
-                  options={branchOptions} 
-                  value={branch} 
-                  onChange={setBranch}
-                  className="text-lg" 
-                />
                 <Filter 
                   label={"Fornecedor"} 
                   options={supplierOptions} 
@@ -190,7 +225,13 @@ export default function Home() {
                 />
               </div>
               <h2 className="ml-16 p-3 pb-0 text-[#464255] font-poppins font-bold text-lg">SKUs em excesso</h2>
-              <OverstokChart branch={branch} supplier={supplier} data={data} />
+              <OverstokChart
+                branch={branch}
+                supplier={supplier}
+                data={data}
+                loading={loading}
+                emptyMessage="Não foram encontrados SKUs em excesso para esse fornecedor."
+              />
             </div>
 
             <div className="flex justify-end mb-24">

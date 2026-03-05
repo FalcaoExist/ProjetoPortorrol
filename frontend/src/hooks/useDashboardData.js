@@ -88,7 +88,6 @@ export default function useDashboardData() {
               setSupplier("");
             }
 
-            // Seleção automática por perfil de usuário
             try {
               if (hasAutoAppliedSupplier.current) return;
               if ((!supplier || supplier === "") && user && Array.isArray(user.supplier) && user.supplier.length > 0) {
@@ -105,9 +104,54 @@ export default function useDashboardData() {
         
         if (autoSelectedSupplier) return;
 
-        // Busca SKUs (Lógica base da Feature: processar as listas depois via efeito)
+        // Skus
         const response = await dashboardService.getSkus(null, branch, supplier);
         setAllSkus(Array.isArray(response) ? response : []); 
+
+        // Itens criticos
+        const criticalItems = await dashboardService.getCriticalItems(20, supplier);
+        const mappedCritical = criticalItems.map(item => ({
+             name: item.codigo,
+             qtd: item.estoque_atual,
+             dias: item.dias_cobertura,
+             demanda_real: item.demanda_mensal_media,
+             ...item
+        }));
+        setDataCritic(mappedCritical);
+
+        // Itens em excesso
+        const excessItems = await dashboardService.getExcessItems(20, supplier);
+        const mappedExcess = excessItems.map(item => ({
+             name: item.codigo,
+             qtd: item.dias_cobertura, 
+             dias: item.dias_cobertura,
+             stock: item.estoque_atual,
+             ...item
+        }));
+        setDataOverstock(mappedExcess);
+
+        
+        // BUSCA DADOS AGREGADOS PARA PREENCHER O STOCK RANGE GRAPH
+        const statusResponse = await dashboardService.getSupplierStatus(branch, supplier);
+        if (Array.isArray(statusResponse)) {
+           let acc = { excesso: 0, rupturaIminente: 0, subdimensionado: 0, ok: 0 };
+           let totalAcc = 0;
+
+           statusResponse.forEach(item => {
+               acc.excesso += Number(item.qtd_excesso || item.excesso || item.EXCESSO || 0);
+               acc.rupturaIminente += Number(item.qtd_ruptura || item.ruptura || item.RUPTURA || 0); 
+               acc.subdimensionado += Number(item.qtd_subdimensionado || item.subdimensionado || item.SUBDIMENSIONADO || 0);
+               acc.ok += Number(item.qtd_ok || item.ok || item.OK || item.normal || 0);
+           });
+           
+           totalAcc = acc.excesso + acc.rupturaIminente + acc.subdimensionado + acc.ok;
+           setStockOverview({ data: acc, total: totalAcc });
+        }
+
+        // =========================================================
+        // BUSCA STATUS DE PEDIDOS (ORDERS)
+        // =========================================================
+       
 
       } catch (error) {
         logger.error("Erro dashboard:", error);
@@ -118,7 +162,12 @@ export default function useDashboardData() {
     loadInitialData();
   }, [branch, supplier, user]); 
 
-  // 3. BUSCA ORÇAMENTO E PERSISTÊNCIA (União das branches)
+  useEffect(() => {
+    if (!user?.id) return;
+    setPersistedSupplierFilter(supplier, user.id);
+  }, [supplier, user]);
+
+  // 2. RECALCULAR GRÁFICOS E KPIs QUANDO SKU MUDAR
   useEffect(() => {
     async function fetchBudget() {
         try {

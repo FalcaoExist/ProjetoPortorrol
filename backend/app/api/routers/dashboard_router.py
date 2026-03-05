@@ -1,4 +1,3 @@
-import logging
 from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from app.api.schemas import (
@@ -43,8 +42,6 @@ def atualizar_lead_time(config: ConfigUpdate, service: DashboardService = Depend
 def get_product_history(sku_id: Optional[int] = None, service: DashboardService = Depends(get_dashboard_service)):
     return service.get_sku_history(sku_id)
 
-# --- FUSÃO: ENDPOINTS DA FEATURE (Config e Budget) ---
-
 @router.get("/dashboard/config/{key}")
 async def get_config(
     key: str, 
@@ -62,8 +59,6 @@ async def get_dashboard_budget(
     service: DashboardService = Depends(get_dashboard_service)
 ):
     return service.get_budget_context(supplier)
-
-# --- FUSÃO: ENDPOINTS DA DEV (Status e Alertas) ---
 
 @router.get("/dashboard/suppliers/status", response_model=List[Dict[str, Any]], operation_id="get_supplier_status")
 def get_supplier_status(

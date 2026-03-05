@@ -35,11 +35,17 @@ export const useStock = () => {
     const [isImportConfirmModalOpen, setIsImportConfirmModalOpen] = useState(false);
     const [selectedFile, setSelectedFile] = useState(null);
 
+    // EFEITOS DE CARREGAMENTO (INIT)
+    // Carrega a lista de fornecedores para os filtros
     useEffect(() => {
         if (hasInitializedSupplierFromStorage.current) return;
         if (!user?.id) return;
+
         const persistedSupplier = getPersistedSupplierFilter(user.id);
-        if (persistedSupplier) setFornecedor(persistedSupplier);
+        if (persistedSupplier) {
+            setFornecedor(persistedSupplier);
+        }
+
         hasInitializedSupplierFromStorage.current = true;
     }, [user]);
 
@@ -111,9 +117,10 @@ export const useStock = () => {
                     return {
                         ...item,
                         real_sku_id: item.real_sku_id || item.sku_id || item.id,
-                        unidades: qtdSugerida,
-                        quantidade: qtdSugerida,
+                        unidades: item.qtd_sugerida !== undefined ? item.qtd_sugerida : 0,
+                        quantidade: item.qtd_sugerida !== undefined ? item.qtd_sugerida : 0,
                         filial: item.filial || "",
+                        // Setada para o leadtime vindo do back
                         previsao_entrega: new Date(Date.now() + (item.leadtime || 15) * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
                         status: "Pendente"
                     };

@@ -166,6 +166,14 @@ class OrderService:
         all_orders.sort(key=lambda x: str(x.get("created_at") or ""), reverse=True)
         return all_orders
 
+    def update_order(self, order_id: str, payload: Any):
+        try:
+            update_dict = payload.model_dump(exclude_unset=True) if hasattr(payload, "model_dump") else payload
+            return self.repository.update_order(order_id, update_dict)
+        except Exception as e:
+            logger.error(f"Erro ao atualizar pedido {order_id}: {e}")
+            raise
+
     def create_order(self, pedido, current_user: dict) -> dict:
         sup = self.repository.get_supplier_by_name(pedido.fornecedor_nome)
         if not sup or not sup.data: 

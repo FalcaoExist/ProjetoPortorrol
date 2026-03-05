@@ -37,6 +37,45 @@ const dashboardService = {
       throw error;
     }
   },
+  getCriticalItems: async (limit = 20, supplier = null) => {
+    try {
+      let url = '/dashboard/critics';
+      const params = new URLSearchParams();
+      params.append('limit', limit);
+      
+      if (supplier && supplier !== "Todos") {
+        params.append('supplier', supplier);
+      }
+
+      url += `?${params.toString()}`;
+      
+      const response = await httpClient.get(url);
+      return response.data || response;
+    } catch (error) {
+      logger.error("Erro ao buscar itens críticos:", error);
+      return [];
+    }
+  },
+
+  getExcessItems: async (limit = 20, supplier = null) => {
+    try {
+      let url = '/dashboard/excess';
+      const params = new URLSearchParams();
+      params.append('limit', limit);
+      
+      if (supplier && supplier !== "Todos") {
+        params.append('supplier', supplier);
+      }
+
+      url += `?${params.toString()}`;
+      
+      const response = await httpClient.get(url);
+      return response.data || response;
+    } catch (error) {
+      logger.error("Erro ao buscar itens em excesso:", error);
+      return [];
+    }
+  },
 
   getFiliais: async () => {
     try {
@@ -47,7 +86,28 @@ const dashboardService = {
       throw error;
     }
   },
+  getSupplierStatus: async (filial, fornecedor) => {
+    try {
+      let url = '/dashboard/suppliers/status';
+      const params = new URLSearchParams();
+      // Se selecionou "Todos" (ou vazio), busca pelo fornecedor especial "TOTAL_GERAL"
+      // Caso contrário, busca pelo nome do fornecedor
+      const targetSupplier = (fornecedor && fornecedor !== "Todos") ? fornecedor : "TOTAL_GERAL";
+      params.append('supplier_name', targetSupplier);
 
+      if (params.toString()) {
+        url += `?${params.toString()}`;
+      }
+      
+      const response = await httpClient.get(url);
+      return response.data || response;
+    } catch (error) {
+      logger.error("Erro ao buscar status do fornecedor:", error);
+      // Retorna array vazio ou lança, dependendo da estratégia. 
+      // Como o componente espera os dados, melhor retornar array vazio para não quebrar.
+      return [];
+    }
+  },
   getHistory: async (skuId = null) => {
     try {
       let url = '/dashboard/history';

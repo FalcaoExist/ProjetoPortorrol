@@ -1,6 +1,6 @@
+import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-
 from app.api.router import router as api_router
 
 app = FastAPI(title="IBy Backend API", version="1.0.0")
@@ -20,6 +20,11 @@ app.add_middleware(
 )
 
 app.include_router(api_router)
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+)
 
 @app.get("/")
 def root():

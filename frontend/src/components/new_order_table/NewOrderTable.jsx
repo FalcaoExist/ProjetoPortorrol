@@ -6,6 +6,8 @@ import { FaTrash } from 'react-icons/fa';
 
 const filialOptions = ["Porto Alegre", "Joinville", "São Paulo"];
 
+const normalizeFilial = (value) => (filialOptions.includes(value) ? value : "");
+
 export default function NewOrderTable({ 
     rows = [], 
     handleRowUpdate, 
@@ -70,6 +72,7 @@ export default function NewOrderTable({
             editable: true,
             type: "singleSelect",
             valueOptions: filialOptions,
+            valueGetter: (_, row) => normalizeFilial(row?.filial),
             align: "left",
             headerAlign: "left",
             renderCell: (params) => params.value ?? "",

@@ -1,7 +1,9 @@
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import httpClient from "../services/validators/api/httpClient";
 import { getSuppliers } from "../services/stockService";
 import { logger } from "../utils/logger";
+import { useAuth } from "../context/authContext";
+import { getPersistedSupplierFilter, setPersistedSupplierFilter } from "../utils/supplierFilterPersistence";
 
 // Função utilitária para remover acentos e facilitar a busca
 const removeAcentos = (str) => {
@@ -10,6 +12,9 @@ const removeAcentos = (str) => {
 };
 
 export function useOrders() {
+    const { user } = useAuth();
+    const hasAutoAppliedSupplier = useRef(false);
+    const hasInitializedSupplierFromStorage = useRef(false);
     const [ordersData, setOrdersData] = useState([]);
     const [loading, setLoading] = useState(true);
     
@@ -24,6 +29,18 @@ export function useOrders() {
     const [selectedOrderItems, setSelectedOrderItems] = useState([]);
     const [fornecedorFilter, setFornecedorFilter] = useState("");
     const [supplierOptions, setSupplierOptions] = useState([]);
+
+    useEffect(() => {
+        if (hasInitializedSupplierFromStorage.current) return;
+        if (!user?.id) return;
+
+        const persistedSupplier = getPersistedSupplierFilter(user.id);
+        if (persistedSupplier) {
+            setFornecedorFilter(persistedSupplier);
+        }
+
+        hasInitializedSupplierFromStorage.current = true;
+    }, [user]);
 
     useEffect(() => {
         const loadSuppliers = async () => {
@@ -41,6 +58,33 @@ export function useOrders() {
         };
         loadSuppliers();
     }, []);
+
+    useEffect(() => {
+        if (!fornecedorFilter) return;
+        if (!Array.isArray(supplierOptions) || supplierOptions.length === 0) return;
+        if (!supplierOptions.includes(fornecedorFilter)) {
+            setFornecedorFilter("");
+        }
+    }, [fornecedorFilter, supplierOptions]);
+
+    useEffect(() => {
+        if (hasAutoAppliedSupplier.current) return;
+        if (fornecedorFilter && String(fornecedorFilter).trim() !== "") return;
+        if (!user || !Array.isArray(user.supplier) || user.supplier.length === 0) return;
+
+        const first = user.supplier[0];
+        const normalized = typeof first === "string" ? first : (first?.name || first?.nome || "");
+
+        if (normalized) {
+            setFornecedorFilter(normalized);
+            hasAutoAppliedSupplier.current = true;
+        }
+    }, [user, fornecedorFilter]);
+
+    useEffect(() => {
+        if (!user?.id) return;
+        setPersistedSupplierFilter(fornecedorFilter, user.id);
+    }, [fornecedorFilter, user]);
 
     useEffect(() => {
         try {

@@ -33,14 +33,14 @@ async def import_stock(
     except Exception as e:
         logger.error(f"Erro na validação prévia do Excel: {e}")
         raise HTTPException(400, f"Erro ao processar o ficheiro: {str(e)}")
-
-    # Passamos os bytes para o process_background, que já foi unificado para lidar com auditoria
+        
+    #user_repo = SupabaseUserRepository()
+    #background_tasks.add_task(process_background, contents, file.filename, user_id, user_repo)
     background_tasks.add_task(process_background, contents, file.filename, user_id)
     
     logger.info(f"Importação de stock enviada para background: {filename} por {user_id}")
     return {"success": True, "message": "Importação de stock iniciada com sucesso."}
-
-
+   
 @router.post("/imports/pedidos/{supplier}")
 async def import_orders_file(
     supplier: Annotated[str, Path(...)], 

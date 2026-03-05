@@ -1,21 +1,65 @@
 // Service responsável por gerar e baixar CSV para o dashboard
 export const buildDashboardRows = ({ branch, supplier, sku, months, data, dataCritic, statusIndicators, orders = [], budget = null, leadtimeInfo = null }) => {
   const rows = [];
+  const safeMonths = Array.isArray(months) ? months : [];
+  const safeData = Array.isArray(data) ? data : [];
+  const safeDataCritic = Array.isArray(dataCritic) ? dataCritic : [];
+  const safeStatusIndicators = statusIndicators && typeof statusIndicators === "object" ? statusIndicators : {};
+
+  const normalizeOrders = (value) => {
+    if (Array.isArray(value)) return value;
+    if (!value || typeof value !== "object") return [];
+
+    const approved = Number(value.approved ?? value.aprovados ?? 0);
+    const late = Number(value.late ?? value.atrasados ?? 0);
+
+    return [
+      { text: "Aprovados", number: Number.isNaN(approved) ? 0 : approved },
+      { text: "Atrasados", number: Number.isNaN(late) ? 0 : late },
+    ];
+  };
+  const safeOrders = normalizeOrders(orders);
+  const pickFirst = (obj, keys) => {
+    for (const key of keys) {
+      const value = obj?.[key];
+      if (value !== undefined && value !== null && value !== "") return value;
+    }
+    return "";
+  };
+  const normalizeSupplier = (value) => {
+    if (value && typeof value === "object") {
+      return pickFirst(value, ["label", "value", "name", "nome"]);
+    }
+    return value ?? "";
+  };
+  const normalizeSku = (value) => {
+    if (!value) return "";
+    if (typeof value === "object") {
+      return pickFirst(value, ["codigo", "sku_code", "label", "value", "name", "nome_produto"]);
+    }
+    return value;
+  };
+  const mapMonthRow = (entry) => ({
+    month: pickFirst(entry, ["month", "mes", "label", "name"]),
+    value: pickFirst(entry, ["value", "qtd", "quantidade", "total", "amount"]),
+  });
 
   // Cabeçalhos em pt-BR
   rows.push(["Seção", "Chave", "Valor"]);
   rows.push(["Filtros", "Filial", branch]);
-  rows.push(["Filtros", "Fornecedor", supplier]);
-  rows.push(["Filtros", "SKU", sku?.value || ""]);
+  rows.push(["Filtros", "Fornecedor", normalizeSupplier(supplier)]);
+  rows.push(["Filtros", "SKU", normalizeSku(sku)]);
   rows.push([]);
 
   rows.push(["Meses", "Mês", "Valor"]);
-  months.forEach((m) => rows.push(["Meses", m.month, m.value]));
+  safeMonths
+    .map(mapMonthRow)
+    .forEach((m) => rows.push(["Meses", m.month, m.value]));
   rows.push([]);
 
   // Pedidos
   rows.push(["Pedidos", "Tipo", "Quantidade"]);
-  orders.forEach((o) => rows.push(["Pedidos", o.text ?? "", o.number ?? 0]));
+  safeOrders.forEach((o) => rows.push(["Pedidos", o.text ?? "", o.number ?? 0]));
   rows.push([]);
 
   // Gastos / Orçamento
@@ -27,12 +71,56 @@ export const buildDashboardRows = ({ branch, supplier, sku, months, data, dataCr
     rows.push([]);
   }
 
-  rows.push(["Excesso", "Nome", "Quantidade"]);
-  data.forEach((d) => rows.push(["Excesso", d.name, d.qtd]));
+  rows.push([
+    "Excesso",
+    "Nome",
+    "Dias de cobertura",
+    "classificacao",
+    "demanda_diaria",
+    "demanda_mensal_media",
+    "estoque_atual",
+    "fornecedor",
+    "ranking_fornecedor",
+    "ranking_global",
+  ]);
+  safeData.forEach((d) => rows.push([
+    "Excesso",
+    d.name ?? "",
+    d.qtd ?? "",
+    pickFirst(d, ["classificacao", "classification", "status"]),
+    pickFirst(d, ["demanda_diaria", "daily_demand"]),
+    pickFirst(d, ["demanda_mensal_media", "monthly_average_demand", "demanda_mensal"]),
+    pickFirst(d, ["estoque_atual", "stock", "estoque"]),
+    pickFirst(d, ["fornecedor", "supplier_name", "primary_supplier"]),
+    pickFirst(d, ["ranking_fornecedor", "supplier_rank"]),
+    pickFirst(d, ["ranking_global", "global_rank"]),
+  ]));
   rows.push([]);
 
-  rows.push(["Críticos", "Nome", "Quantidade"]);
-  dataCritic.forEach((d) => rows.push(["Críticos", d.name, d.qtd]));
+  rows.push([
+    "Críticos",
+    "Nome",
+    "Dias de cobertura",
+    "classificacao",
+    "demanda_diaria",
+    "demanda_mensal_media",
+    "estoque_atual",
+    "fornecedor",
+    "ranking_fornecedor",
+    "ranking_global",
+  ]);
+  safeDataCritic.forEach((d) => rows.push([
+    "Críticos",
+    d.name ?? "",
+    d.qtd ?? "",
+    pickFirst(d, ["classificacao", "classification", "status"]),
+    pickFirst(d, ["demanda_diaria", "daily_demand"]),
+    pickFirst(d, ["demanda_mensal_media", "monthly_average_demand", "demanda_mensal"]),
+    pickFirst(d, ["estoque_atual", "stock", "estoque"]),
+    pickFirst(d, ["fornecedor", "supplier_name", "primary_supplier"]),
+    pickFirst(d, ["ranking_fornecedor", "supplier_rank"]),
+    pickFirst(d, ["ranking_global", "global_rank"]),
+  ]));
   rows.push([]);
 
   // Leadtime / Saving
@@ -44,7 +132,7 @@ export const buildDashboardRows = ({ branch, supplier, sku, months, data, dataCr
   }
 
   rows.push(["IndicadoresStatus", "Chave", "Valor"]);
-  Object.entries(statusIndicators).forEach(([k, v]) => rows.push(["IndicadoresStatus", k, v]));
+  Object.entries(safeStatusIndicators).forEach(([k, v]) => rows.push(["IndicadoresStatus", k, v]));
 
   return rows;
 };
@@ -82,7 +170,7 @@ export const exportRowsCSV = (rows, prefix = "EXPORT") => {
   downloadCSV(csv, filename);
 };
 export const buildStockRows = (data) => {
-  // Agrupa por referência (código) e monta colunas por filial
+  // Exporta em modo detalhado: 1 linha por registro (sem agrupamento)
   const rows = [];
   rows.push([
     "Referência",
@@ -97,59 +185,27 @@ export const buildStockRows = (data) => {
     "Status",
   ]);
 
-  const groups = {};
-  (data || []).forEach((r) => {
-    const key = r.codigo || String(r.id || "");
-    if (!groups[key]) {
-      groups[key] = {
-        referencia: key,
-        item: r.item || "",
-        categoria: r.categoria || "",
-        fornecedor: r.fornecedor || "",
-        portoAlegre: 0,
-        joinville: 0,
-        saoPaulo: 0,
-        totalUnidades: 0,
-        diasCoberturaValues: [],
-      };
-    }
-
-    const unidades = Number.isFinite(Number(r.unidades)) ? Number(r.unidades) : 0;
-    groups[key].totalUnidades += unidades;
-    if (r.filial && String(r.filial).toLowerCase().includes("porto")) {
-      groups[key].portoAlegre += unidades;
-    } else if (r.filial && String(r.filial).toLowerCase().includes("join")) {
-      groups[key].joinville += unidades;
-    } else if (r.filial && String(r.filial).toLowerCase().includes("são") || (r.filial && String(r.filial).toLowerCase().includes("sao"))) {
-      groups[key].saoPaulo += unidades;
-    }
-
-    if (r.dias_cobertura != null && r.dias_cobertura !== "") {
-      const v = Number(r.dias_cobertura);
-      if (!Number.isNaN(v)) groups[key].diasCoberturaValues.push(v);
-    }
-  });
-
   const getStatusText = (dias) => {
+    if (dias === null || dias === undefined || dias === "") return "Sem demanda";
     if (dias <= 30) return "Ruptura iminente";
     if (dias <= 60) return "Subdimensionado";
     if (dias <= 100) return "Ok";
     return "Excesso";
   };
 
-  Object.values(groups).forEach((g) => {
-    const dias = g.diasCoberturaValues.length > 0 ? Math.min(...g.diasCoberturaValues) : "";
+  (data || []).forEach((r) => {
+    const dias = r.dias_cobertura;
     rows.push([
-      g.referencia || "",
-      g.item || "",
-      g.categoria || "",
-      g.totalUnidades != null ? g.totalUnidades : "",
-      g.fornecedor || "",
-      g.portoAlegre || 0,
-      g.joinville || 0,
-      g.saoPaulo || 0,
+      r.codigo || String(r.id || ""),
+      r.item || "",
+      r.categoria || "",
+      r.unidades != null ? r.unidades : "",
+      r.fornecedor || "",
+      r.porto_alegre || 0,
+      r.joinville || 0,
+      r.sao_paulo || 0,
       dias,
-      dias === "" ? "" : getStatusText(dias),
+      getStatusText(dias),
     ]);
   });
 

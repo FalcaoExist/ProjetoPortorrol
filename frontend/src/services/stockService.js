@@ -1,5 +1,5 @@
 import httpClient from './validators/api/httpClient';
-import { exportStockCSV } from "./csvExporter";
+import { exportStockXLSX } from "./xlsxExporter";
 import { logger } from "../utils/logger";
 
 const FILIAL_OPTIONS = ["Porto Alegre", "Joinville", "São Paulo"];
@@ -132,6 +132,6 @@ export const importStockFromFile = async (file) => {
 
 export const exportStockData = async (data) => {
     if (!data || data.length === 0) throw new Error("Nenhum dado fornecido para exportação.");
-    exportStockCSV(data);
-    return Promise.resolve({ message: "Dados do estoque exportados e download iniciado." });
+    exportStockXLSX(data);
+    return Promise.resolve({ message: "Dados do estoque exportados em Excel e download iniciado." });
 };

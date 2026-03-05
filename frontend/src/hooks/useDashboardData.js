@@ -117,8 +117,7 @@ export default function useDashboardData() {
         const criticalItems = await dashboardService.getCriticalItems(20, supplier);
         setDataCritic(criticalItems.map(item => ({
              name: item.codigo,
-             qtd: item.estoque_atual,
-             dias: item.dias_cobertura,
+             qtd: item.dias_cobertura,
              demanda_real: item.demanda_mensal_media,
              ...item
         })));

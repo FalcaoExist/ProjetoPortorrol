@@ -19,7 +19,7 @@ class DashboardRepository:
             if supplier and supplier != "Todos":
                 query = query.ilike("fornecedor", f"%{supplier}%")
 
-            if branch and branch != "Todas":
+            if branch and branch.strip() and branch != "Todas":
                 b_term = branch.lower()
                 if "alegre" in b_term: query = query.gt("estoque_poa", 0)
                 elif "joinville" in b_term: query = query.gt("estoque_jv", 0)

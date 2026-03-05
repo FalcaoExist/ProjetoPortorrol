@@ -48,6 +48,9 @@ class DashboardService:
 
     def _format_output(self, raw_data: list, branch_name: str = "Geral"):
         processed_data = []
+        
+        display_branch = branch_name if branch_name and branch_name.strip() != "" else "Todas"
+        
         for item in (raw_data or []):
             if not item: continue
             
@@ -66,7 +69,7 @@ class DashboardService:
                 "valor": self._safe_float(item.get("valor")), 
                 "estoque_soma": self._safe_int(item.get("estoque_atual")),
                 "demanda_soma": self._safe_float(item.get("demanda_mensal_media")),
-                "filial_nome": branch_name if branch_name and branch_name != "Todas" else "Geral",
+                "filial_nome": display_branch,
                 "fornecedor_nome": fornecedor,
                 "estoque_sp": self._safe_int(item.get("estoque_sp")),
                 "estoque_jv": self._safe_int(item.get("estoque_jv")),

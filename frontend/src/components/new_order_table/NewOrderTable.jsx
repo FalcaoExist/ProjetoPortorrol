@@ -16,6 +16,11 @@ export default function NewOrderTable({
 }) {
 
     const processRowUpdate = async (newRow, oldRow) => {
+        const normalizedFilial = normalizeFilial(newRow?.filial);
+        if (!normalizedFilial) {
+            throw new Error("Filial é obrigatória.");
+        }
+
         const updatedRow = await handleRowUpdate(newRow);
         return updatedRow ?? oldRow;
     };
@@ -50,7 +55,6 @@ export default function NewOrderTable({
             flex: 1,
             align: 'left',
             headerAlign: 'left',
-            editable: true,
             type: "singleSelect",
             valueOptions: supplierOptions,
         },
@@ -73,6 +77,11 @@ export default function NewOrderTable({
             type: "singleSelect",
             valueOptions: filialOptions,
             valueGetter: (_, row) => normalizeFilial(row?.filial),
+            preProcessEditCellProps: (params) => {
+                const value = params.props.value;
+                const isValid = filialOptions.includes(value);
+                return { ...params.props, error: !isValid };
+            },
             align: "left",
             headerAlign: "left",
             renderCell: (params) => params.value ?? "",

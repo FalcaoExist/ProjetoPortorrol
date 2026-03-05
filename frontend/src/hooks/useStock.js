@@ -4,6 +4,8 @@ import { logger } from "../utils/logger";
 import { useAuth } from "../context/authContext";
 import { getPersistedSupplierFilter, setPersistedSupplierFilter } from "../utils/supplierFilterPersistence";
 
+const BRANCH_OPTIONS = ["Porto Alegre", "Joinville", "São Paulo"];
+
 const getStatusText = (dias) => {
     if (dias === null || dias === undefined) return "Sem demanda";
     if (dias <= 30) return "Ruptura iminente";
@@ -193,6 +195,15 @@ export const useStock = () => {
 
     const handleCreateOrder = async (navigate) => {
         if (newOrderRows.length === 0) return { success: false, message: "Nenhum item na requisição." };
+
+        const hasInvalidBranch = newOrderRows.some((row) => !BRANCH_OPTIONS.includes(row?.filial));
+        if (hasInvalidBranch) {
+            logger.warn("Pedido bloqueado: existe item sem filial válida.");
+            return {
+                success: false,
+                message: "Todos os itens devem ter uma filial válida (Porto Alegre, Joinville ou São Paulo)."
+            };
+        }
 
         try {
             const itemsList = newOrderRows.map((row) => {

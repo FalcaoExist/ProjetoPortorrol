@@ -11,7 +11,6 @@ logger = logging.getLogger(__name__)
 class DashboardService:
     def __init__(self, repository: DashboardRepository = None):
         self.repo = repository or DashboardRepository()
-        # Regras de negócio centralizadas (OCP)
         self.THRESHOLD_EXCESSO = 100.0
         self.THRESHOLD_OK = 60.0
         self.THRESHOLD_SUB = 30.0
@@ -29,10 +28,13 @@ class DashboardService:
         except (TypeError, ValueError): return default
 
     def _calculate_status(self, coverage_days: float) -> StatusProduto:
-        if coverage_days > self.THRESHOLD_EXCESSO: return StatusProduto.EXCESSO
-        if coverage_days >= self.THRESHOLD_OK: return StatusProduto.OK
-        if coverage_days >= self.THRESHOLD_SUB: return StatusProduto.SUBDIMENSIONADO
-        return StatusProduto.RUPTURA
+        if coverage_days <= 30: 
+            return StatusProduto.RUPTURA
+        if coverage_days <= 60: 
+            return StatusProduto.SUBDIMENSIONADO
+        if coverage_days <= 100: 
+            return StatusProduto.OK
+        return StatusProduto.EXCESSO
 
     def _format_output(self, raw_data: list, branch_name: str = "Geral"):
         processed_data = []

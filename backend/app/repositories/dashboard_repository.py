@@ -31,10 +31,14 @@ class DashboardRepository:
 
             if status:
                 st = status.upper()
-                if st == "EXCESSO": query = query.gt("dias_cobertura", 100)
-                elif st == "OK": query = query.gte("dias_cobertura", 60).lte("dias_cobertura", 100)
-                elif st == "SUBDIMENSIONADO": query = query.gte("dias_cobertura", 30).lt("dias_cobertura", 60)
-                elif st == "RUPTURA": query = query.lt("dias_cobertura", 30)
+                if st == "EXCESSO":
+                    query = query.gt("dias_cobertura", 100)
+                elif st == "OK":
+                    query = query.gt("dias_cobertura", 60).lte("dias_cobertura", 100)
+                elif st == "SUBDIMENSIONADO":
+                    query = query.gt("dias_cobertura", 30).lte("dias_cobertura", 60)
+                elif st == "RUPTURA":
+                    query = query.lte("dias_cobertura", 30)
 
             return query.order("nome_produto").limit(limit).execute().data or []
         except Exception:
@@ -43,18 +47,20 @@ class DashboardRepository:
 
     def get_dashboard_summary(self):
         try:
-            # Encapsulando a lógica de contagem repetitiva
-            def fetch_count(q): return q.execute().count or 0
+            # Definição local para evitar erro de variável indefinida
+            def fetch_count(q): 
+                return q.execute().count or 0
             
             t = supabase.table(self.view_analise)
             return {
-                "ruptura": fetch_count(t.select("sku_id", count="exact").lt("dias_cobertura", 30)),
-                "excesso": fetch_count(t.select("sku_id", count="exact").gt("dias_cobertura", 100)),
-                "ok": fetch_count(t.select("sku_id", count="exact").gte("dias_cobertura", 60).lte("dias_cobertura", 100))
+                "ruptura": fetch_count(t.select("sku_id", count="exact").lte("dias_cobertura", 30)),
+                "subdimensionado": fetch_count(t.select("sku_id", count="exact").gt("dias_cobertura", 30).lte("dias_cobertura", 60)),
+                "ok": fetch_count(t.select("sku_id", count="exact").gt("dias_cobertura", 60).lte("dias_cobertura", 100)),
+                "excesso": fetch_count(t.select("sku_id", count="exact").gt("dias_cobertura", 100))
             }
         except Exception:
             logger.exception("Erro ao gerar sumário")
-            return {"ruptura": 0, "excesso": 0, "ok": 0}
+            return {"ruptura": 0, "subdimensionado": 0, "ok": 0, "excesso": 0}
 
     def get_history_by_sku(self, sku_id: int):
         return supabase.table(self.table_vendas).select("periodo_sequencia, quantidade, valor")\

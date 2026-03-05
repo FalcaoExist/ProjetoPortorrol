@@ -121,13 +121,21 @@ export default function useDashboardData() {
   // 3. BUSCA ORÇAMENTO E PERSISTÊNCIA (União das branches)
   useEffect(() => {
     async function fetchBudget() {
-        const info = await dashboardService.getSupplierBudget(supplier);
-        setBudgetInfo(info || { valor_total: 0, valor_individual: 0, start: null, end: null });
+        try {
+            // Se supplier for "", o service deve chamar a rota sem o parâmetro, 
+            // resultando na soma de todos os orçamentos no back.
+            const info = await dashboardService.getSupplierBudget(supplier || "Todos");
+            setBudgetInfo(info || { valor_total: 0, valor_individual: 0, start: null, end: null });
+        } catch (error) {
+            logger.error("Erro ao carregar budget:", error);
+        }
     }
-    if (supplier) fetchBudget();
+    
+    // Removido o if(supplier) para permitir que carregue o total geral por padrão
+    fetchBudget();
     
     if (user?.id) {
-        setPersistedSupplierFilter(supplier, user.id); // Persistência da DEV
+        setPersistedSupplierFilter(supplier, user.id);
     }
   }, [supplier, user]);
 

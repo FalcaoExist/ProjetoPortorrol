@@ -7,7 +7,7 @@ class OrdersRepository:
 
     def get_orders(self):
         query = (
-            "order_id, status, created_at, expected_delivery_date, target_branch_id, "
+            "order_id, status, created_at, expected_delivery_date, target_branch_id, data_entrega, "
             "branches(name), " 
             "suppliers(name), "
             "purchase_order_items(quantity_ordered, unit_cost, tb_skus(nome_produto))"
@@ -31,6 +31,9 @@ class OrdersRepository:
 
     def get_supplier_by_name(self, name: str):
         return supabase.table("suppliers").select("supplier_id").ilike("name", name).execute()
+    
+    def get_branch_by_name(self, name: str):
+        return supabase.table("branches").select("branch_id").ilike("name", name).execute()
 
     def search_sku_by_nome(self, nome: str):
         return supabase.table("tb_skus").select("id, nome_produto").ilike("nome_produto", f"%{nome}%").execute()

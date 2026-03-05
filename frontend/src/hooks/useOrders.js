@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect, useCallback } from "react";
 import httpClient from "../services/validators/api/httpClient";
 import { getSuppliers } from "../services/stockService";
 import { logger } from "../utils/logger";
+
 // Função utilitária para remover acentos e facilitar a busca
 const removeAcentos = (str) => {
     if (!str) return "";
@@ -71,7 +72,7 @@ export function useOrders() {
                 const hoje = new Date();
                 hoje.setHours(0,0,0,0);
                 
-                // ALTERAÇÃO NECESSÁRIA: Impede que o cálculo de datas sobrescreva o status "Finalizado" vindo do banco
+                // AJUSTE SOLID: Prioriza o status "Finalizado" vindo do banco ou a existência de data de entrega
                 if (statusBinario === "Finalizado" || entregaRaw) {
                     statusBinario = "Finalizado";
                 } else if (previsaoRaw) {
@@ -103,7 +104,7 @@ export function useOrders() {
                     previsao_entrega: previsaoRaw,
                     data_entrega: entregaRaw, 
                     status: statusBinario,
-                    origem: item.origem || "MANUAL", // NECESSÁRIO para o update saber em qual tabela salvar
+                    origem: item.origem || "MANUAL", // Essencial para o Service identificar a tabela correta
                     _raw: item 
                 };
             });
@@ -157,10 +158,10 @@ export function useOrders() {
             await Promise.all(itemsToUpdate.map(async (item) => {
                 const apiField = field === "previsao_entrega" ? "expected_delivery_date" : field;
                 
-                // ALTERAÇÃO NECESSÁRIA: Envia a origem (MANUAL, NSK ou TIMKEN) para o backend atualizar a tabela correta
+                // AJUSTE SOLID: Envia 'origem' e 'status' para garantir que o Backend grave na tabela certa com o status certo
                 const payload = { 
                     [apiField]: value,
-                    origem: item.origem || "MANUAL" 
+                    origem: item.origem || "MANUAL"
                 };
                 if (newStatus) payload.status = newStatus;
 
@@ -206,9 +207,12 @@ export function useOrders() {
             acc[k].quantidade += item.quantidade;
             acc[k].items.push(item);
             
-            // ALTERAÇÃO NECESSÁRIA: Se um item do grupo está Finalizado, o grupo pode refletir isso
-            if (item.status === "Atrasado") acc[k].status = "Atrasado";
-            else if (item.status === "Finalizado" && acc[k].status !== "Atrasado") acc[k].status = "Finalizado";
+            // AJUSTE SOLID: Garante que o status do grupo reflita se algum item está Atrasado ou Finalizado
+            if (item.status === "Atrasado") {
+                acc[k].status = "Atrasado";
+            } else if (item.status === "Finalizado" && acc[k].status !== "Atrasado") {
+                acc[k].status = "Finalizado";
+            }
             
             return acc;
         }, {});

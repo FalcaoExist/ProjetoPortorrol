@@ -277,13 +277,18 @@ class OrderService:
     def update_order(self, order_id: str, payload: Any):
         try:
             update_dict = payload.model_dump(exclude_unset=True) if hasattr(payload, "model_dump") else dict(payload)
+        
             origem = str(update_dict.pop("origem", "MANUAL")).upper()
-            table = "orders_timken" if origem == "TIMKEN" else ("orders_nsk" if origem == "NSK" else "purchase_orders")
-            
+        
+            clean_order_id = str(order_id)
+            if origem == "MANUAL" and len(clean_order_id) > 36:
+                clean_order_id = clean_order_id[:36]
+        
             if origem == "TIMKEN" and "data_entrega" in update_dict:
                 update_dict["delivery_date"] = update_dict.pop("data_entrega")
-                
-            return self.repository.update_order(order_id, update_dict)
+            
+            return self.repository.update_order(clean_order_id, update_dict, origem)
+        
         except Exception as e:
             logger.error(f"Erro ao atualizar pedido {order_id}: {e}")
-            raise
+        raise

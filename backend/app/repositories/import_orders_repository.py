@@ -4,6 +4,13 @@ class ImportOrdersRepository:
 
     ALLOWED_TABLES = {"orders_nsk", "orders_timken"}
 
+    def get_all_pos(self):
+        try:
+            pos_response = supabase.table("purchase_orders").select("order_id").execute()
+            return [p["order_id"] for p in pos_response.data] if pos_response.data else []
+        except Exception as e:
+            return []
+
     def insert_many(self, table: str, records: list) -> int:
         if not records:
             return 0

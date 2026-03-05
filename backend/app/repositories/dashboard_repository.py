@@ -7,7 +7,6 @@ logger = logging.getLogger(__name__)
 class DashboardRepository:
     
     def get_filtered_skus(self, status=None, branch=None, supplier=None, search=None, limit=1000000):
-        """Busca SKUs com filtros aplicados no banco para máxima performance."""
         try:
             query = supabase.table("vw_analise_reposicao").select(
                 "sku_id, codigo, nome_produto, fornecedor, dias_cobertura, "
@@ -39,7 +38,6 @@ class DashboardRepository:
             return []
 
     def search_by_term(self, term: str):
-        """Busca unificada por código ou nome (Otimizado)."""
         try:
             cleaned_term = term.strip()
             return supabase.table("vw_analise_reposicao").select("*")\
@@ -50,7 +48,6 @@ class DashboardRepository:
             return []
 
     def get_dashboard_summary(self):
-        """Contagens para os cards do Dashboard."""
         try:
             res_rup = supabase.table("vw_analise_reposicao").select("sku_id", count="exact").lt("dias_cobertura", 30).execute()
             res_exc = supabase.table("vw_analise_reposicao").select("sku_id", count="exact").gt("dias_cobertura", 100).execute()
@@ -78,19 +75,7 @@ class DashboardRepository:
     def get_aggregate_history(self):
         try:
             response = supabase.table("tb_historico_vendas").select("periodo_sequencia, quantidade").limit(50000).execute()
-            rows = response.data or []
-            if not rows: return []
-
-            aggregated = {}
-            for row in rows:
-                seq, qty = row.get("periodo_sequencia"), row.get("quantidade")
-                if seq is not None and qty is not None:
-                    try: aggregated[int(seq)] = aggregated.get(int(seq), 0) + float(qty)
-                    except: continue
-
-            result = [{"periodo_sequencia": seq, "total_quantidade": total} for seq, total in aggregated.items()]
-            result.sort(key=lambda x: x["periodo_sequencia"])
-            return result[-24:]
+            return response.data or []
         except Exception:
             logger.exception("Erro ao gerar histórico agregado")
             return []

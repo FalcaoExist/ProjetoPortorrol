@@ -5,11 +5,13 @@ import pandas as pd
 import numpy as np
 from datetime import datetime
 from app.repositories.import_orders_repository import ImportOrdersRepository
-from app.core.supabase_client import supabase
 
 logger = logging.getLogger(__name__)
 
 class ImportOrdersService:
+    def __init__(self):
+        self.repo = ImportOrdersRepository()
+
     def _parse_date(self, value):
         if pd.isna(value) or str(value).strip().lower() in ["", "nan", "null", "nat"]: 
             return None
@@ -100,8 +102,7 @@ class ImportOrdersService:
 
         records = []
         try:
-            pos_response = supabase.table("purchase_orders").select("order_id").execute()
-            all_pos = [p["order_id"] for p in pos_response.data] if pos_response.data else []
+            all_pos = self.repo.get_all_pos()
         except Exception as e:
             logger.error(f"Erro ao buscar POs para vínculo: {e}")
             all_pos = []
@@ -180,8 +181,7 @@ class ImportOrdersService:
             table = f"orders_{supplier_key}"
             for i in range(0, len(records), lote_size):
                 lote = records[i:i + lote_size]
-                res = supabase.table(table).insert(lote).execute()
-                total_inserido += len(res.data) if res.data else 0
+                total_inserido += self.repo.insert_many(table, lote)
             
             logger.info("Importação concluída com sucesso - fornecedor: %s - registros inseridos: %d", supplier, total_inserido)
             return total_inserido

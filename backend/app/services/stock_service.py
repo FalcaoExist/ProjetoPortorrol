@@ -14,20 +14,27 @@ class StockService:
         status: Optional[str] = None,
         current_user: Optional[dict] = None
     ) -> list:
-        # Pega dados brutos da view via repositorio
         raw_data = self.stock_repo.get_stock_analysis(filial=filial, fornecedor=fornecedor)
         
+        filtered_data = []
+        for item in raw_data:
+            estoque_poa = item.get("estoque_poa") or 0
+            estoque_jv = item.get("estoque_jv") or 0
+            estoque_sp = item.get("estoque_sp") or 0
+
+            if not filial or filial == "Todos":
+                filtered_data.append(item)
+            elif filial == "Porto Alegre" and float(estoque_poa) > 0:
+                filtered_data.append(item)
+            elif filial == "Joinville" and float(estoque_jv) > 0:
+                filtered_data.append(item)
+            elif (filial == "São Paulo" or "Paulo" in filial) and float(estoque_sp) > 0:
+                filtered_data.append(item)
+
         result = []
-        for item in raw_data:            
-            # Mapeamento dos campos da view para o formato esperado pelo frontend (ou adaptado)
-            # A view retorna: sku_id, codigo, nome_produto, fornecedor, classificacao,
-            # estoque_sp, estoque_jv, estoque_poa, estoque_atual, demanda_mensal_media,
-            # demanda_diaria, dias_cobertura, leadtime_utilizado_dias, rop, quantidade_sugerida_compra
-            
-            # Gera ID único para o front (se necessario) ou usa sku_id
+        for item in filtered_data:            
             unique_id = str(item.get("sku_id"))
             
-            # Tratamento de valores nulos
             def safe_float(val, default_to_zero=True):
                 if val is None:
                     return 0.0 if default_to_zero else None
@@ -40,7 +47,6 @@ class StockService:
             rop = safe_float(item.get("rop"))
             stock = safe_float(item.get("estoque_atual"))
             
-            # dias_cobertura deve ser None se for null no banco
             dias_cobertura = safe_float(item.get("dias_cobertura"), default_to_zero=False)
             
             mapped_item = {
@@ -50,7 +56,7 @@ class StockService:
                 "item": item.get("nome_produto", "Item sem nome"),
                 "categoria": item.get("classificacao", "Geral"),
                 "unidades": int(stock),
-                "valor": 0, # A view não traz preço
+                "valor": 0,
                 "fornecedor": item.get("fornecedor", "Não informado"),
                 "dias_cobertura": dias_cobertura if dias_cobertura is None else round(dias_cobertura, 2),
                 "porto_alegre": int(safe_float(item.get("estoque_poa"))),
@@ -60,11 +66,9 @@ class StockService:
                 "rop": math.ceil(rop),
                 "qtd_sugerida": math.ceil(sugerida),
                 "leadtime": int(safe_float(item.get("leadtime_utilizado_dias"))),
-                # Campos adicionais uteis
                 "demanda_mensal": safe_float(item.get("demanda_mensal_media"))
             }
             
             result.append(mapped_item)
             
         return result
-

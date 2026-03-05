@@ -76,12 +76,7 @@ class DashboardService:
         return processed_data
 
     def get_filtered_skus(self, status_filter: str = None, branch: str = None, supplier: str = None):
-        """
-        Versão Unificada: Utiliza a filtragem otimizada no banco (Feature) 
-        mas mantém a estrutura de retorno da Dev.
-        """
         try:
-            # A filtragem agora ocorre no repositório (SQL) para melhor performance
             raw_data = self.repo.get_filtered_skus(status=status_filter, branch=branch, supplier=supplier)
             return self._format_output(raw_data, branch)
         except Exception as e:
@@ -91,8 +86,6 @@ class DashboardService:
     def search_products(self, term: str):
         if not term: return []
         try:
-            # Unificado para usar o método de filtragem otimizado com busca por termo (Feature)
-            # mas mantendo o nome do método original da Dev.
             raw_data = self.repo.get_filtered_skus(search=term, limit=15)
             return self._format_output(raw_data)
         except Exception as e:
@@ -105,7 +98,22 @@ class DashboardService:
                 data = self.repo.get_history_by_sku(sku_id)
                 field = 'quantidade'
             else:
-                data = self.repo.get_aggregate_history()
+                rows = self.repo.get_aggregate_history()
+                if not rows:
+                    return []
+                
+                aggregated = {}
+                for row in rows:
+                    seq, qty = row.get("periodo_sequencia"), row.get("quantidade")
+                    if seq is not None and qty is not None:
+                        try: 
+                            aggregated[int(seq)] = aggregated.get(int(seq), 0) + float(qty)
+                        except: 
+                            continue
+
+                data = [{"periodo_sequencia": seq, "total_quantidade": total} for seq, total in aggregated.items()]
+                data.sort(key=lambda x: x["periodo_sequencia"])
+                data = data[-24:]
                 field = 'total_quantidade'
         except Exception as e:
             logger.exception("Erro ao buscar histórico de SKU")
@@ -150,7 +158,6 @@ class DashboardService:
         return self.repo.get_configuration(key)
 
     def get_budget_context(self, supplier_name: str = None):
-        """Contexto de orçamento adicionado pela branch Feature."""
         total = self.repo.get_total_active_budget()
         individual = total
         start = end = None
@@ -177,7 +184,6 @@ class DashboardService:
             raise HTTPException(status_code=500, detail=f"Erro ao buscar status dos fornecedores: {str(e)}")
 
     def get_supplier_status_by_name(self, supplier_name: str) -> list:
-        """Método exclusivo da branch Dev mantido."""
         try:
             suppliers = self.repo.get_supplier_status()
             result = next((supplier for supplier in suppliers if supplier.get("fornecedor") == supplier_name), None)

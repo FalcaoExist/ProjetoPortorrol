@@ -1,9 +1,11 @@
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { getStockData, createOrderBatch, getSuppliers } from "../services/stockService";
 import { logger } from "../utils/logger";
+import { useAuth } from "../context/authContext";
+import { getPersistedSupplierFilter, setPersistedSupplierFilter } from "../utils/supplierFilterPersistence";
 
-// Função auxiliar para definir status textual baseado nos dias de cobertura
 const getStatusText = (dias) => {
+    if (dias === null || dias === undefined) return "Sem demanda";
     if (dias <= 30) return "Ruptura iminente";
     if (dias <= 60) return "Subdimensionado";
     if (dias <= 100) return "Ok";
@@ -11,42 +13,41 @@ const getStatusText = (dias) => {
 };
 
 export const useStock = () => {
-    // --- 1. ESTADOS DE DADOS ---
+    const { user } = useAuth();
+    const hasAutoAppliedSupplier = useRef(false);
+    const hasInitializedSupplierFromStorage = useRef(false);
+
     const [stockData, setStockData] = useState([]);
     const [loading, setLoading] = useState(true);
     const [supplierOptions, setSupplierOptions] = useState([]); 
 
-    // --- 2. ESTADOS DA TABELA DE REQUISIÇÃO (SELEÇÃO) ---
-    // Mantemos o formato de Objeto + Set exigido pelo seu DataGrid atual
     const [rowSelectionModel, setRowSelectionModel] = useState({ type: 'include', ids: new Set() });
-    
     const [newOrderRows, setNewOrderRows] = useState([]);
     const [isNewOrderVisible, setIsNewOrderVisible] = useState(false);
 
-    // --- 3. FILTROS ---
     const [searchQuery, setSearchQuery] = useState("");
     const [statusFilter, setStatusFilter] = useState("");
     const [fornecedor, setFornecedor] = useState("");
     const [filial, setFilial] = useState("");
 
-    // --- 4. MODAIS E UTILITÁRIOS ---
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [itemToDelete, setItemToDelete] = useState(null);
     const [isImportConfirmModalOpen, setIsImportConfirmModalOpen] = useState(false);
     const [selectedFile, setSelectedFile] = useState(null);
 
-    // =========================================================
-    // EFEITOS DE CARREGAMENTO (INIT)
-    // =========================================================
+    useEffect(() => {
+        if (hasInitializedSupplierFromStorage.current) return;
+        if (!user?.id) return;
+        const persistedSupplier = getPersistedSupplierFilter(user.id);
+        if (persistedSupplier) setFornecedor(persistedSupplier);
+        hasInitializedSupplierFromStorage.current = true;
+    }, [user]);
 
-    // Carrega a lista de fornecedores para os filtros
     useEffect(() => {
         const loadSuppliers = async () => {
             try {
                 const suppliers = await getSuppliers();
-                if (suppliers.length > 0) {
-                    setSupplierOptions(suppliers);
-                }
+                if (suppliers.length > 0) setSupplierOptions(suppliers);
             } catch (error) {
                 logger.error("Falha ao carregar lista de fornecedores", error);
             }
@@ -54,7 +55,27 @@ export const useStock = () => {
         loadSuppliers();
     }, []);
 
-    // Carrega dados do estoque aplicando filtros de servidor
+    useEffect(() => {
+        if (!fornecedor || !Array.isArray(supplierOptions) || supplierOptions.length === 0) return;
+        if (!supplierOptions.includes(fornecedor)) setFornecedor("");
+    }, [fornecedor, supplierOptions]);
+
+    useEffect(() => {
+        if (hasAutoAppliedSupplier.current) return;
+        if (fornecedor && String(fornecedor).trim() !== "") return;
+        if (!user?.supplier?.length) return;
+        const first = user.supplier[0];
+        const normalized = typeof first === "string" ? first : (first?.name || first?.nome || "");
+        if (normalized) {
+            setFornecedor(normalized);
+            hasAutoAppliedSupplier.current = true;
+        }
+    }, [user, fornecedor]);
+
+    useEffect(() => {
+        if (user?.id) setPersistedSupplierFilter(fornecedor, user.id);
+    }, [fornecedor, user]);
+
     const fetchStock = useCallback(async (filters = {}) => {
         setLoading(true);
         try {
@@ -75,45 +96,33 @@ export const useStock = () => {
         fetchStock(activeFilters);
     }, [fetchStock, filial, fornecedor]);
 
-    // =========================================================
-    // LÓGICA DE SINCRONIZAÇÃO (Seleção -> Tabela de Pedido)
-    // =========================================================
-    
     useEffect(() => {
-        const selectionSet = (rowSelectionModel && rowSelectionModel.ids) 
-            ? rowSelectionModel.ids 
-            : new Set();
+        const selectionSet = rowSelectionModel?.ids || new Set();
 
         setNewOrderRows(prevOrderRows => {
-            const selectedRows = stockData
-                .filter(row => selectionSet.has(row.id)) // Filtra pelo ID único gerado no service
+            return stockData
+                .filter(row => selectionSet.has(row.id))
                 .map(item => {
-                    const existingItem = prevOrderRows.find(nr => nr.real_sku_id === item.sku_id);
-                    
+                    const existingItem = prevOrderRows.find(nr => nr.real_sku_id === item.real_sku_id);
                     if (existingItem) return existingItem;
 
-                    // Cria novo item para a tabela de pedido com valores padrão
+                    const qtdSugerida = item.qtd_sugerida > 0 ? item.qtd_sugerida : 0;
+                    
                     return {
                         ...item,
-                        real_sku_id: item.sku_id || item.id, 
-                        quantidade: 100, 
-                        previsao_entrega: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-                        status: "Pendente",
-                        filial: item.filial || filial || ""
+                        real_sku_id: item.real_sku_id || item.sku_id || item.id,
+                        unidades: qtdSugerida,
+                        quantidade: qtdSugerida,
+                        filial: item.filial || "",
+                        previsao_entrega: new Date(Date.now() + (item.leadtime || 15) * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                        status: "Pendente"
                     };
                 });
-            return selectedRows;
         });
 
-        if (selectionSet.size > 0) {
-            setIsNewOrderVisible(true);
-        }
+        if (selectionSet.size > 0) setIsNewOrderVisible(true);
     }, [rowSelectionModel, stockData]);
 
-    // =========================================================
-    // FILTRAGEM LOCAL
-    // =========================================================
-    
     const filteredRows = useMemo(() => {
         return stockData.filter(row => {
             const statusText = getStatusText(row.dias_cobertura);
@@ -130,13 +139,23 @@ export const useStock = () => {
         });
     }, [stockData, searchQuery, statusFilter, fornecedor, filial]);
 
-    // =========================================================
-    // HANDLERS
-    // =========================================================
-
     const handleShowNewOrder = useCallback(() => {
+        if (!isNewOrderVisible) {
+            const skusAbaixoDoROP = stockData.filter(row => {
+                if (row.dias_cobertura === null || row.dias_cobertura === undefined) return false;
+                const rop = parseFloat(row.rop) || 0;
+                const unidades = parseFloat(row.unidades) || 0;
+                const sugerida = parseFloat(row.qtd_sugerida) || 0;
+                return (unidades <= rop) && (sugerida > 0);
+            });
+            
+            if (skusAbaixoDoROP.length > 0) {
+                const newIds = new Set(skusAbaixoDoROP.map(row => row.id));
+                setRowSelectionModel({ type: 'include', ids: newIds });
+            }
+        }
         setIsNewOrderVisible(true);
-    }, []);
+    }, [stockData, isNewOrderVisible]);
 
     const handleCloseNewOrder = useCallback(() => {
         setIsNewOrderVisible(false);
@@ -145,9 +164,7 @@ export const useStock = () => {
     }, []);
 
     const handleNewOrderRowUpdate = useCallback(async (newRow) => {
-        setNewOrderRows(prevRows =>
-            prevRows.map(row => (row.id === newRow.id ? newRow : row))
-        );
+        setNewOrderRows(prevRows => prevRows.map(row => (row.id === newRow.id ? newRow : row)));
         return newRow;
     }, []);
 
@@ -167,36 +184,28 @@ export const useStock = () => {
         setIsDeleteModalOpen(false);
     };
 
-    // --- CRIAÇÃO DO PEDIDO (LIMPEZA E ENVIO) ---
-   const handleCreateOrder = async (navigate) => {
-        if (newOrderRows.length === 0) {
-            return { success: false, message: "Nenhum item na requisição." };
-        }
-
+    const handleCreateOrder = async (navigate) => {
+        if (newOrderRows.length === 0) return { success: false, message: "Nenhum item na requisição." };
 
         try {
             const itemsList = newOrderRows.map((row) => {
-                const quantidadeTratada = parseInt(row.unidades, 10) || 1; 
-                
+                const qtd = parseInt(row.unidades || row.quantidade || 1, 10);
                 return {
                     sku_id: parseInt(row.real_sku_id, 10),
-                    quantity: quantidadeTratada,
-                    unit_cost: parseFloat(row.valor || 0) / quantidadeTratada, 
+                    quantity: qtd,
+                    unit_cost: parseFloat(row.valor || 0) / qtd,
                     supplier_name: row.fornecedor || "Não informado",
-                    branch_name: row.filial && row.filial !== "Todos" ? row.filial : "",
+                    branch_name: row.filial,
                     expected_delivery_date: row.previsao_entrega || null
                 };
             });
 
-            await createOrderBatch(itemsList); 
-            
+            await createOrderBatch(itemsList);
             handleCloseNewOrder();
             if (navigate) navigate('/orders'); 
             return { success: true, message: 'Pedido criado com sucesso.' };
-            
         } catch (error) {
-            const msg = error.response?.data?.detail || error.message;
-            console.error(`Erro ao criar pedido: ${msg}`);
+            logger.error(`Erro ao criar pedido: ${error.message}`);
             return { success: false, message: 'Erro ao criar pedido.' };
         }
     };

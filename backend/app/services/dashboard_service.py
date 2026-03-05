@@ -1,6 +1,7 @@
-from http.client import HTTPException
+from fastapi import HTTPException
 import logging
 import unicodedata
+from typing import List, Any, Dict
 from datetime import datetime, timedelta
 from app.api.schemas import StatusProduto
 from app.repositories.dashboard_repository import DashboardRepository
@@ -21,7 +22,7 @@ class DashboardService:
             if val is None:
                 return default
             return float(val)
-        except (TypeError, ValueError):
+        except (TypeError, ValueError) as e:
             logger.debug("Falha ao converter valor para float: %s", val)
             return default
 
@@ -30,7 +31,7 @@ class DashboardService:
             if val is None:
                 return default
             return int(float(val))
-        except (TypeError, ValueError):
+        except (TypeError, ValueError) as e:
             logger.debug("Falha ao converter valor para int: %s", val)
             return default
 
@@ -75,8 +76,12 @@ class DashboardService:
         return processed_data
 
     def get_filtered_skus(self, status_filter: str = None, branch: str = None, supplier: str = None):
+        """
+        Versão Unificada: Utiliza a filtragem otimizada no banco (Feature) 
+        mas mantém a estrutura de retorno da Dev.
+        """
         try:
-            # Versão otimizada: a filtragem agora ocorre no repositório (SQL) e não no Python
+            # A filtragem agora ocorre no repositório (SQL) para melhor performance
             raw_data = self.repo.get_filtered_skus(status=status_filter, branch=branch, supplier=supplier)
             return self._format_output(raw_data, branch)
         except Exception as e:
@@ -86,7 +91,8 @@ class DashboardService:
     def search_products(self, term: str):
         if not term: return []
         try:
-            # Unificado para usar o método de filtragem otimizado com busca por termo
+            # Unificado para usar o método de filtragem otimizado com busca por termo (Feature)
+            # mas mantendo o nome do método original da Dev.
             raw_data = self.repo.get_filtered_skus(search=term, limit=15)
             return self._format_output(raw_data)
         except Exception as e:
@@ -111,7 +117,7 @@ class DashboardService:
             try:
                 target = datetime.now() - timedelta(days=(24 - int(seq)) * 30)
                 return target.strftime("%m/%y")
-            except (TypeError, ValueError):
+            except (TypeError, ValueError) as e:
                 logger.debug("Erro ao calcular label de data para sequencia: %s", seq)
                 return f"P{seq}"
 
@@ -120,22 +126,23 @@ class DashboardService:
     def get_branches(self):
         try:
             raw = self.repo.get_active_branches()
-            return [{"id": str(b["branch_id"]), "nome": b["name"]} for b in raw] if raw else []
-        except Exception:
+            if not raw: return []
+            return [{"id": str(b["branch_id"]), "nome": b["name"]} for b in raw]
+        except Exception as e:
             logger.exception("Erro ao buscar filiais ativas")
             raise
 
     def update_lead_time(self, value):
         try:
             return self.repo.update_configuration("lead_time_padrao", value)
-        except Exception:
+        except Exception as e:
             logger.exception("Erro ao atualizar lead_time_padrao")
             raise
 
     def update_budget(self, value):
         try:
             return self.repo.update_configuration("orcamento_mensal", value)
-        except Exception:
+        except Exception as e:
             logger.exception("Erro ao atualizar orcamento_mensal")
             raise
     
@@ -143,11 +150,12 @@ class DashboardService:
         return self.repo.get_configuration(key)
 
     def get_budget_context(self, supplier_name: str = None):
+        """Contexto de orçamento adicionado pela branch Feature."""
         total = self.repo.get_total_active_budget()
         individual = total
         start = end = None
         
-        if supplier_name and supplier_name != "Todos":
+        if supplier_name and supplier_name.strip() and supplier_name.lower() != "todos":
             data = self.repo.get_supplier_budget(supplier_name)
             if data:
                 individual = self._safe_float(data.get('budget'))
@@ -169,6 +177,7 @@ class DashboardService:
             raise HTTPException(status_code=500, detail=f"Erro ao buscar status dos fornecedores: {str(e)}")
 
     def get_supplier_status_by_name(self, supplier_name: str) -> list:
+        """Método exclusivo da branch Dev mantido."""
         try:
             suppliers = self.repo.get_supplier_status()
             result = next((supplier for supplier in suppliers if supplier.get("fornecedor") == supplier_name), None)

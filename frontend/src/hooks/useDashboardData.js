@@ -1,8 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import dashboardService from "../services/dashboardService";
 import * as supplierService from "../services/supplierService";
 import { logger } from "../utils/logger";
 import { useAuth } from "../context/authContext";
+import { getPersistedSupplierFilter, setPersistedSupplierFilter } from "../utils/supplierFilterPersistence";
 
 const STATUS_INDICATORS = {
   RUPTURA: { color: "#e54c4c", label: "Ruptura" },
@@ -12,6 +13,9 @@ const STATUS_INDICATORS = {
 };
 
 export default function useDashboardData() {
+  const hasAutoAppliedSupplier = useRef(false);
+  const hasInitializedSupplierFromStorage = useRef(false);
+  
   const [branch, setBranch] = useState("");
   const [supplier, setSupplier] = useState("");
   const [sku, setSku] = useState(null);
@@ -25,30 +29,46 @@ export default function useDashboardData() {
   const [dataOverstock, setDataOverstock] = useState([]);
   const [dataCritic, setDataCritic] = useState([]);
   const [monthsData, setMonthsData] = useState([]);
+  const [loading, setLoading] = useState(true);
   
   const [stockOverview, setStockOverview] = useState({
     data: { ok: 0, excesso: 0, rupturaIminente: 0, subdimensionado: 0 },
     total: 0
   });
 
+  const [orders, setOrders] = useState({ approved: 0, late: 0 });
+
   const [kpis, setKpis] = useState({
     coverageDays: 0,
-    savingPotential: 0 
+    savingPotential: 0 // Mantido da Feature
   });
 
-  // ---> ADICIONADO: Estados para o orçamento <---
+  // Novos estados financeiros da branch FEATURE
   const [budgetInfo, setBudgetInfo] = useState({ valor_total: 0, valor_individual: 0, start: null, end: null });
   const [totalSuggestedValue, setTotalSuggestedValue] = useState(0);
 
-  // 1. CARGA INICIAL
+  // 1. INICIALIZAÇÃO DE FILTRO (Recuperado da DEV)
+  useEffect(() => {
+    if (hasInitializedSupplierFromStorage.current) return;
+    if (!user?.id) return;
+
+    const persistedSupplier = getPersistedSupplierFilter(user.id);
+    if (persistedSupplier) {
+      setSupplier(persistedSupplier);
+    }
+    hasInitializedSupplierFromStorage.current = true;
+  }, [user]);
+
+  // 2. CARGA INICIAL DE OPÇÕES E SKUs
   useEffect(() => {
     async function loadInitialData() {
       let autoSelectedSupplier = false;
+      setLoading(true);
       try {
         if (branchOptions.length === 0) {
             const filiais = (await dashboardService.getFiliais()) || [];
-            const uniqueFiliais = Array.from(new Map(filiais.map(item => [item.nome, item])).values());
-            const options = uniqueFiliais.map(f => ({ value: f.nome, label: f.nome }));
+            const uniqueNomes = [...new Set(filiais.map(item => item.nome))];
+            const options = uniqueNomes.map(nome => ({ value: nome, label: nome }));
             options.unshift({ value: "", label: "Todas" });
             setBranchOptions(options);
         }
@@ -64,59 +84,73 @@ export default function useDashboardData() {
             optionsSuppliers.unshift({ value: "", label: "Todos" });
             setSupplierOptions(optionsSuppliers);
 
+            if (supplier && !optionsSuppliers.some(option => option.value === supplier)) {
+              setSupplier("");
+            }
+
+            // Seleção automática por perfil de usuário
             try {
+              if (hasAutoAppliedSupplier.current) return;
               if ((!supplier || supplier === "") && user && Array.isArray(user.supplier) && user.supplier.length > 0) {
                 const first = user.supplier[0];
                 const normalized = typeof first === 'string' ? first : (first?.name || first?.nome || "");
                 if (normalized) {
                   setSupplier(normalized);
+                  hasAutoAppliedSupplier.current = true;
                   autoSelectedSupplier = true;
                 }
               }
             } catch (e) {}
         }
+        
         if (autoSelectedSupplier) return;
 
+        // Busca SKUs (Lógica base da Feature: processar as listas depois via efeito)
         const response = await dashboardService.getSkus(null, branch, supplier);
-        const fetchedSkus = Array.isArray(response) ? response : [];
-        setAllSkus(fetchedSkus); 
+        setAllSkus(Array.isArray(response) ? response : []); 
 
       } catch (error) {
         logger.error("Erro dashboard:", error);
+      } finally {
+        setLoading(false);
       }
     }
     loadInitialData();
   }, [branch, supplier, user]); 
 
-  // ---> ADICIONADO: Busca orçamento ao mudar fornecedor <---
+  // 3. BUSCA ORÇAMENTO E PERSISTÊNCIA (União das branches)
   useEffect(() => {
     async function fetchBudget() {
-        const info = await dashboardService.getSupplierBudget(supplier);
+      try {
+        const info = await dashboardService.getSupplierBudget(supplier || "Todos");
         setBudgetInfo(info || { valor_total: 0, valor_individual: 0, start: null, end: null });
+      } catch (error) {
+        logger.error("Erro ao buscar orçamento:", error);
+      }
     }
+    
     fetchBudget();
-  }, [supplier]);
-
-  useEffect(() => {
-    if (!user?.id) return;
-    setPersistedSupplierFilter(supplier, user.id);
+    
+    if (user?.id) {
+      setPersistedSupplierFilter(supplier, user.id);
+    }
   }, [supplier, user]);
 
-  // 2. RECALCULAR GRÁFICOS E KPIs QUANDO SKU MUDAR
+  // 4. RECALCULAR GRÁFICOS, KPIs E FINANCEIRO (Lógica Otimizada da FEATURE)
   useEffect(() => {
     if (!allSkus || allSkus.length === 0) {
-      setTotalSuggestedValue(0); // ADICIONADO: Zera se não houver dados
+      setTotalSuggestedValue(0);
       return;
     }
 
-    const preencherOpcoes = allSkus.map(r => ({
+    // Preencher opções do seletor de SKU
+    setSkuOptions(allSkus.map(r => ({
         label: `${r.nome_produto} - ${r.codigo}`,
         value: r.sku_id || r.id,
         ...r
-    }));
-    setSkuOptions(preencherOpcoes);
+    })));
 
-    // ---> ADICIONADO: Cálculo do custo total sugerido <---
+    // Cálculo do custo total sugerido
     const totalCusto = allSkus.reduce((acc, item) => {
         const qtdSugerida = item.sugestao_compra || 0;
         const preco = item.valor || 0;
@@ -124,9 +158,9 @@ export default function useDashboardData() {
     }, 0);
     setTotalSuggestedValue(totalCusto);
 
-    // A) Processamento dos Gráficos de Excesso e Ruptura (Gerais)
+    // Processamento de Listas (Excesso e Ruptura) filtrando allSkus
     const excessos = allSkus.filter(i => i.status === "EXCESSO");
-    excessos.sort((a, b) => b.estoque_soma - a.estoque_soma); 
+    excessos.sort((a, b) => (b.estoque_soma || 0) - (a.estoque_soma || 0)); 
     setDataOverstock(excessos.map(item => ({
       name: item.codigo,
       qtd: item.estoque_soma,
@@ -134,8 +168,8 @@ export default function useDashboardData() {
       ...item
     })).slice(0, 20));
 
-    const rupturas = allSkus.filter(i => i.status === "RUPTURA");
-    rupturas.sort((a, b) => a.estoque_soma - b.estoque_soma); 
+    const rupturas = allSkus.filter(i => i.status === "RUPTURA" || i.status === "RUPTURA_IMINENTE");
+    rupturas.sort((a, b) => (a.estoque_soma || 0) - (b.estoque_soma || 0)); 
     setDataCritic(rupturas.map(item => ({
       name: item.codigo,
       qtd: item.estoque_soma, 
@@ -144,51 +178,51 @@ export default function useDashboardData() {
       ...item
     })).slice(0, 20));
 
+    // Contador do Gráfico de Visão Geral
     const counts = { ok: 0, excesso: 0, rupturaIminente: 0, subdimensionado: 0 };
     allSkus.forEach(item => {
         const st = item.status; 
         if (st === 'OK') counts.ok++;
         else if (st === 'EXCESSO') counts.excesso++;
-        else if (st === 'RUPTURA') counts.rupturaIminente++;
+        else if (st === 'RUPTURA' || st === 'RUPTURA_IMINENTE') counts.rupturaIminente++;
         else if (st === 'SUBDIMENSIONADO') counts.subdimensionado++;
     });
     setStockOverview({ data: counts, total: allSkus.length });
 
-    // B) LÓGICA DO KPI DE COBERTURA (ESTRITAMENTE INDIVIDUAL)
+    // KPI de Cobertura Individual
     if (sku) {
         const targetId = sku.value || sku.sku_id || sku.id;
         const skuDetails = allSkus.find(item => item.sku_id === targetId || item.id === targetId) || sku;
-        const atendimento = skuDetails.atendimento || 0;
-        setKpis({ coverageDays: Math.round(atendimento), savingPotential: 0 });
+        setKpis({ 
+            coverageDays: Math.round(skuDetails.atendimento || 0),
+            savingPotential: skuDetails.savingPotential || 0 
+        });
     } else {
         setKpis({ coverageDays: 0, savingPotential: 0 });
     }
   }, [allSkus, sku]);
 
-  // 3. Busca de SKU no Input
+  // 5. BUSCA DE SKU E HISTÓRICO
   const onSkuSearch = async (query) => {
     if (!query || query.length < 1) return; 
     try {
         const results = await dashboardService.searchSkus(query);
-        const options = results.map(r => ({ 
+        setSkuOptions(results.map(r => ({ 
           label: `${r.nome_produto} - ${r.codigo}`, 
           value: r.sku_id || r.id, 
           ...r 
-        }));
-        setSkuOptions(options);
+        })));
     } catch (error) {
       logger.error("Erro na busca:", error);
     }
   };
 
-  // 4. Carregar Histórico do Gráfico de Linha (SOMENTE INDIVIDUAL)
   useEffect(() => {
     async function loadHistory() {
       if (!sku) {
         setMonthsData([]);
         return;
       }
-
       try {
         const id = sku.value || sku.sku_id || sku.id;
         const history = await dashboardService.getHistory(id);
@@ -208,14 +242,16 @@ export default function useDashboardData() {
     branchOptions,
     supplierOptions,
     skuOptions,
+    orders,
     months: monthsData,
     data: dataOverstock,
     dataCritic: dataCritic,
+    loading,
     stockOverview, 
     kpis, 
     STATUS_INDICATORS,
     onSkuSearch,
-    budgetInfo,          
+    budgetInfo,           
     totalSuggestedValue  
   };
 }

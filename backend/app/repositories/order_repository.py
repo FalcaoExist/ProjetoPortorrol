@@ -44,9 +44,7 @@ class OrdersRepository:
     def insert_order_items(self, payload):
         return supabase.table(self.table_items).insert(payload).execute()
 
-    def update_order(self, order_id: str, payload: dict, origem: str = "MANUAL"):
-        origem_upper = str(origem).upper()
-        table_name = "orders_timken" if origem_upper == "TIMKEN" else ("orders_nsk" if origem_upper == "NSK" else "purchase_orders")
+    def update_order(self, order_id: str, payload: dict, table_name: str = "purchase_orders"):
         id_column = "order_id" if table_name == "purchase_orders" else "id"
         return supabase.table(table_name).update(payload).eq(id_column, order_id).execute()
 

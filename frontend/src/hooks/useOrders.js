@@ -71,14 +71,9 @@ export function useOrders() {
                 const hoje = new Date();
                 hoje.setHours(0,0,0,0);
                 
-                if (entregaRaw) {
-                    const dataEntrega = new Date(entregaRaw);
-                    const dataEntregaLimpa = new Date(dataEntrega.valueOf() + dataEntrega.getTimezoneOffset() * 60000);
-                    dataEntregaLimpa.setHours(0,0,0,0);
-                    
-                    if (dataEntregaLimpa <= hoje) {
-                        statusBinario = "Aprovado";
-                    }
+                // ALTERAÇÃO NECESSÁRIA: Impede que o cálculo de datas sobrescreva o status "Finalizado" vindo do banco
+                if (statusBinario === "Finalizado" || entregaRaw) {
+                    statusBinario = "Finalizado";
                 } else if (previsaoRaw) {
                     const dataPrevisao = new Date(previsaoRaw);
                     const dataPrevisaoLimpa = new Date(dataPrevisao.valueOf() + dataPrevisao.getTimezoneOffset() * 60000);
@@ -108,6 +103,7 @@ export function useOrders() {
                     previsao_entrega: previsaoRaw,
                     data_entrega: entregaRaw, 
                     status: statusBinario,
+                    origem: item.origem || "MANUAL", // NECESSÁRIO para o update saber em qual tabela salvar
                     _raw: item 
                 };
             });
@@ -159,10 +155,13 @@ export function useOrders() {
 
         try {
             await Promise.all(itemsToUpdate.map(async (item) => {
-                // 🔥 TRADUÇÃO DE CAMPO PARA O BACKEND: se editou a previsão, envia expected_delivery_date
                 const apiField = field === "previsao_entrega" ? "expected_delivery_date" : field;
                 
-                const payload = { [apiField]: value };
+                // ALTERAÇÃO NECESSÁRIA: Envia a origem (MANUAL, NSK ou TIMKEN) para o backend atualizar a tabela correta
+                const payload = { 
+                    [apiField]: value,
+                    origem: item.origem || "MANUAL" 
+                };
                 if (newStatus) payload.status = newStatus;
 
                 const idParaSalvar = item.real_id || item._raw?.order_id || (!String(item.id).startsWith('temp') ? item.id : null);
@@ -207,7 +206,10 @@ export function useOrders() {
             acc[k].quantidade += item.quantidade;
             acc[k].items.push(item);
             
+            // ALTERAÇÃO NECESSÁRIA: Se um item do grupo está Finalizado, o grupo pode refletir isso
             if (item.status === "Atrasado") acc[k].status = "Atrasado";
+            else if (item.status === "Finalizado" && acc[k].status !== "Atrasado") acc[k].status = "Finalizado";
+            
             return acc;
         }, {});
 

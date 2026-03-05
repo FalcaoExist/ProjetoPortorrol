@@ -73,7 +73,7 @@ class OrderService:
             if res_sku and hasattr(res_sku, 'data') and res_sku.data:
                 skus_map = {k['id']: k['nome_produto'] for k in res_sku.data if isinstance(k, dict)}
         except Exception:
-            logger.exception("Erro ao carregar dados auxiliares (suppliers, branches, skus)")
+            logger.exception("Erro ao carregar dados auxiliares")
 
         try:
             res_manual = self.repository.get_manual_orders()
@@ -142,6 +142,9 @@ class OrderService:
                         price = float(row.get("sales_unit_price") or 0)
                         prev, real, num, prod = row.get("requested_date"), row.get("delivery_date"), row.get("purchase_order_number") or "TIMKEN", row.get("material_full_description")
 
+                    db_status = row.get("status")
+                    final_status = db_status if db_status else ("Vínculo Confirmado" if po_id else "Importado")
+
                     all_orders.append({
                         "id": row.get("id"),
                         "numero_pedido": num,
@@ -150,7 +153,7 @@ class OrderService:
                         "item_name": prod or "S/C",
                         "quantity": qty,
                         "valor": float(qty) * price,
-                        "status": "Vínculo Confirmado" if po_id else "Importado",
+                        "status": final_status,
                         "created_at": prev or row.get("created_at"),
                         "previsao_entrega": prev,
                         "data_entrega": real,
@@ -277,18 +280,23 @@ class OrderService:
     def update_order(self, order_id: str, payload: Any):
         try:
             update_dict = payload.model_dump(exclude_unset=True) if hasattr(payload, "model_dump") else dict(payload)
-        
             origem = str(update_dict.pop("origem", "MANUAL")).upper()
-        
+            table = "orders_timken" if origem == "TIMKEN" else ("orders_nsk" if origem == "NSK" else "purchase_orders")
+            
             clean_order_id = str(order_id)
             if origem == "MANUAL" and len(clean_order_id) > 36:
                 clean_order_id = clean_order_id[:36]
-        
+            
+            delivery_value = update_dict.get("data_entrega")
+            
             if origem == "TIMKEN" and "data_entrega" in update_dict:
                 update_dict["delivery_date"] = update_dict.pop("data_entrega")
-            
-            return self.repository.update_order(clean_order_id, update_dict, origem)
-        
+                delivery_value = update_dict.get("delivery_date")
+
+            if delivery_value and str(delivery_value).strip() not in ["", "None", "null", "NaN"]:
+                update_dict["status"] = "Finalizado"
+                
+            return self.repository.update_order(clean_order_id, update_dict, table)
         except Exception as e:
             logger.error(f"Erro ao atualizar pedido {order_id}: {e}")
-        raise
+            raise

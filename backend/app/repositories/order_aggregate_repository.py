@@ -46,7 +46,7 @@ class OrderAggregateRepository:
                         "id": row.get("id"),
                         "real_id": row.get("id"),
                         "numero_pedido": row.get("pedido_nsk") or row.get("po_number") or label,
-                        "status": "Aprovado",
+                        "status": row.get("status") or "Aprovado",
                         "created_at": created_at,
                         "origem": label
                     })

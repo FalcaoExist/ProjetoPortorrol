@@ -3,7 +3,7 @@ from app.core.supabase_client import supabase
 class OrdersRepository:
     def __init__(self):
         self.table_header = "purchase_orders"
-        self.table_items = "purchase_order_items"
+        self.table_items = "purchase_order_items" 
 
     def get_orders(self):
         query = (

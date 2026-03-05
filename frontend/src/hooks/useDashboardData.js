@@ -15,7 +15,6 @@ const STATUS_INDICATORS = {
 export default function useDashboardData() {
   const hasAutoAppliedSupplier = useRef(false);
   const hasInitializedSupplierFromStorage = useRef(false);
-  
   const [branch, setBranch] = useState("");
   const [supplier, setSupplier] = useState("");
   const [sku, setSku] = useState(null);
@@ -49,9 +48,9 @@ export default function useDashboardData() {
     start: null, 
     end: null 
   });
-  const [totalSuggestedValue, setTotalSuggestedValue] = useState(0);
 
-  // 1. INICIALIZAÇÃO DE FILTRO
+  const [totalSuggestedValue, setTotalSuggestedValue] = useState(0);
+  
   useEffect(() => {
     if (hasInitializedSupplierFromStorage.current) return;
     if (!user?.id) return;
@@ -60,10 +59,11 @@ export default function useDashboardData() {
     if (persistedSupplier) {
       setSupplier(persistedSupplier);
     }
+
     hasInitializedSupplierFromStorage.current = true;
   }, [user]);
 
-  // 2. CARGA INICIAL DE OPÇÕES E DADOS
+  // 1. CARGA INICIAL
   useEffect(() => {
     async function loadInitialData() {
       let autoSelectedSupplier = false;
@@ -93,57 +93,69 @@ export default function useDashboardData() {
             }
 
             try {
-              if (!hasAutoAppliedSupplier.current) {
-                if ((!supplier || supplier === "") && user?.supplier?.length > 0) {
-                  const first = user.supplier[0];
-                  const normalized = typeof first === 'string' ? first : (first?.name || first?.nome || "");
-                  if (normalized) {
-                    setSupplier(normalized);
-                    hasAutoAppliedSupplier.current = true;
-                    autoSelectedSupplier = true;
-                  }
+              if (hasAutoAppliedSupplier.current) return;
+              if ((!supplier || supplier === "") && user && Array.isArray(user.supplier) && user.supplier.length > 0) {
+                const first = user.supplier[0];
+                const normalized = typeof first === 'string' ? first : (first?.name || first?.nome || "");
+                if (normalized) {
+                  setSupplier(normalized);
+                  hasAutoAppliedSupplier.current = true;
+                  autoSelectedSupplier = true;
                 }
               }
             } catch (e) {}
         }
-        
         if (autoSelectedSupplier) return;
 
         // Skus
         const response = await dashboardService.getSkus(null, branch, supplier);
-        setAllSkus(Array.isArray(response) ? response : []); 
+        const fetchedSkus = Array.isArray(response) ? response : [];
+        setAllSkus(fetchedSkus); 
 
         // Itens criticos
         const criticalItems = await dashboardService.getCriticalItems(20, supplier);
-        setDataCritic(criticalItems.map(item => ({
+        const mappedCritical = criticalItems.map(item => ({
              name: item.codigo,
              qtd: item.dias_cobertura,
+             dias: item.dias_cobertura,
              demanda_real: item.demanda_mensal_media,
              ...item
-        })));
+        }));
+        setDataCritic(mappedCritical);
 
         // Itens em excesso
         const excessItems = await dashboardService.getExcessItems(20, supplier);
-        setDataOverstock(excessItems.map(item => ({
+        const mappedExcess = excessItems.map(item => ({
              name: item.codigo,
              qtd: item.dias_cobertura, 
              dias: item.dias_cobertura,
              stock: item.estoque_atual,
              ...item
-        })));
+        }));
+        setDataOverstock(mappedExcess);
 
-        // Visão Geral do Estoque
+        
+        // BUSCA DADOS AGREGADOS PARA PREENCHER O STOCK RANGE GRAPH
         const statusResponse = await dashboardService.getSupplierStatus(branch, supplier);
         if (Array.isArray(statusResponse)) {
            let acc = { excesso: 0, rupturaIminente: 0, subdimensionado: 0, ok: 0 };
+           let totalAcc = 0;
+
            statusResponse.forEach(item => {
                acc.excesso += Number(item.qtd_excesso || item.excesso || item.EXCESSO || 0);
                acc.rupturaIminente += Number(item.qtd_ruptura || item.ruptura || item.RUPTURA || 0); 
                acc.subdimensionado += Number(item.qtd_subdimensionado || item.subdimensionado || item.SUBDIMENSIONADO || 0);
                acc.ok += Number(item.qtd_ok || item.ok || item.OK || item.normal || 0);
            });
-           setStockOverview({ data: acc, total: acc.excesso + acc.rupturaIminente + acc.subdimensionado + acc.ok });
+           
+           totalAcc = acc.excesso + acc.rupturaIminente + acc.subdimensionado + acc.ok;
+           setStockOverview({ data: acc, total: totalAcc });
         }
+
+        // =========================================================
+        // BUSCA STATUS DE PEDIDOS (ORDERS)
+        // =========================================================
+       
 
       } catch (error) {
         logger.error("Erro dashboard:", error);
@@ -154,13 +166,17 @@ export default function useDashboardData() {
     loadInitialData();
   }, [branch, supplier, user]); 
 
-  // 3. BUSCA DE ORÇAMENTO (BUDGET)
   useEffect(() => {
+    if (!user?.id) return;
+    setPersistedSupplierFilter(supplier, user.id);
+  }, [supplier, user]);
+
+  useEffect(()=>{
     async function fetchBudget() {
         try {
             // "Todos" garante que o backend some os orçamentos globais
             const info = await dashboardService.getSupplierBudget(supplier || "Todos");
-            
+
             // Garantia contra campos undefined para evitar NaN no frontend
             setBudgetInfo({
               valor_total: info?.valor_total ?? 0,
@@ -173,65 +189,62 @@ export default function useDashboardData() {
             setBudgetInfo({ valor_total: 0, valor_individual: 0, start: null, end: null });
         }
     }
-    
+
     fetchBudget();
-    
+
     if (user?.id) {
         setPersistedSupplierFilter(supplier, user.id);
     }
   }, [supplier, user]);
 
-  // 4. PROCESSAMENTO DE SKUs E KPIs
+  // 2. RECALCULAR GRÁFICOS E KPIs QUANDO SKU MUDAR
   useEffect(() => {
-    if (!allSkus || allSkus.length === 0) {
-      setTotalSuggestedValue(0);
-      return;
-    }
+    if (!allSkus || allSkus.length === 0) return;
 
-    setSkuOptions(allSkus.map(r => ({
-        label: `${r.nome_produto} - ${r.codigo}`,
+    const preencherOpcoes = allSkus.map(r => ({
+        label: `${r.codigo} - ${r.nome_produto}`,
         value: r.sku_id || r.id,
         ...r
-    })));
+    }));
+    setSkuOptions(preencherOpcoes);
 
-    const totalCusto = allSkus.reduce((acc, item) => {
-        const qtdSugerida = Number(item.sugestao_compra) || 0;
-        const preco = Number(item.valor) || 0;
-        return acc + (qtdSugerida * preco);
-    }, 0);
-    setTotalSuggestedValue(totalCusto);
-
+  
     if (sku) {
         const targetId = sku.value || sku.sku_id || sku.id;
         const skuDetails = allSkus.find(item => item.sku_id === targetId || item.id === targetId) || sku;
-        setKpis({ 
-            coverageDays: Math.round(skuDetails.atendimento || 0),
-            savingPotential: skuDetails.savingPotential || 0 
-        });
+        
+        const atendimento = skuDetails.atendimento || 0;
+        setKpis({ coverageDays: Math.round(atendimento) });
+    } else {
+        setKpis({ coverageDays: 0 });
     }
   }, [allSkus, sku]);
 
-  // 5. BUSCA DE SKU E HISTÓRICO
+  // 3. Busca de SKU no Input
   const onSkuSearch = async (query) => {
     if (!query || query.length < 1) return; 
     try {
         const results = await dashboardService.searchSkus(query);
-        setSkuOptions(results.map(r => ({ 
-          label: `${r.nome_produto} - ${r.codigo}`, 
+        const options = results.map(r => ({ 
+          label: `${r.codigo} - ${r.nome_produto}`, 
           value: r.sku_id || r.id, 
           ...r 
-        })));
+        }));
+        setSkuOptions(options);
     } catch (error) {
       logger.error("Erro na busca:", error);
     }
   };
 
+  // 4. Carregar Histórico do Gráfico de Linha (SOMENTE INDIVIDUAL)
   useEffect(() => {
     async function loadHistory() {
+      // Se não tem SKU selecionado, esvazia o gráfico (não busca soma de nada)
       if (!sku) {
         setMonthsData([]);
         return;
       }
+
       try {
         const id = sku.value || sku.sku_id || sku.id;
         const history = await dashboardService.getHistory(id);

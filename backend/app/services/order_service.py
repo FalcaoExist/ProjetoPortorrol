@@ -1,5 +1,5 @@
 import logging
-from typing import List, Any, Dict
+from typing import List, Any, Dict, Optional
 from datetime import datetime
 from itertools import groupby
 from uuid import uuid4
@@ -10,6 +10,8 @@ logger = logging.getLogger(__name__)
 class OrderService:
     def __init__(self):
         self.repository = OrdersRepository()
+        # Nomes que devem ser convertidos para NULL (None) no banco
+        self.FORBIDDEN_BRANCH_NAMES = {"", "TODAS", "GERAL", "MATRIZ", "NONE", "NULL"}
 
     def get_orders(self) -> List[dict]:
         try:
@@ -190,12 +192,16 @@ class OrderService:
 
         branch_id = None
         nome_filial = getattr(pedido, 'branch_name', None) or getattr(pedido, 'filial', None) or ""
-        res_branches = self.repository.get_all_branches()
-        if res_branches and res_branches.data:
-            for b in res_branches.data:
-                if str(b.get("name", "")).upper().strip() == nome_filial.upper().strip():
-                    branch_id = b.get("branch_id") or b.get("id")
-                    break
+        nome_filial_clean = str(nome_filial).upper().strip()
+
+        # CONSERTO: Só busca/atribui filial se não for um nome proibido
+        if nome_filial_clean and nome_filial_clean not in self.FORBIDDEN_BRANCH_NAMES:
+            res_branches = self.repository.get_all_branches()
+            if res_branches and res_branches.data:
+                for b in res_branches.data:
+                    if str(b.get("name", "")).upper().strip() == nome_filial_clean:
+                        branch_id = b.get("branch_id") or b.get("id")
+                        break
 
         try:
             order_res = self.repository.insert_order({
@@ -204,7 +210,7 @@ class OrderService:
                 "user_name": current_user.get("name") or current_user.get("email"),
                 "status": "DRAFT",
                 "expected_delivery_date": str(pedido.previsao_entrega) if pedido.previsao_entrega else None,
-                "target_branch_id": branch_id
+                "target_branch_id": branch_id # Será None (NULL) se for proibido ou vazio
             })
             new_order = order_res.data[0]
 
@@ -223,7 +229,7 @@ class OrderService:
                 "item_name": sku_name,
                 "quantity": pedido.quantidade,
                 "total_value": pedido.quantidade * pedido.valor_unitario,
-                "branch_name": nome_filial,
+                "branch_name": nome_filial if branch_id else None,
                 "created_at": new_order.get("created_at")
             }
         except Exception as e:
@@ -256,12 +262,17 @@ class OrderService:
 
             raw_branch = item.get("branch_name") or item.get("filial") or ""
             branch_key = str(raw_branch).upper().strip()
-            if branch_key not in branch_map:
-                new_branch = self.repository.insert_branch({"name": raw_branch, "is_active": True})
-                branch_map[branch_key] = new_branch.data[0].get("branch_id") or new_branch.data[0].get("id")
+            
+            # CONSERTO: Se a filial for vazia ou proibida, target_branch_id vira None e NÃO cria nova branch
+            if not branch_key or branch_key in self.FORBIDDEN_BRANCH_NAMES:
+                item["target_branch_id"] = None
+            else:
+                if branch_key not in branch_map:
+                    new_branch = self.repository.insert_branch({"name": raw_branch, "is_active": True})
+                    branch_map[branch_key] = new_branch.data[0].get("branch_id") or new_branch.data[0].get("id")
+                item["target_branch_id"] = branch_map.get(branch_key)
 
             item["supplier_id"] = supplier_map[sup_key]
-            item["target_branch_id"] = branch_map.get(branch_key)
             items_with_supplier.append(item)
 
         items_with_supplier.sort(key=lambda x: (x["supplier_id"], str(x.get("target_branch_id"))))

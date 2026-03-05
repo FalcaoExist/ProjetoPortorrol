@@ -19,7 +19,7 @@ class DashboardRepository:
             if supplier and supplier != "Todos":
                 query = query.ilike("fornecedor", f"%{supplier}%")
 
-            if branch and branch.strip() and branch != "Todas":
+            if branch and branch != "Todas":
                 b_term = branch.lower()
                 if "alegre" in b_term: query = query.gt("estoque_poa", 0)
                 elif "joinville" in b_term: query = query.gt("estoque_jv", 0)
@@ -131,5 +131,14 @@ class DashboardRepository:
             return []
         
     def get_total_active_budget(self):
-        res = supabase.table("suppliers").select("budget").eq("is_active", True).execute()
-        return sum(float(s.get("budget") or 0) for s in (res.data or []))
+        
+        try:
+            res = supabase.table("suppliers").select("budget").eq("is_active", True).execute()
+            if not res.data:
+                return 0.0
+            
+            total = sum(float(s.get("budget") or 0) for s in res.data)
+            return total
+        except Exception as e:
+            logger.error(f"Erro ao buscar orçamento total: {e}")
+            return 0.0

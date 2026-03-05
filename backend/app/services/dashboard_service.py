@@ -157,6 +157,7 @@ class DashboardService:
                 })
         return context
 
+
     def get_supplier_status(self) -> list:
         try: return self.repo.get_supplier_status()
         except Exception as e:

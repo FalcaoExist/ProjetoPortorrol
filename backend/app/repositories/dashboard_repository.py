@@ -131,14 +131,5 @@ class DashboardRepository:
             return []
         
     def get_total_active_budget(self):
-        
-        try:
-            res = supabase.table("suppliers").select("budget").eq("is_active", True).execute()
-            if not res.data:
-                return 0.0
-            
-            total = sum(float(s.get("budget") or 0) for s in res.data)
-            return total
-        except Exception as e:
-            logger.error(f"Erro ao buscar orçamento total: {e}")
-            return 0.0
+        res = supabase.table("suppliers").select("budget").eq("is_active", True).execute()
+        return sum(float(s.get("budget") or 0) for s in (res.data or []))

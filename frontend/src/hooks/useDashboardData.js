@@ -40,14 +40,18 @@ export default function useDashboardData() {
 
   const [kpis, setKpis] = useState({
     coverageDays: 0,
-    savingPotential: 0 // Mantido da Feature
+    savingPotential: 0 
   });
 
-  // Novos estados financeiros da branch FEATURE
-  const [budgetInfo, setBudgetInfo] = useState({ valor_total: 0, valor_individual: 0, start: null, end: null });
+  const [budgetInfo, setBudgetInfo] = useState({ 
+    valor_total: 0, 
+    valor_individual: 0, 
+    start: null, 
+    end: null 
+  });
   const [totalSuggestedValue, setTotalSuggestedValue] = useState(0);
 
-  // 1. INICIALIZAÇÃO DE FILTRO (Recuperado da DEV)
+  // 1. INICIALIZAÇÃO DE FILTRO
   useEffect(() => {
     if (hasInitializedSupplierFromStorage.current) return;
     if (!user?.id) return;
@@ -59,7 +63,7 @@ export default function useDashboardData() {
     hasInitializedSupplierFromStorage.current = true;
   }, [user]);
 
-  // 2. CARGA INICIAL DE OPÇÕES E SKUs
+  // 2. CARGA INICIAL DE OPÇÕES E DADOS
   useEffect(() => {
     async function loadInitialData() {
       let autoSelectedSupplier = false;
@@ -88,16 +92,16 @@ export default function useDashboardData() {
               setSupplier("");
             }
 
-            // Seleção automática por perfil de usuário
             try {
-              if (hasAutoAppliedSupplier.current) return;
-              if ((!supplier || supplier === "") && user && Array.isArray(user.supplier) && user.supplier.length > 0) {
-                const first = user.supplier[0];
-                const normalized = typeof first === 'string' ? first : (first?.name || first?.nome || "");
-                if (normalized) {
-                  setSupplier(normalized);
-                  hasAutoAppliedSupplier.current = true;
-                  autoSelectedSupplier = true;
+              if (!hasAutoAppliedSupplier.current) {
+                if ((!supplier || supplier === "") && user?.supplier?.length > 0) {
+                  const first = user.supplier[0];
+                  const normalized = typeof first === 'string' ? first : (first?.name || first?.nome || "");
+                  if (normalized) {
+                    setSupplier(normalized);
+                    hasAutoAppliedSupplier.current = true;
+                    autoSelectedSupplier = true;
+                  }
                 }
               }
             } catch (e) {}
@@ -105,9 +109,42 @@ export default function useDashboardData() {
         
         if (autoSelectedSupplier) return;
 
-        // Busca SKUs (Lógica base da Feature: processar as listas depois via efeito)
+        // Skus
         const response = await dashboardService.getSkus(null, branch, supplier);
         setAllSkus(Array.isArray(response) ? response : []); 
+
+        // Itens criticos
+        const criticalItems = await dashboardService.getCriticalItems(20, supplier);
+        setDataCritic(criticalItems.map(item => ({
+             name: item.codigo,
+             qtd: item.estoque_atual,
+             dias: item.dias_cobertura,
+             demanda_real: item.demanda_mensal_media,
+             ...item
+        })));
+
+        // Itens em excesso
+        const excessItems = await dashboardService.getExcessItems(20, supplier);
+        setDataOverstock(excessItems.map(item => ({
+             name: item.codigo,
+             qtd: item.dias_cobertura, 
+             dias: item.dias_cobertura,
+             stock: item.estoque_atual,
+             ...item
+        })));
+
+        // Visão Geral do Estoque
+        const statusResponse = await dashboardService.getSupplierStatus(branch, supplier);
+        if (Array.isArray(statusResponse)) {
+           let acc = { excesso: 0, rupturaIminente: 0, subdimensionado: 0, ok: 0 };
+           statusResponse.forEach(item => {
+               acc.excesso += Number(item.qtd_excesso || item.excesso || item.EXCESSO || 0);
+               acc.rupturaIminente += Number(item.qtd_ruptura || item.ruptura || item.RUPTURA || 0); 
+               acc.subdimensionado += Number(item.qtd_subdimensionado || item.subdimensionado || item.SUBDIMENSIONADO || 0);
+               acc.ok += Number(item.qtd_ok || item.ok || item.OK || item.normal || 0);
+           });
+           setStockOverview({ data: acc, total: acc.excesso + acc.rupturaIminente + acc.subdimensionado + acc.ok });
+        }
 
       } catch (error) {
         logger.error("Erro dashboard:", error);
@@ -118,73 +155,53 @@ export default function useDashboardData() {
     loadInitialData();
   }, [branch, supplier, user]); 
 
-  // 3. BUSCA ORÇAMENTO E PERSISTÊNCIA (União das branches)
+  // 3. BUSCA DE ORÇAMENTO (BUDGET)
   useEffect(() => {
     async function fetchBudget() {
-        const info = await dashboardService.getSupplierBudget(supplier);
-        setBudgetInfo(info || { valor_total: 0, valor_individual: 0, start: null, end: null });
+        try {
+            // "Todos" garante que o backend some os orçamentos globais
+            const info = await dashboardService.getSupplierBudget(supplier || "Todos");
+            
+            // Garantia contra campos undefined para evitar NaN no frontend
+            setBudgetInfo({
+              valor_total: info?.valor_total ?? 0,
+              valor_individual: info?.valor_individual ?? 0,
+              start: info?.start || null,
+              end: info?.end || null
+            });
+        } catch (error) {
+            logger.error("Erro ao carregar budget:", error);
+            setBudgetInfo({ valor_total: 0, valor_individual: 0, start: null, end: null });
+        }
     }
-    if (supplier) fetchBudget();
+    
+    fetchBudget();
     
     if (user?.id) {
-        setPersistedSupplierFilter(supplier, user.id); // Persistência da DEV
+        setPersistedSupplierFilter(supplier, user.id);
     }
   }, [supplier, user]);
 
-  // 4. RECALCULAR GRÁFICOS, KPIs E FINANCEIRO (Lógica Otimizada da FEATURE)
+  // 4. PROCESSAMENTO DE SKUs E KPIs
   useEffect(() => {
     if (!allSkus || allSkus.length === 0) {
       setTotalSuggestedValue(0);
       return;
     }
 
-    // Preencher opções do seletor de SKU
     setSkuOptions(allSkus.map(r => ({
         label: `${r.nome_produto} - ${r.codigo}`,
         value: r.sku_id || r.id,
         ...r
     })));
 
-    // Cálculo do custo total sugerido
     const totalCusto = allSkus.reduce((acc, item) => {
-        const qtdSugerida = item.sugestao_compra || 0;
-        const preco = item.valor || 0;
+        const qtdSugerida = Number(item.sugestao_compra) || 0;
+        const preco = Number(item.valor) || 0;
         return acc + (qtdSugerida * preco);
     }, 0);
     setTotalSuggestedValue(totalCusto);
 
-    // Processamento de Listas (Excesso e Ruptura) filtrando allSkus
-    const excessos = allSkus.filter(i => i.status === "EXCESSO");
-    excessos.sort((a, b) => (b.estoque_soma || 0) - (a.estoque_soma || 0)); 
-    setDataOverstock(excessos.map(item => ({
-      name: item.codigo,
-      qtd: item.estoque_soma,
-      dias: item.atendimento,
-      ...item
-    })).slice(0, 20));
-
-    const rupturas = allSkus.filter(i => i.status === "RUPTURA" || i.status === "RUPTURA_IMINENTE");
-    rupturas.sort((a, b) => (a.estoque_soma || 0) - (b.estoque_soma || 0)); 
-    setDataCritic(rupturas.map(item => ({
-      name: item.codigo,
-      qtd: item.estoque_soma, 
-      demanda_real: item.demanda_soma,
-      dias: item.atendimento,
-      ...item
-    })).slice(0, 20));
-
-    // Contador do Gráfico de Visão Geral
-    const counts = { ok: 0, excesso: 0, rupturaIminente: 0, subdimensionado: 0 };
-    allSkus.forEach(item => {
-        const st = item.status; 
-        if (st === 'OK') counts.ok++;
-        else if (st === 'EXCESSO') counts.excesso++;
-        else if (st === 'RUPTURA' || st === 'RUPTURA_IMINENTE') counts.rupturaIminente++;
-        else if (st === 'SUBDIMENSIONADO') counts.subdimensionado++;
-    });
-    setStockOverview({ data: counts, total: allSkus.length });
-
-    // KPI de Cobertura Individual
     if (sku) {
         const targetId = sku.value || sku.sku_id || sku.id;
         const skuDetails = allSkus.find(item => item.sku_id === targetId || item.id === targetId) || sku;
@@ -192,8 +209,6 @@ export default function useDashboardData() {
             coverageDays: Math.round(skuDetails.atendimento || 0),
             savingPotential: skuDetails.savingPotential || 0 
         });
-    } else {
-        setKpis({ coverageDays: 0, savingPotential: 0 });
     }
   }, [allSkus, sku]);
 

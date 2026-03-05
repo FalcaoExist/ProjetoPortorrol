@@ -44,8 +44,11 @@ class OrdersRepository:
     def insert_order_items(self, payload):
         return supabase.table(self.table_items).insert(payload).execute()
 
-    def update_order(self, order_id: str, payload: dict):
-        return supabase.table(self.table_header).update(payload).eq("order_id", order_id).execute()
+    def update_order(self, order_id: str, payload: dict, table_name: str = "purchase_orders"):
+        id_column = "order_id" if table_name == "purchase_orders" else "id"
+        
+        # Executa o update na tabela dinâmica
+        return supabase.table(table_name).update(payload).eq(id_column, order_id).execute()
 
     def insert_supplier(self, payload: dict):
         return supabase.table("suppliers").insert(payload).execute()

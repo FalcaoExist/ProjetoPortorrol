@@ -16,28 +16,23 @@ class ImportOrdersService:
         try:
             if isinstance(value, (pd.Timestamp, datetime)):
                 return value.strftime('%Y-%m-%d')
-            # Mantida a segurança extra da branch dev para outros formatos de data
             if hasattr(value, "isoformat"):
                 return value.isoformat()[:10]
             
             s = str(value).strip().split(' ')[0].replace('/', '-')
-            if len(s) >= 10 and s[2] == '-': # DD-MM-YYYY
+            if len(s) >= 10 and s[2] == '-':
                 p = s.split('-')
                 return f"{p[2]}-{p[1]}-{p[0]}"
-            if len(s) >= 10 and s[4] == '-': # YYYY-MM-DD
+            if len(s) >= 10 and s[4] == '-':
                 return s[:10]
             return s
         except: 
             return None
 
     def _parse_num(self, value, is_float=False):
-        """
-        Converte valores para número tratando o problema dos zeros extras (5.000 -> 5).
-        """
         if pd.isna(value) or value is None:
             return 0.0 if is_float else 0
         
-        # Se já for um número (float/int do Pandas), não fazemos replace de string
         if isinstance(value, (int, float, np.number)):
             val = float(value)
             if math.isnan(val) or math.isinf(val):
@@ -61,6 +56,17 @@ class ImportOrdersService:
         s = str(val).strip()
         return None if s.lower() in ["nan", "none", "null", "", "nat"] else s
 
+    def _clean_record(self, record: dict) -> dict:
+        cleaned = {}
+        for key, value in record.items():
+            if pd.isna(value):
+                cleaned[key] = None
+            elif hasattr(value, "item"):
+                cleaned[key] = value.item()
+            else:
+                cleaned[key] = value
+        return cleaned
+
     def get_col(self, row, possible_names):
         row_keys_upper = {str(k).replace(" ", "").upper(): k for k in row.keys()}
         for name in possible_names:
@@ -70,13 +76,14 @@ class ImportOrdersService:
         return None
 
     async def import_file(self, supplier: str, file):
+        logger.info("Iniciando importação de pedidos - fornecedor: %s", supplier)
         supplier_key = supplier.lower()
+        
         try:
             await file.seek(0)
             content = await file.read()
             df = pd.read_excel(io.BytesIO(content), engine='openpyxl')
             
-            # Ajuste dinâmico de cabeçalho para Timken se necessário
             if supplier_key == "timken":
                 cols_upper = [str(c).upper().replace(" ", "") for c in df.columns]
                 if "PURCHASEORDERNUMBER" not in cols_upper:
@@ -84,8 +91,12 @@ class ImportOrdersService:
             
             df.columns = [str(c).replace('\n', ' ').strip() for c in df.columns]
         except Exception as e:
-            logger.error(f"Erro ao ler arquivo Excel: {e}")
+            logger.exception("Erro ao ler arquivo Excel para fornecedor: %s", supplier)
             raise ValueError(f"Erro ao processar o Excel: {str(e)}")
+
+        if supplier_key not in ["nsk", "timken"]:
+            logger.warning("Tentativa de importação para fornecedor não suportado: %s", supplier)
+            raise ValueError("Fornecedor não suportado")
 
         records = []
         try:
@@ -157,13 +168,23 @@ class ImportOrdersService:
                     "purchase_order_id": find_po(po_ref)
                 })
 
-        if not records:
-            raise ValueError(f"Não foram encontrados dados válidos no arquivo da {supplier.upper()}.")
+        records = [self._clean_record(r) for r in records if any(v is not None and v != "" for v in r.values())]
 
-        lote_size = 500
-        total_inserido = 0
-        for i in range(0, len(records), lote_size):
-            lote = records[i:i + lote_size]
-            res = supabase.table(f"orders_{supplier_key}").insert(lote).execute()
-            total_inserido += len(res.data) if res.data else 0
-        return total_inserido
+        if not records:
+            logger.info("Importação concluída - nenhum registro válido encontrado - fornecedor: %s", supplier)
+            return 0
+
+        try:
+            lote_size = 500
+            total_inserido = 0
+            table = f"orders_{supplier_key}"
+            for i in range(0, len(records), lote_size):
+                lote = records[i:i + lote_size]
+                res = supabase.table(table).insert(lote).execute()
+                total_inserido += len(res.data) if res.data else 0
+            
+            logger.info("Importação concluída com sucesso - fornecedor: %s - registros inseridos: %d", supplier, total_inserido)
+            return total_inserido
+        except Exception as e:
+            logger.exception("Erro ao inserir registros na tabela %s", table)
+            raise

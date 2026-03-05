@@ -155,7 +155,7 @@ class DashboardService:
         individual = total
         start = end = None
         
-        if supplier_name and supplier_name.strip() and supplier_name.lower() != "todos":
+        if supplier_name and supplier_name != "Todos":
             data = self.repo.get_supplier_budget(supplier_name)
             if data:
                 individual = self._safe_float(data.get('budget'))

@@ -121,18 +121,13 @@ export default function useDashboardData() {
   // 3. BUSCA ORÇAMENTO E PERSISTÊNCIA (União das branches)
   useEffect(() => {
     async function fetchBudget() {
-      try {
-        const info = await dashboardService.getSupplierBudget(supplier || "Todos");
+        const info = await dashboardService.getSupplierBudget(supplier);
         setBudgetInfo(info || { valor_total: 0, valor_individual: 0, start: null, end: null });
-      } catch (error) {
-        logger.error("Erro ao buscar orçamento:", error);
-      }
     }
-    
-    fetchBudget();
+    if (supplier) fetchBudget();
     
     if (user?.id) {
-      setPersistedSupplierFilter(supplier, user.id);
+        setPersistedSupplierFilter(supplier, user.id); // Persistência da DEV
     }
   }, [supplier, user]);
 

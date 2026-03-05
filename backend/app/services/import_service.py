@@ -1,39 +1,44 @@
+import io
 import logging
+import pandas as pd
 from app.audit.audit_actions import AuditAction
 from app.repositories.repositories_supabase import SupabaseUserRepository
 from app.repositories.import_repository import ImportRepository
 
 logger = logging.getLogger(__name__)
 
-def process_background(data_batch: list, filename: str, user_id: str):
+def process_background(file_contents: bytes, filename: str, user_id: str):
     user_repo = SupabaseUserRepository()
     import_repo = ImportRepository()
-    
-    logger.info(
-        "Iniciando importação de arquivo - usuário: %s - arquivo: %s",
-        user_id,
-        filename,
-    )
+
+    logger.info(f"Iniciando importação de arquivo - usuário: {user_id} - arquivo: {filename}")
 
     try:
-        if not data_batch or len(data_batch) < 1:            
-            logger.warning(
-                "Arquivo vazio na importação - usuário: %s - arquivo: %s",
-                user_id,
-                filename,
-            )
+        if filename.endswith(".csv"):
+            try:
+                df = pd.read_csv(io.BytesIO(file_contents), sep=',', encoding='utf-8')
+            except Exception as e:
+                logger.debug(f"Falha ao ler CSV com UTF-8, tentando latin-1: {e}")
+                df = pd.read_csv(io.BytesIO(file_contents), sep=';', encoding='latin-1')
+        else:
+            df = pd.read_excel(io.BytesIO(file_contents))
+
+        if df.empty or len(df.columns) < 2:
+            logger.warning(f"Arquivo vazio ou inválido na importação - usuário: {user_id} - arquivo: {filename}")
             try:
                 user_repo.insert_audit_log(
                     performed_by=user_id,
                     action=AuditAction.IMPORT_FILE_FAILURE,
                     entity="import",
                     entity_id=filename,
-                    extra={"reason": "Arquivo vazio"}
+                    extra={"reason": "Arquivo vazio ou colunas insuficientes"}
                 )
-            except Exception:
-                logger.exception("Falha ao registrar auditoria de arquivo vazio")
+            except Exception as e:
+                logger.exception("Falha ao registrar auditoria de arquivo inválido")
+                raise RuntimeError("Falha ao registrar auditoria de arquivo inválido") from e
             return
 
+        data_batch = df.to_dict('records')
         success = 0
         errors = 0
         chunk_size = 250
@@ -45,12 +50,7 @@ def process_background(data_batch: list, filename: str, user_id: str):
                 success += processed_count
             except Exception as e:
                 errors += len(chunk)
-                logger.error(
-                    "Erro ao importar lote %s - usuário: %s - erro: %s",
-                    i,
-                    user_id,
-                    str(e),
-                )
+                logger.error(f"Erro ao importar lote {i} - usuário: {user_id} - erro: {e}")
                 try:
                     user_repo.insert_audit_log(
                         performed_by=user_id,
@@ -61,14 +61,8 @@ def process_background(data_batch: list, filename: str, user_id: str):
                     )
                 except Exception:
                     logger.exception("Falha ao registrar auditoria de erro do lote")
-        
-        logger.info(
-            "Importação concluída - usuário: %s - arquivo: %s - sucesso: %d - erros: %d",
-            user_id,
-            filename,
-            success,
-            errors,
-        )
+
+        logger.info(f"Importação concluída - usuário: {user_id} - arquivo: {filename} - sucesso: {success} - erros: {errors}")
 
         try:
             user_repo.insert_audit_log(
@@ -78,15 +72,12 @@ def process_background(data_batch: list, filename: str, user_id: str):
                 entity_id=filename,
                 extra={"processed": success, "errors": errors}
             )
-        except Exception:
+        except Exception as e:
             logger.exception("Falha ao registrar auditoria de sucesso da importação")
+            raise RuntimeError("Falha ao registrar auditoria de sucesso da importação") from e
 
     except Exception as e_critic:
-        logger.exception(
-            "Erro crítico na importação - usuário: %s - arquivo: %s",
-            user_id,
-            filename,
-        )
+        logger.exception(f"Erro crítico na importação - usuário: {user_id} - arquivo: {filename}")
         try:
             user_repo.insert_audit_log(
                 performed_by=user_id,
@@ -95,6 +86,7 @@ def process_background(data_batch: list, filename: str, user_id: str):
                 entity_id=filename,
                 extra={"error": str(e_critic)}
             )
-        except Exception:
+        except Exception as e:
             logger.exception("Falha ao registrar auditoria de erro crítico")
-        raise
+            raise RuntimeError("Falha ao registrar auditoria de erro crítico") from e
+        raise e_critic

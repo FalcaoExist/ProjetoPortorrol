@@ -129,7 +129,7 @@ class ImportRepository:
                 q_val = self.parse_value(row.get(q_col), int)
                 v_val = self.parse_value(row.get(f"VALOR_{mes_ano}"), float)
                 
-                if q_val > 0 or v_val > 0:
+                if q_val > -1 or v_val > -1:
                     history_payload.append({
                         "sku_id": sku_id,
                         "periodo_sequencia": idx,

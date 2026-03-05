@@ -85,7 +85,8 @@ export default function Orders() {
         if (!selectedFile) return;
         
         try {
-            // Agora sim enviamos o arquivo para o Python processar e salvar no Banco!  
+            // Chama a função do service que envia o arquivo para o backend
+            await ordersService.importOrdersFromFile(selectedFile);
             
             // Recarrega a página para os novos pedidos aparecerem na tabela na hora
             window.location.reload(); 

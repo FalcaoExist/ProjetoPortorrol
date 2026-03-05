@@ -23,7 +23,7 @@ class DemandRepository:
             return
 
         try:
-            supabase.table("tb_demanda_mensal").upsert(demand_data).execute()
+            supabase.table("tb_demanda_mensal").upsert(demand_data, on_conflict="sku_id").execute()
 
             logger.info(
                 "Demanda mensal atualizada com sucesso - registros: %s",

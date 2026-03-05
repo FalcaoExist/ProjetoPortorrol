@@ -4,6 +4,7 @@ import { getSuppliers } from "../services/stockService";
 import { logger } from "../utils/logger";
 import { useAuth } from "../context/authContext";
 import { getPersistedSupplierFilter, setPersistedSupplierFilter } from "../utils/supplierFilterPersistence";
+
 // Função utilitária para remover acentos e facilitar a busca
 const removeAcentos = (str) => {
     if (!str) return "";
@@ -108,7 +109,6 @@ export function useOrders() {
             const formattedData = rawData.map((item, index) => {
                 const finalId = item.id || `temp-${index}`;
                 
-                // 🔥 ISOLAMENTO E TRAVA DE ESPELHAMENTO
                 const previsaoRaw = item.expected_delivery_date || item.previsao_entrega || null;
                 const entregaRaw = item.data_entrega || null;
                 
@@ -116,7 +116,8 @@ export function useOrders() {
                 const hoje = new Date();
                 hoje.setHours(0,0,0,0);
                 
-                if (entregaRaw) {
+                // AJUSTE SOLID: Prioriza o status "Finalizado" vindo do banco ou a existência de data de entrega
+                if (statusBinario === "Finalizado" || entregaRaw) {
                     statusBinario = "Finalizado";
                 } else if (previsaoRaw) {
                     const dataPrevisao = new Date(previsaoRaw);
@@ -139,14 +140,15 @@ export function useOrders() {
                     responsavel: item.responsavel || "Sistema", 
                     item: item.item_name || item.item || "Item",
                     fornecedor: item.supplier_name || item.fornecedor || "Desc.", 
-                    filial: item.branch_name || item.filial || "Matriz", 
+                    filial: item.branch_name || item.filial || "", 
                     quantidade: Number(item.quantity || item.quantidade || 0),
                     valor: Number(item.total_value || item.valor || 0),
                     data_pedido: dataCriacao, 
                     created_at: dataCriacao,
                     previsao_entrega: previsaoRaw,
-                    data_entrega: entregaRaw, // Aqui a data de entrega entra vazia
+                    data_entrega: entregaRaw, 
                     status: statusBinario,
+                    origem: item.origem || "MANUAL", // Essencial para o Service identificar a tabela correta
                     _raw: item 
                 };
             });
@@ -198,10 +200,13 @@ export function useOrders() {
 
         try {
             await Promise.all(itemsToUpdate.map(async (item) => {
-                // 🔥 TRADUÇÃO DE CAMPO PARA O BACKEND: se editou a previsão, envia expected_delivery_date
                 const apiField = field === "previsao_entrega" ? "expected_delivery_date" : field;
                 
-                const payload = { [apiField]: value };
+                // AJUSTE SOLID: Envia 'origem' e 'status' para garantir que o Backend grave na tabela certa com o status certo
+                const payload = { 
+                    [apiField]: value,
+                    origem: item.origem || "MANUAL"
+                };
                 if (newStatus) payload.status = newStatus;
 
                 const idParaSalvar = item.real_id || item._raw?.order_id || (!String(item.id).startsWith('temp') ? item.id : null);
@@ -246,11 +251,13 @@ export function useOrders() {
             acc[k].quantidade += item.quantidade;
             acc[k].items.push(item);
             
-            if (item.data_entrega) {
-                acc[k].status = "Finalizado";
-            } else if (acc[k].status !== "Finalizado" && item.status === "Atrasado") {
+            // AJUSTE SOLID: Garante que o status do grupo reflita se algum item está Atrasado ou Finalizado
+            if (item.status === "Atrasado") {
                 acc[k].status = "Atrasado";
+            } else if (item.status === "Finalizado" && acc[k].status !== "Atrasado") {
+                acc[k].status = "Finalizado";
             }
+            
             return acc;
         }, {});
 

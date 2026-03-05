@@ -1,6 +1,6 @@
 from datetime import date, datetime
 from enum import Enum
-from typing import List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 from uuid import UUID
 from pydantic import BaseModel, EmailStr
 
@@ -126,6 +126,7 @@ class PedidoCreate(BaseModel):
     quantidade: int
     valor_unitario: float
     previsao_entrega: Optional[date] = None
+    branch_name: Optional[str] = "Geral"
 
 class PedidoResponse(BaseModel):
     order_id: UUID
@@ -143,7 +144,7 @@ class OrderItemRequest(BaseModel):
     unit_cost: float
     expected_delivery_date: Optional[str] = None 
     supplier_name: Optional[str] = None
-    filial: Optional[str] = None
+    branch_name: Optional[str] = None
 
 class OrderUpdate(BaseModel):
     data_entrega: Optional[str] = None
@@ -157,7 +158,7 @@ class StockItemResponse(BaseModel):
     categoria: Optional[str] = "Geral"
     unidades: int
     fornecedor: Optional[str] = "N/A"
-    filial: Optional[str] = "Matriz"
+    filial: Optional[str] = None
     dias_cobertura: Optional[int] = 0
     valor: Optional[float] = 0.0
 
@@ -168,6 +169,10 @@ class BatchOrderItem(BaseModel):
     unit_cost: float
     supplier_name: Optional[str] = None
     expected_delivery_date: Optional[Union[date, datetime, str]] = None
+    branch_name: Optional[str] = None
+    
+    class Config:
+        extra = "allow"
 
 class UpdateItemDate(BaseModel):
     delivery_date: str | None
@@ -179,3 +184,7 @@ class BatchOrderResponse(BaseModel):
     success: bool
     message: str
     orders_created: int
+
+class StockImportPayload(BaseModel):
+    filename: str
+    data: List[Dict[str, Any]]

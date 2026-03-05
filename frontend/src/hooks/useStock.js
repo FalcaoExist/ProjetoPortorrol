@@ -4,7 +4,8 @@ import { logger } from "../utils/logger";
 import { useAuth } from "../context/authContext";
 import { getPersistedSupplierFilter, setPersistedSupplierFilter } from "../utils/supplierFilterPersistence";
 
-// Função auxiliar para definir status textual baseado nos dias de cobertura
+const BRANCH_OPTIONS = ["Porto Alegre", "Joinville", "São Paulo"];
+
 const getStatusText = (dias) => {
     if (dias === null || dias === undefined) return "Sem demanda";
     if (dias <= 30) return "Ruptura iminente";
@@ -17,25 +18,20 @@ export const useStock = () => {
     const { user } = useAuth();
     const hasAutoAppliedSupplier = useRef(false);
     const hasInitializedSupplierFromStorage = useRef(false);
-    // --- 1. ESTADOS DE DADOS ---
+
     const [stockData, setStockData] = useState([]);
     const [loading, setLoading] = useState(true);
     const [supplierOptions, setSupplierOptions] = useState([]); 
 
-    // --- 2. ESTADOS DA TABELA DE REQUISIÇÃO (SELEÇÃO) ---
-    // Mantemos o formato de Objeto + Set exigido pelo seu DataGrid atual
     const [rowSelectionModel, setRowSelectionModel] = useState({ type: 'include', ids: new Set() });
-    
     const [newOrderRows, setNewOrderRows] = useState([]);
     const [isNewOrderVisible, setIsNewOrderVisible] = useState(false);
 
-    // --- 3. FILTROS ---
     const [searchQuery, setSearchQuery] = useState("");
     const [statusFilter, setStatusFilter] = useState("");
     const [fornecedor, setFornecedor] = useState("");
     const [filial, setFilial] = useState("");
 
-    // --- 4. MODAIS E UTILITÁRIOS ---
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [itemToDelete, setItemToDelete] = useState(null);
     const [isImportConfirmModalOpen, setIsImportConfirmModalOpen] = useState(false);
@@ -59,9 +55,7 @@ export const useStock = () => {
         const loadSuppliers = async () => {
             try {
                 const suppliers = await getSuppliers();
-                if (suppliers.length > 0) {
-                    setSupplierOptions(suppliers);
-                }
+                if (suppliers.length > 0) setSupplierOptions(suppliers);
             } catch (error) {
                 logger.error("Falha ao carregar lista de fornecedores", error);
             }
@@ -70,21 +64,16 @@ export const useStock = () => {
     }, []);
 
     useEffect(() => {
-        if (!fornecedor) return;
-        if (!Array.isArray(supplierOptions) || supplierOptions.length === 0) return;
-        if (!supplierOptions.includes(fornecedor)) {
-            setFornecedor("");
-        }
+        if (!fornecedor || !Array.isArray(supplierOptions) || supplierOptions.length === 0) return;
+        if (!supplierOptions.includes(fornecedor)) setFornecedor("");
     }, [fornecedor, supplierOptions]);
 
     useEffect(() => {
         if (hasAutoAppliedSupplier.current) return;
         if (fornecedor && String(fornecedor).trim() !== "") return;
-        if (!user || !Array.isArray(user.supplier) || user.supplier.length === 0) return;
-
+        if (!user?.supplier?.length) return;
         const first = user.supplier[0];
         const normalized = typeof first === "string" ? first : (first?.name || first?.nome || "");
-
         if (normalized) {
             setFornecedor(normalized);
             hasAutoAppliedSupplier.current = true;
@@ -92,11 +81,9 @@ export const useStock = () => {
     }, [user, fornecedor]);
 
     useEffect(() => {
-        if (!user?.id) return;
-        setPersistedSupplierFilter(fornecedor, user.id);
+        if (user?.id) setPersistedSupplierFilter(fornecedor, user.id);
     }, [fornecedor, user]);
 
-    // Carrega dados do estoque aplicando filtros de servidor
     const fetchStock = useCallback(async (filters = {}) => {
         setLoading(true);
         try {
@@ -117,29 +104,21 @@ export const useStock = () => {
         fetchStock(activeFilters);
     }, [fetchStock, filial, fornecedor]);
 
-    // LÓGICA DE SINCRONIZAÇÃO (Seleção -> Tabela de Pedido)
-    
     useEffect(() => {
-        const selectionSet = (rowSelectionModel && rowSelectionModel.ids) 
-            ? rowSelectionModel.ids 
-            : new Set();
+        const selectionSet = rowSelectionModel?.ids || new Set();
 
         setNewOrderRows(prevOrderRows => {
-            const selectedRows = stockData
-                .filter(row => selectionSet.has(row.id)) // Filtra pelo ID único gerado no service
+            return stockData
+                .filter(row => selectionSet.has(row.id))
                 .map(item => {
-                    // mapStockToFrontend retorna real_sku_id, não sku_id na raiz
                     const existingItem = prevOrderRows.find(nr => nr.real_sku_id === item.real_sku_id);
-                    
                     if (existingItem) return existingItem;
 
-                    // Cria novo item para a tabela de pedido com valores padrão
-                    // item.quantidade deve vir de qtd_sugerida se existir e for > 0
                     const qtdSugerida = item.qtd_sugerida > 0 ? item.qtd_sugerida : 0;
                     
                     return {
                         ...item,
-                        real_sku_id: item.real_sku_id, 
+                        real_sku_id: item.real_sku_id || item.sku_id || item.id,
                         unidades: item.qtd_sugerida !== undefined ? item.qtd_sugerida : 0,
                         quantidade: item.qtd_sugerida !== undefined ? item.qtd_sugerida : 0,
                         filial: item.filial || "",
@@ -148,16 +127,11 @@ export const useStock = () => {
                         status: "Pendente"
                     };
                 });
-            return selectedRows;
         });
 
-        if (selectionSet.size > 0) {
-            setIsNewOrderVisible(true);
-        }
+        if (selectionSet.size > 0) setIsNewOrderVisible(true);
     }, [rowSelectionModel, stockData]);
 
-    // FILTRAGEM LOCAL
-    
     const filteredRows = useMemo(() => {
         return stockData.filter(row => {
             const statusText = getStatusText(row.dias_cobertura);
@@ -174,19 +148,13 @@ export const useStock = () => {
         });
     }, [stockData, searchQuery, statusFilter, fornecedor, filial]);
 
-    // HANDLERS
     const handleShowNewOrder = useCallback(() => {
         if (!isNewOrderVisible) {
-            const skusAbaixoDoROP = stockData.filter(row => {
-                // Excluir itens "Sem demanda" (dias_cobertura null ou undefined)
+            const skusAbaixoDoROP = filteredRows.filter(row => {
                 if (row.dias_cobertura === null || row.dias_cobertura === undefined) return false;
-                // Se a sugestão de compra for 0,
-                // não faz sentido selecionar automaticamente.
-                // Então condição: rop > 0 e qtd_sugerida > 0.
                 const rop = parseFloat(row.rop) || 0;
                 const unidades = parseFloat(row.unidades) || 0;
                 const sugerida = parseFloat(row.qtd_sugerida) || 0;
-                
                 return (unidades <= rop) && (sugerida > 0);
             });
             
@@ -196,7 +164,7 @@ export const useStock = () => {
             }
         }
         setIsNewOrderVisible(true);
-    }, [stockData, isNewOrderVisible]);
+    }, [filteredRows, isNewOrderVisible]);
 
     const handleCloseNewOrder = useCallback(() => {
         setIsNewOrderVisible(false);
@@ -205,9 +173,7 @@ export const useStock = () => {
     }, []);
 
     const handleNewOrderRowUpdate = useCallback(async (newRow) => {
-        setNewOrderRows(prevRows =>
-            prevRows.map(row => (row.id === newRow.id ? newRow : row))
-        );
+        setNewOrderRows(prevRows => prevRows.map(row => (row.id === newRow.id ? newRow : row)));
         return newRow;
     }, []);
 
@@ -227,31 +193,37 @@ export const useStock = () => {
         setIsDeleteModalOpen(false);
     };
 
-    // --- CRIAÇÃO DO PEDIDO (LIMPEZA E ENVIO) ---
     const handleCreateOrder = async (navigate) => {
-        if (newOrderRows.length === 0) {
-            return { success: false, message: "Nenhum item na requisição." };
+        if (newOrderRows.length === 0) return { success: false, message: "Nenhum item na requisição." };
+
+        const hasInvalidBranch = newOrderRows.some((row) => !BRANCH_OPTIONS.includes(row?.filial));
+        if (hasInvalidBranch) {
+            logger.warn("Pedido bloqueado: existe item sem filial válida.");
+            return {
+                success: false,
+                message: "Todos os itens devem ter uma filial válida (Porto Alegre, Joinville ou São Paulo)."
+            };
         }
 
         try {
-            const itemsList = newOrderRows.map((row) => ({
-                sku_id: parseInt(row.real_sku_id, 10),
-                quantity: parseInt(row.unidades ?? row.quantidade ?? 0, 10),
-                unit_cost: parseFloat(row.valor || 0),
-                supplier_name: row.fornecedor || "Não informado",
-                filial: row.filial || null,
-                expected_delivery_date: row.previsao_entrega || null
-            }));
+            const itemsList = newOrderRows.map((row) => {
+                const qtd = parseInt(row.unidades || row.quantidade || 1, 10);
+                return {
+                    sku_id: parseInt(row.real_sku_id, 10),
+                    quantity: qtd,
+                    unit_cost: parseFloat(row.valor || 0) / qtd,
+                    supplier_name: row.fornecedor || "Não informado",
+                    branch_name: row.filial,
+                    expected_delivery_date: row.previsao_entrega || null
+                };
+            });
 
-            await createOrderBatch(itemsList); 
-            
+            await createOrderBatch(itemsList);
             handleCloseNewOrder();
             if (navigate) navigate('/orders'); 
             return { success: true, message: 'Pedido criado com sucesso.' };
-            
         } catch (error) {
-            const msg = error.response?.data?.detail || error.message;
-            logger.error(`Erro ao criar pedido: ${msg}`);
+            logger.error(`Erro ao criar pedido: ${error.message}`);
             return { success: false, message: 'Erro ao criar pedido.' };
         }
     };

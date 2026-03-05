@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useMemo, useRef } from "react";
 import LeadtimeSavingCard from "../components/charts/LeadtimeSavingCard";
 import Navbar from "../components/nav_bar/NavBar";
 import Header from "../components/header/Header";
@@ -20,6 +20,22 @@ import ExportDropdown from "../components/common/ExportDropdown";
 import { useOrders } from "../hooks/useOrders";
 import { useNavigate } from "react-router-dom";
 
+// ---> ADICIONADO: Função isolada para formatar datas da tabela <---
+const formatDate = (dateString) => {
+  if (!dateString) return "--/--/----";
+  const d = new Date(dateString);
+  d.setMinutes(d.getMinutes() + d.getTimezoneOffset());
+  return d.toLocaleDateString('pt-BR');
+};
+
+const normalizeText = (value) => {
+  if (!value) return "";
+  return String(value)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+};
 
 export default function Home() {
   const AUTO_SKU_INTERVAL_MS = 7000;
@@ -42,20 +58,33 @@ export default function Home() {
     kpis, 
     STATUS_INDICATORS,
     skuOptions,
-    orders, // ⬅️ Agora ele traz os números dinâmicos
-    budget,
+    orders, 
     leadtimeInfo,
-    onSkuSearch
+    onSkuSearch,
+    budgetInfo,          
+    totalSuggestedValue  
   } = useDashboardData();
 
   const { ordersData, loading: ordersLoading } = useOrders();
   const lastSkuInteractionAtRef = useRef(0);
 
+  const filteredOrdersData = useMemo(() => {
+    const selectedSupplier = normalizeText(supplier);
+    const shouldFilterBySupplier = selectedSupplier !== "" && selectedSupplier !== "todos";
 
-  const atrasadosCount = ordersData?.filter(o => o.status === "Atrasado").length || 0;
-  const aprovadosCount = ordersData?.filter(o => o.status === "Aprovado").length || 0;
+    if (!shouldFilterBySupplier) {
+      return ordersData || [];
+    }
+
+    return (ordersData || []).filter((order) => {
+      const orderSupplier = normalizeText(order?.fornecedor);
+      return orderSupplier.includes(selectedSupplier);
+    });
+  }, [ordersData, supplier]);
+
+  const atrasadosCount = filteredOrdersData.filter(o => o.status === "Atrasado").length;
+  const aprovadosCount = filteredOrdersData.filter(o => o.status === "Aprovado").length;
   
-  // Exporta via serviço externo (single responsibility)
   const handleExportCSV = () => {
     exportDashboardCSV({
       branch,
@@ -66,11 +95,11 @@ export default function Home() {
       dataCritic,
       statusIndicators: stockOverview?.data || {},
       orders,
-      budget,
+      budget: budgetInfo?.valor, 
       leadtimeInfo,
     });
   };
-  // TODO: Implementar exportDashboardExcel e exportDashboardPDF
+
   const handleExportExcel = () => {
     xlsxExporter.exportDashboardXLSX({
       branch,
@@ -81,7 +110,7 @@ export default function Home() {
       dataCritic,
       statusIndicators: stockOverview?.data || {},
       orders,
-      budget,
+      budget: budgetInfo?.valor,
       leadtimeInfo,
     });
   };
@@ -175,18 +204,18 @@ export default function Home() {
               <div className="flex-1 min-w-0">
                 <p className="text-start font-semibold text-primary text-2xl py-5">Gastos</p>
                 <div className="h-[128px] flex items-center">
+                  {/* ---> ADICIONADO: Props conectadas aos dados do banco <--- */}
                   <BudgetProgressCard
-                    value={31452.32}
-                    budget={88000}
-                    startDate="01/10/2025"
-                    endDate="01/11/2025"
+                    value={budgetInfo ? Number(budgetInfo.valor_individual) : 0} 
+                    budget={budgetInfo ? Number(budgetInfo.valor_total) : 0}     
+                    startDate={formatDate(budgetInfo?.start)}
+                    endDate={formatDate(budgetInfo?.end)}
                   />
                 </div>
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-start font-bold text-primary text-2xl py-5">&nbsp;</p>
                 <div className="h-[128px] flex items-center">
-                  {/* [AQUI] Passando o dado real calculado */}
                   <LeadtimeSavingCard supplier={supplier} />
                 </div>
               </div>

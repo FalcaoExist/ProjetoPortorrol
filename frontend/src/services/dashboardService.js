@@ -120,8 +120,22 @@ const dashboardService = {
       logger.error("Erro ao buscar histórico:", error);
       throw error;
     }
+  },
+
+  getSupplierBudget: async (supplierName = null) => {
+    try {
+      const url = supplierName && supplierName !== "Todos" 
+        ? `/dashboard/budget?supplier=${encodeURIComponent(supplierName)}` 
+        : '/dashboard/budget';
+      const response = await httpClient.get(url);
+      return response.data || response;
+    } catch (error) {
+      logger.error("Erro ao buscar budget do fornecedor:", error);
+      return { valor: 0, start: null, end: null };
+    }
   }
 
 };
+
 
 export default dashboardService;

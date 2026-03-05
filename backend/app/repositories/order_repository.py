@@ -3,10 +3,15 @@ from app.core.supabase_client import supabase
 class OrdersRepository:
     def __init__(self):
         self.table_header = "purchase_orders"
-        self.table_items = "purchase_order_items"
+        self.table_items = "purchase_order_items" 
 
     def get_orders(self):
-        query = "order_id, status, created_at, expected_delivery_date, suppliers(name), purchase_order_items(quantity_ordered, unit_cost, tb_skus(nome_produto))"
+        query = (
+            "order_id, status, created_at, expected_delivery_date, target_branch_id, data_entrega, "
+            "branches(name), " 
+            "suppliers(name), "
+            "purchase_order_items(quantity_ordered, unit_cost, tb_skus(nome_produto))"
+        )
         return supabase.table(self.table_header).select(query).order("created_at", desc=True).execute()
 
     def get_manual_orders(self):
@@ -26,6 +31,9 @@ class OrdersRepository:
 
     def get_supplier_by_name(self, name: str):
         return supabase.table("suppliers").select("supplier_id").ilike("name", name).execute()
+    
+    def get_branch_by_name(self, name: str):
+        return supabase.table("branches").select("branch_id").ilike("name", name).execute()
 
     def search_sku_by_nome(self, nome: str):
         return supabase.table("tb_skus").select("id, nome_produto").ilike("nome_produto", f"%{nome}%").execute()
@@ -39,8 +47,12 @@ class OrdersRepository:
     def insert_order_items(self, payload):
         return supabase.table(self.table_items).insert(payload).execute()
 
-    def update_order(self, order_id: str, payload: dict):
-        return supabase.table(self.table_header).update(payload).eq("order_id", order_id).execute()
+    def update_order(self, order_id: str, payload: dict, table_name: str = "purchase_orders"):
+        id_column = "order_id" if table_name == "purchase_orders" else "id"
+        return supabase.table(table_name).update(payload).eq(id_column, order_id).execute()
 
     def insert_supplier(self, payload: dict):
         return supabase.table("suppliers").insert(payload).execute()
+    
+    def insert_branch(self, payload: dict):
+        return supabase.table("branches").insert(payload).execute()

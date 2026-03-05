@@ -38,9 +38,19 @@ export default function useDashboardData() {
   const [orders, setOrders] = useState({ approved: 0, late: 0 });
 
   const [kpis, setKpis] = useState({
-    coverageDays: 0
+    coverageDays: 0,
+    savingPotential: 0 
   });
 
+  const [budgetInfo, setBudgetInfo] = useState({ 
+    valor_total: 0, 
+    valor_individual: 0, 
+    start: null, 
+    end: null 
+  });
+
+  const [totalSuggestedValue, setTotalSuggestedValue] = useState(0);
+  
   useEffect(() => {
     if (hasInitializedSupplierFromStorage.current) return;
     if (!user?.id) return;
@@ -106,7 +116,7 @@ export default function useDashboardData() {
         const criticalItems = await dashboardService.getCriticalItems(20, supplier);
         const mappedCritical = criticalItems.map(item => ({
              name: item.codigo,
-             qtd: item.estoque_atual,
+             qtd: item.dias_cobertura,
              dias: item.dias_cobertura,
              demanda_real: item.demanda_mensal_media,
              ...item
@@ -159,6 +169,32 @@ export default function useDashboardData() {
   useEffect(() => {
     if (!user?.id) return;
     setPersistedSupplierFilter(supplier, user.id);
+  }, [supplier, user]);
+
+  useEffect(()=>{
+    async function fetchBudget() {
+        try {
+            // "Todos" garante que o backend some os orçamentos globais
+            const info = await dashboardService.getSupplierBudget(supplier || "Todos");
+
+            // Garantia contra campos undefined para evitar NaN no frontend
+            setBudgetInfo({
+              valor_total: info?.valor_total ?? 0,
+              valor_individual: info?.valor_individual ?? 0,
+              start: info?.start || null,
+              end: info?.end || null
+            });
+        } catch (error) {
+            logger.error("Erro ao carregar budget:", error);
+            setBudgetInfo({ valor_total: 0, valor_individual: 0, start: null, end: null });
+        }
+    }
+
+    fetchBudget();
+
+    if (user?.id) {
+        setPersistedSupplierFilter(supplier, user.id);
+    }
   }, [supplier, user]);
 
   // 2. RECALCULAR GRÁFICOS E KPIs QUANDO SKU MUDAR
@@ -236,6 +272,8 @@ export default function useDashboardData() {
     stockOverview, 
     kpis, 
     STATUS_INDICATORS,
-    onSkuSearch
+    onSkuSearch,
+    budgetInfo,           
+    totalSuggestedValue  
   };
 }

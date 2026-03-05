@@ -134,19 +134,14 @@ export default function ListUsers() {
                     />
                     
                     <section className="px-8 md:px-12 pb-10">
-                        {loading ? (
-                            <div className="p-10 text-center text-gray-500 font-poppins animate-pulse">
-                                Carregando dados do sistema...
-                            </div>
-                        ) : (
-                            <UsersTable 
-                                users={users} 
-                                onDelete={handleRequestDeleteUser}
-                                onUpdate={handleUpdateUser}
-                                onChangePassword={openChangePasswordModal}
-                                availableSuppliers={suppliersOptions} // Passa a lista dinâmica
-                            />
-                        )}
+                        <UsersTable 
+                            users={users} 
+                            onDelete={handleRequestDeleteUser}
+                            onUpdate={handleUpdateUser}
+                            onChangePassword={openChangePasswordModal}
+                            availableSuppliers={suppliersOptions} // Passa a lista dinâmica
+                            loading={loading}
+                        />
 
                         {isGestor && (
                             <button

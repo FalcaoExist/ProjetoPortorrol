@@ -17,7 +17,8 @@ export default function SuppliersTable({
     rows = [],
     setRows,
     onRequestDelete,
-    onRegisterCurrentSnapshot = () => ({})
+    onRegisterCurrentSnapshot = () => ({}),
+    loading = false
 }) {
 
     const isCompactLayout = useMediaQuery("(max-width:1279px)");
@@ -181,7 +182,7 @@ export default function SuppliersTable({
         },
          {
             field: "start",
-            headerName: "Início de contrato",
+            headerName: "Início",
             type: "date",
             minWidth: isCompactLayout ? 130 : 150,
             flex: 0.8,
@@ -193,7 +194,7 @@ export default function SuppliersTable({
         },
         {
             field: "end",
-            headerName: "Fim de contrato",
+            headerName: "Fim",
             type: "date",
             minWidth: isCompactLayout ? 130 : 150,
             flex: 0.8,
@@ -270,6 +271,7 @@ export default function SuppliersTable({
             <BaseDataGrid
                 rows={rows}
                 columns={columns}
+                loading={loading}
                 editMode="row"
                 rowModesModel={rowModesModel}
                 onRowModesModelChange={setRowModesModel}

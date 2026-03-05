@@ -1,6 +1,14 @@
 import httpClient from './validators/api/httpClient';
-import { exportStockCSV } from "./csvExporter";
+import { exportStockXLSX } from "./xlsxExporter";
 import { logger } from "../utils/logger";
+
+const FILIAL_OPTIONS = ["Porto Alegre", "Joinville", "São Paulo"];
+
+const normalizeFilial = (value) => {
+    const text = String(value || "").trim();
+    if (!text) return "";
+    return FILIAL_OPTIONS.includes(text) ? text : "";
+};
 
 // Adicionado o parâmetro 'index' para criar uma chave única
 const mapStockToFrontend = (item, index) => {
@@ -21,12 +29,16 @@ const mapStockToFrontend = (item, index) => {
         item: item.name || item.item || item.tb_skus?.nome_produto || "Item sem nome",
         categoria: item.category || item.categoria || "Geral",
         unidades: item.stock_quantity || item.unidades || item.estoque || item.estoque_soma || 0,
-            fornecedor: supplierStr, 
-        dias_cobertura: item.coverage_days || item.dias_cobertura || 0,
+        fornecedor: supplierStr, 
+        filial: normalizeFilial(item.filial || item.branch_name || item.branch || item.filial_nome),
+        dias_cobertura: item.dias_cobertura, 
         valor: item.unit_price || item.valor || item.preco || item.preco_custo || 0,
         porto_alegre: item.porto_alegre || item.estoque_poa || 0,
         joinville: item.joinville || item.estoque_jv || 0,
         sao_paulo: item.sao_paulo || item.estoque_sp || 0,
+        rop: Math.ceil(item.rop || 0),
+        qtd_sugerida: Math.ceil(item.qtd_sugerida || 0),
+        leadtime: item.leadtime || 0,
         _raw: item
     };
 };
@@ -120,6 +132,6 @@ export const importStockFromFile = async (file) => {
 
 export const exportStockData = async (data) => {
     if (!data || data.length === 0) throw new Error("Nenhum dado fornecido para exportação.");
-    exportStockCSV(data);
-    return Promise.resolve({ message: "Dados do estoque exportados e download iniciado." });
+    exportStockXLSX(data);
+    return Promise.resolve({ message: "Dados do estoque exportados em Excel e download iniciado." });
 };

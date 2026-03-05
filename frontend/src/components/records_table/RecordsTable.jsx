@@ -19,7 +19,7 @@ function truncateText(text, maxLength = MAX_DESCRIPTION_LENGTH) {
   return text.slice(0, maxLength) + "…";
 }
 
-export default function RecordsTable({ records = [] }) {
+export default function RecordsTable({ records = [], loading = false }) {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [selectedLog, setSelectedLog] = useState(null);
   const openDetails = (row) => {
@@ -167,6 +167,8 @@ export default function RecordsTable({ records = [] }) {
       <BaseDataGrid
         rows={formattedRows}
         columns={columns}
+        loading={loading}
+        sx={{height:650}}
       />
 
       <Dialog

@@ -1,9 +1,12 @@
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { getStockData, createOrderBatch, getSuppliers } from "../services/stockService";
 import { logger } from "../utils/logger";
+import { useAuth } from "../context/authContext";
+import { getPersistedSupplierFilter, setPersistedSupplierFilter } from "../utils/supplierFilterPersistence";
 
 // Função auxiliar para definir status textual baseado nos dias de cobertura
 const getStatusText = (dias) => {
+    if (dias === null || dias === undefined) return "Sem demanda";
     if (dias <= 30) return "Ruptura iminente";
     if (dias <= 60) return "Subdimensionado";
     if (dias <= 100) return "Ok";
@@ -11,6 +14,9 @@ const getStatusText = (dias) => {
 };
 
 export const useStock = () => {
+    const { user } = useAuth();
+    const hasAutoAppliedSupplier = useRef(false);
+    const hasInitializedSupplierFromStorage = useRef(false);
     // --- 1. ESTADOS DE DADOS ---
     const [stockData, setStockData] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -35,11 +41,20 @@ export const useStock = () => {
     const [isImportConfirmModalOpen, setIsImportConfirmModalOpen] = useState(false);
     const [selectedFile, setSelectedFile] = useState(null);
 
-    // =========================================================
     // EFEITOS DE CARREGAMENTO (INIT)
-    // =========================================================
-
     // Carrega a lista de fornecedores para os filtros
+    useEffect(() => {
+        if (hasInitializedSupplierFromStorage.current) return;
+        if (!user?.id) return;
+
+        const persistedSupplier = getPersistedSupplierFilter(user.id);
+        if (persistedSupplier) {
+            setFornecedor(persistedSupplier);
+        }
+
+        hasInitializedSupplierFromStorage.current = true;
+    }, [user]);
+
     useEffect(() => {
         const loadSuppliers = async () => {
             try {
@@ -53,6 +68,33 @@ export const useStock = () => {
         };
         loadSuppliers();
     }, []);
+
+    useEffect(() => {
+        if (!fornecedor) return;
+        if (!Array.isArray(supplierOptions) || supplierOptions.length === 0) return;
+        if (!supplierOptions.includes(fornecedor)) {
+            setFornecedor("");
+        }
+    }, [fornecedor, supplierOptions]);
+
+    useEffect(() => {
+        if (hasAutoAppliedSupplier.current) return;
+        if (fornecedor && String(fornecedor).trim() !== "") return;
+        if (!user || !Array.isArray(user.supplier) || user.supplier.length === 0) return;
+
+        const first = user.supplier[0];
+        const normalized = typeof first === "string" ? first : (first?.name || first?.nome || "");
+
+        if (normalized) {
+            setFornecedor(normalized);
+            hasAutoAppliedSupplier.current = true;
+        }
+    }, [user, fornecedor]);
+
+    useEffect(() => {
+        if (!user?.id) return;
+        setPersistedSupplierFilter(fornecedor, user.id);
+    }, [fornecedor, user]);
 
     // Carrega dados do estoque aplicando filtros de servidor
     const fetchStock = useCallback(async (filters = {}) => {
@@ -75,9 +117,7 @@ export const useStock = () => {
         fetchStock(activeFilters);
     }, [fetchStock, filial, fornecedor]);
 
-    // =========================================================
     // LÓGICA DE SINCRONIZAÇÃO (Seleção -> Tabela de Pedido)
-    // =========================================================
     
     useEffect(() => {
         const selectionSet = (rowSelectionModel && rowSelectionModel.ids) 
@@ -88,16 +128,23 @@ export const useStock = () => {
             const selectedRows = stockData
                 .filter(row => selectionSet.has(row.id)) // Filtra pelo ID único gerado no service
                 .map(item => {
-                    const existingItem = prevOrderRows.find(nr => nr.real_sku_id === item.sku_id);
+                    // mapStockToFrontend retorna real_sku_id, não sku_id na raiz
+                    const existingItem = prevOrderRows.find(nr => nr.real_sku_id === item.real_sku_id);
                     
                     if (existingItem) return existingItem;
 
                     // Cria novo item para a tabela de pedido com valores padrão
+                    // item.quantidade deve vir de qtd_sugerida se existir e for > 0
+                    const qtdSugerida = item.qtd_sugerida > 0 ? item.qtd_sugerida : 0;
+                    
                     return {
                         ...item,
-                        real_sku_id: item.sku_id || item.id, // ID real da tb_skus para o backend
-                        quantidade: 100, // Sugestão inicial
-                        previsao_entrega: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                        real_sku_id: item.real_sku_id, 
+                        unidades: item.qtd_sugerida !== undefined ? item.qtd_sugerida : 0,
+                        quantidade: item.qtd_sugerida !== undefined ? item.qtd_sugerida : 0,
+                        filial: item.filial || "",
+                        // Setada para o leadtime vindo do back
+                        previsao_entrega: new Date(Date.now() + (item.leadtime || 15) * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
                         status: "Pendente"
                     };
                 });
@@ -109,9 +156,7 @@ export const useStock = () => {
         }
     }, [rowSelectionModel, stockData]);
 
-    // =========================================================
     // FILTRAGEM LOCAL
-    // =========================================================
     
     const filteredRows = useMemo(() => {
         return stockData.filter(row => {
@@ -129,13 +174,29 @@ export const useStock = () => {
         });
     }, [stockData, searchQuery, statusFilter, fornecedor, filial]);
 
-    // =========================================================
     // HANDLERS
-    // =========================================================
-
     const handleShowNewOrder = useCallback(() => {
+        if (!isNewOrderVisible) {
+            const skusAbaixoDoROP = stockData.filter(row => {
+                // Excluir itens "Sem demanda" (dias_cobertura null ou undefined)
+                if (row.dias_cobertura === null || row.dias_cobertura === undefined) return false;
+                // Se a sugestão de compra for 0,
+                // não faz sentido selecionar automaticamente.
+                // Então condição: rop > 0 e qtd_sugerida > 0.
+                const rop = parseFloat(row.rop) || 0;
+                const unidades = parseFloat(row.unidades) || 0;
+                const sugerida = parseFloat(row.qtd_sugerida) || 0;
+                
+                return (unidades <= rop) && (sugerida > 0);
+            });
+            
+            if (skusAbaixoDoROP.length > 0) {
+                const newIds = new Set(skusAbaixoDoROP.map(row => row.id));
+                setRowSelectionModel({ type: 'include', ids: newIds });
+            }
+        }
         setIsNewOrderVisible(true);
-    }, []);
+    }, [stockData, isNewOrderVisible]);
 
     const handleCloseNewOrder = useCallback(() => {
         setIsNewOrderVisible(false);
@@ -174,17 +235,18 @@ export const useStock = () => {
 
         try {
             const itemsList = newOrderRows.map((row) => ({
-                sku_id: parseInt(row.real_sku_id, 10), // Envia o ID numérico da tb_skus
-                quantity: parseInt(row.quantidade, 10),
+                sku_id: parseInt(row.real_sku_id, 10),
+                quantity: parseInt(row.unidades ?? row.quantidade ?? 0, 10),
                 unit_cost: parseFloat(row.valor || 0),
                 supplier_name: row.fornecedor || "Não informado",
+                filial: row.filial || null,
                 expected_delivery_date: row.previsao_entrega || null
             }));
 
-            await createOrderBatch(itemsList); // Envia para o backend
+            await createOrderBatch(itemsList); 
             
             handleCloseNewOrder();
-            if (navigate) navigate('/orders'); // Redireciona para a página de ordens
+            if (navigate) navigate('/orders'); 
             return { success: true, message: 'Pedido criado com sucesso.' };
             
         } catch (error) {

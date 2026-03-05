@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { DEFAULT_SEGMENT_METADATA } from './segmentMetadata';
 import { useNavigate } from 'react-router-dom';
 
-export default function StockRangeGraph({ data, totalItems, segmentMetadata = DEFAULT_SEGMENT_METADATA, branch, supplier }){
+export default function StockRangeGraph({ data, totalItems, segmentMetadata = DEFAULT_SEGMENT_METADATA, branch, supplier, loading = false }){
   const navigate = useNavigate();
   const containerRef = useRef(null);
   const [tooltip, setTooltip] = useState({ visible: false, text: '', left: 0, top: 0, direction: 'top' });
@@ -35,6 +35,28 @@ export default function StockRangeGraph({ data, totalItems, segmentMetadata = DE
     prevVisibleIndex[i] = lastVisible;
     if (w > 0) lastVisible = i;
   });
+
+  if (loading) {
+    return (
+      <div className="flex items-center p-5 bg-transparent w-full box-border animate-pulse">
+        <div className="font-bold text-2xl text-[#333] whitespace-nowrap flex-none">Estoque</div>
+
+        <div className="relative flex items-center w-full ml-5">
+          <div className="flex flex-auto h-9 overflow-hidden w-full items-center rounded-full bg-gray-100">
+            <div className="h-full w-full bg-gray-200 rounded-full" />
+            
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-[8px] flex-none ml-6">
+          <div className="h-4 w-28 rounded bg-gray-200" />
+          <div className="h-4 w-24 rounded bg-gray-200" />
+          <div className="h-4 w-32 rounded bg-gray-200" />
+          <div className="h-4 w-20 rounded bg-gray-200" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex items-center p-5 bg-transparent w-full box-border">

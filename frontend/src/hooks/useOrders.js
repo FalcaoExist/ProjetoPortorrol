@@ -1,7 +1,9 @@
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import httpClient from "../services/validators/api/httpClient";
 import { getSuppliers } from "../services/stockService";
 import { logger } from "../utils/logger";
+import { useAuth } from "../context/authContext";
+import { getPersistedSupplierFilter, setPersistedSupplierFilter } from "../utils/supplierFilterPersistence";
 // Função utilitária para remover acentos e facilitar a busca
 const removeAcentos = (str) => {
     if (!str) return "";
@@ -9,6 +11,9 @@ const removeAcentos = (str) => {
 };
 
 export function useOrders() {
+    const { user } = useAuth();
+    const hasAutoAppliedSupplier = useRef(false);
+    const hasInitializedSupplierFromStorage = useRef(false);
     const [ordersData, setOrdersData] = useState([]);
     const [loading, setLoading] = useState(true);
     
@@ -23,6 +28,18 @@ export function useOrders() {
     const [selectedOrderItems, setSelectedOrderItems] = useState([]);
     const [fornecedorFilter, setFornecedorFilter] = useState("");
     const [supplierOptions, setSupplierOptions] = useState([]);
+
+    useEffect(() => {
+        if (hasInitializedSupplierFromStorage.current) return;
+        if (!user?.id) return;
+
+        const persistedSupplier = getPersistedSupplierFilter(user.id);
+        if (persistedSupplier) {
+            setFornecedorFilter(persistedSupplier);
+        }
+
+        hasInitializedSupplierFromStorage.current = true;
+    }, [user]);
 
     useEffect(() => {
         const loadSuppliers = async () => {
@@ -40,6 +57,33 @@ export function useOrders() {
         };
         loadSuppliers();
     }, []);
+
+    useEffect(() => {
+        if (!fornecedorFilter) return;
+        if (!Array.isArray(supplierOptions) || supplierOptions.length === 0) return;
+        if (!supplierOptions.includes(fornecedorFilter)) {
+            setFornecedorFilter("");
+        }
+    }, [fornecedorFilter, supplierOptions]);
+
+    useEffect(() => {
+        if (hasAutoAppliedSupplier.current) return;
+        if (fornecedorFilter && String(fornecedorFilter).trim() !== "") return;
+        if (!user || !Array.isArray(user.supplier) || user.supplier.length === 0) return;
+
+        const first = user.supplier[0];
+        const normalized = typeof first === "string" ? first : (first?.name || first?.nome || "");
+
+        if (normalized) {
+            setFornecedorFilter(normalized);
+            hasAutoAppliedSupplier.current = true;
+        }
+    }, [user, fornecedorFilter]);
+
+    useEffect(() => {
+        if (!user?.id) return;
+        setPersistedSupplierFilter(fornecedorFilter, user.id);
+    }, [fornecedorFilter, user]);
 
     useEffect(() => {
         try {
@@ -73,13 +117,7 @@ export function useOrders() {
                 hoje.setHours(0,0,0,0);
                 
                 if (entregaRaw) {
-                    const dataEntrega = new Date(entregaRaw);
-                    const dataEntregaLimpa = new Date(dataEntrega.valueOf() + dataEntrega.getTimezoneOffset() * 60000);
-                    dataEntregaLimpa.setHours(0,0,0,0);
-                    
-                    if (dataEntregaLimpa <= hoje) {
-                        statusBinario = "Aprovado";
-                    }
+                    statusBinario = "Finalizado";
                 } else if (previsaoRaw) {
                     const dataPrevisao = new Date(previsaoRaw);
                     const dataPrevisaoLimpa = new Date(dataPrevisao.valueOf() + dataPrevisao.getTimezoneOffset() * 60000);
@@ -123,32 +161,30 @@ export function useOrders() {
     useEffect(() => { fetchOrders(); }, [fetchOrders]);
 
     const handleUpdateData = async (rowId, field, value) => {
+        const isSameRow = (row) =>
+            String(row.id) === String(rowId) ||
+            String(row.real_id) === String(rowId) ||
+            String(row._raw?.order_id) === String(rowId);
+
         let newStatus = null;
 
         if (field === "data_entrega" && value) {
-            const newDate = new Date(value);
-            const today = new Date();
-            today.setHours(0,0,0,0);
-            const compareDate = new Date(newDate.valueOf() + newDate.getTimezoneOffset() * 60000);
-            compareDate.setHours(0,0,0,0);
-            
-            if (compareDate <= today) {
-                newStatus = "Aprovado";
-            }
+            newStatus = "Finalizado";
         }
 
         setOrdersData(prev => prev.map(row => {
-            if (row.id === rowId) {
+            if (isSameRow(row)) {
                 const updated = { ...row, [field]: value };
                 if (newStatus) updated.status = newStatus;
                 
-                if (field === "data_entrega" && !value && row.previsao_entrega) {
+                 if (field === "data_entrega" && !value && row.previsao_entrega) {
                      const today = new Date();
                      today.setHours(0,0,0,0);
                      const prevDate = new Date(row.previsao_entrega);
                      const prevLimpa = new Date(prevDate.valueOf() + prevDate.getTimezoneOffset() * 60000);
                      prevLimpa.setHours(0,0,0,0);
                      if (prevLimpa < today) updated.status = "Atrasado";
+                     else updated.status = "Aprovado";
                 }
                 
                 return updated;
@@ -156,7 +192,7 @@ export function useOrders() {
             return row;
         }));
 
-        const itemsToUpdate = ordersData.filter(i => i.id === rowId && !String(i.id).startsWith('temp'));
+        const itemsToUpdate = ordersData.filter(isSameRow);
 
         if (itemsToUpdate.length === 0) return;
 
@@ -168,7 +204,7 @@ export function useOrders() {
                 const payload = { [apiField]: value };
                 if (newStatus) payload.status = newStatus;
 
-                const idParaSalvar = item.real_id || item._raw?.order_id;
+                const idParaSalvar = item.real_id || item._raw?.order_id || (!String(item.id).startsWith('temp') ? item.id : null);
                 if (!idParaSalvar) return;
 
                 const url = `/orders/${idParaSalvar}`;
@@ -210,7 +246,11 @@ export function useOrders() {
             acc[k].quantidade += item.quantidade;
             acc[k].items.push(item);
             
-            if (item.status === "Atrasado") acc[k].status = "Atrasado";
+            if (item.data_entrega) {
+                acc[k].status = "Finalizado";
+            } else if (acc[k].status !== "Finalizado" && item.status === "Atrasado") {
+                acc[k].status = "Atrasado";
+            }
             return acc;
         }, {});
 

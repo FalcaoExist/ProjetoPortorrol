@@ -1,11 +1,12 @@
 
 import React from 'react';
 
-export const statusOptions = ["Aprovado", "Atrasado"];
+export const statusOptions = ["Aprovado", "Atrasado", "Finalizado"];
 
 export const getStatusStyles = (status) => {
     if (status === "Aprovado") return { bgColor: "bg-green-200", textColor: "text-green-800" };
     if (status === "Atrasado") return { bgColor: "bg-red-200", textColor: "text-red-800" };
+    if (status === "Finalizado") return { bgColor: "bg-orange-200", textColor: "text-orange-800" };
     return { bgColor: "bg-gray-200", textColor: "text-gray-800" };
 };
 

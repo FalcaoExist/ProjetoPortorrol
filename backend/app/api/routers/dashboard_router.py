@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from app.api.schemas import (
     ConfigUpdate, FilialResponse, SkuAnaliseResponse, StatusProduto,
@@ -35,3 +35,31 @@ def atualizar_lead_time(config: ConfigUpdate, service: DashboardService = Depend
 @router.get("/dashboard/history")
 def get_product_history(sku_id: Optional[int] = None, service: DashboardService = Depends(get_dashboard_service)):
     return service.get_sku_history(sku_id)
+
+@router.get("/dashboard/suppliers/status", response_model=List[Dict[str, Any]], operation_id="get_supplier_status")
+def get_supplier_status(
+    supplier_name: Optional[str] = Query(None),
+    dashboard_service: DashboardService = Depends(get_dashboard_service)
+):
+    try:
+        if supplier_name:
+            return dashboard_service.get_supplier_status_by_name(supplier_name)
+        return dashboard_service.get_supplier_status()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao buscar status dos fornecedores: {str(e)}")
+
+@router.get("/dashboard/critics", response_model=List[Dict[str, Any]])
+def get_critical_items(
+    limit: int = 20,
+    supplier: Optional[str] = Query(None),
+    service: DashboardService = Depends(get_dashboard_service)
+):
+    return service.get_critical_items(limit=limit, supplier=supplier)
+
+@router.get("/dashboard/excess", response_model=List[Dict[str, Any]])
+def get_excess_items(
+    limit: int = 20,
+    supplier: Optional[str] = Query(None),
+    service: DashboardService = Depends(get_dashboard_service)
+):
+    return service.get_excess_items(limit=limit, supplier=supplier)

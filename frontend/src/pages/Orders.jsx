@@ -35,6 +35,7 @@ export default function Orders() {
         handleCloseModal,
         groupedAndFilteredOrders,
         handleUpdateData,
+        loading,
     } = useOrders();
 
     useEffect(() => {
@@ -121,7 +122,12 @@ export default function Orders() {
                         <BaseDataGrid 
                             rows={groupedAndFilteredOrders}
                             columns={mainOrdersColumns}
-                            
+                            loading={loading}
+                            initialState={{
+                                sorting: {
+                                    sortModel: [{ field: "data_pedido", sort: "desc" }],
+                                },
+                            }}
                         />
 
                         <div className="flex justify-end mt-4 space-x-2">

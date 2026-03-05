@@ -143,6 +143,7 @@ class OrderItemRequest(BaseModel):
     unit_cost: float
     expected_delivery_date: Optional[str] = None 
     supplier_name: Optional[str] = None
+    filial: Optional[str] = None
 
 class OrderUpdate(BaseModel):
     data_entrega: Optional[str] = None

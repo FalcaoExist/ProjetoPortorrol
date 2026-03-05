@@ -21,7 +21,7 @@ const ptBRComparator = (v1, v2) => {
 // ---------------------------------------------------------------------------
 // COMPONENTE PRINCIPAL: UsersTable
 // ---------------------------------------------------------------------------
-export default function UsersTable({ users = [], onDelete, onUpdate, onChangePassword, availableSuppliers = [] }) {
+export default function UsersTable({ users = [], onDelete, onUpdate, onChangePassword, availableSuppliers = [], loading = false }) {
   const isCompactLayout = useMediaQuery("(max-width:1279px)");
   const {
     filteredRows,
@@ -176,6 +176,7 @@ export default function UsersTable({ users = [], onDelete, onUpdate, onChangePas
     <BaseDataGrid
       rows={filteredRows}
       columns={columns}
+      loading={loading}
       editMode="row"
       rowModesModel={rowModesModel}
       onRowModesModelChange={setRowModesModel}

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useMemo, useRef } from "react";
 import LeadtimeSavingCard from "../components/charts/LeadtimeSavingCard";
 import Navbar from "../components/nav_bar/NavBar";
 import Header from "../components/header/Header";
@@ -26,6 +26,15 @@ const formatDate = (dateString) => {
   const d = new Date(dateString);
   d.setMinutes(d.getMinutes() + d.getTimezoneOffset());
   return d.toLocaleDateString('pt-BR');
+};
+
+const normalizeText = (value) => {
+  if (!value) return "";
+  return String(value)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
 };
 
 export default function Home() {
@@ -59,8 +68,22 @@ export default function Home() {
   const { ordersData, loading: ordersLoading } = useOrders();
   const lastSkuInteractionAtRef = useRef(0);
 
-  const atrasadosCount = ordersData?.filter(o => o.status === "Atrasado").length || 0;
-  const aprovadosCount = ordersData?.filter(o => o.status === "Aprovado").length || 0;
+  const filteredOrdersData = useMemo(() => {
+    const selectedSupplier = normalizeText(supplier);
+    const shouldFilterBySupplier = selectedSupplier !== "" && selectedSupplier !== "todos";
+
+    if (!shouldFilterBySupplier) {
+      return ordersData || [];
+    }
+
+    return (ordersData || []).filter((order) => {
+      const orderSupplier = normalizeText(order?.fornecedor);
+      return orderSupplier.includes(selectedSupplier);
+    });
+  }, [ordersData, supplier]);
+
+  const atrasadosCount = filteredOrdersData.filter(o => o.status === "Atrasado").length;
+  const aprovadosCount = filteredOrdersData.filter(o => o.status === "Aprovado").length;
   
   const handleExportCSV = () => {
     exportDashboardCSV({

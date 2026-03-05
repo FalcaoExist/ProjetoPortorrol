@@ -148,7 +148,7 @@ export const useStock = () => {
 
     const handleShowNewOrder = useCallback(() => {
         if (!isNewOrderVisible) {
-            const skusAbaixoDoROP = stockData.filter(row => {
+            const skusAbaixoDoROP = filteredRows.filter(row => {
                 if (row.dias_cobertura === null || row.dias_cobertura === undefined) return false;
                 const rop = parseFloat(row.rop) || 0;
                 const unidades = parseFloat(row.unidades) || 0;
@@ -162,7 +162,7 @@ export const useStock = () => {
             }
         }
         setIsNewOrderVisible(true);
-    }, [stockData, isNewOrderVisible]);
+    }, [filteredRows, isNewOrderVisible]);
 
     const handleCloseNewOrder = useCallback(() => {
         setIsNewOrderVisible(false);

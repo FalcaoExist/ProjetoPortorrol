@@ -1,16 +1,17 @@
 import logging
-from typing import List, Any, Dict, Optional
-from datetime import datetime
+from typing import List, Any
 from itertools import groupby
 from uuid import uuid4
 from app.repositories.order_repository import OrdersRepository
+from app.services.audit_service import AuditService
+from app.audit.audit_actions import AuditAction
 
 logger = logging.getLogger(__name__)
 
 class OrderService:
-    def __init__(self):
+    def __init__(self, audit_service: AuditService):
         self.repository = OrdersRepository()
-        # Nomes que devem ser convertidos para NULL (None) no banco
+        self.audit_service = audit_service
         self.FORBIDDEN_BRANCH_NAMES = {"", "TODAS", "GERAL", "MATRIZ", "NONE", "NULL"}
 
     def get_orders(self) -> List[dict]:
@@ -168,27 +169,24 @@ class OrderService:
         all_orders.sort(key=lambda x: str(x.get("created_at") or ""), reverse=True)
         return all_orders
 
-    def update_order(self, order_id: str, payload: Any):
-        try:
-            update_dict = payload.model_dump(exclude_unset=True) if hasattr(payload, "model_dump") else payload
-            return self.repository.update_order(order_id, update_dict)
-        except Exception as e:
-            logger.error(f"Erro ao atualizar pedido {order_id}: {e}")
-            raise
-
     def create_order(self, pedido, current_user: dict) -> dict:
         sup = self.repository.get_supplier_by_name(pedido.fornecedor_nome)
+        
         if not sup or not sup.data: 
             logger.warning(f"Fornecedor não encontrado: {pedido.fornecedor_nome}")
             raise ValueError("Fornecedor não encontrado.")
+        
         supplier_id = sup.data[0]["supplier_id"]
 
         sku = self.repository.get_sku_by_codigo(pedido.sku_codigo)
+
         if not sku.data: sku = self.repository.search_sku_by_nome(pedido.sku_codigo)
         if not sku.data: 
             logger.warning(f"Produto não encontrado: {pedido.sku_codigo}")
             raise ValueError("Produto não encontrado.")
-        sku_id, sku_name = sku.data[0]["id"], sku.data[0]["nome_produto"]
+        
+        sku_id = sku.data[0]["id"]
+        sku_name = sku.data[0]["nome_produto"]
 
         branch_id = None
         nome_filial = getattr(pedido, 'branch_name', None) or getattr(pedido, 'filial', None) or ""
@@ -220,6 +218,18 @@ class OrderService:
                 "quantity_ordered": pedido.quantidade,
                 "unit_cost": pedido.valor_unitario
             })
+
+            self.audit_service.log(
+                action=AuditAction.ORDER_CREATE,
+                performed_by=current_user.get("user_id"),
+                entity="ORDER",
+                entity_id=new_order["order_id"],
+                extra={
+                    "supplier": pedido.fornecedor_nome,
+                    "sku": sku_name,
+                    "quantity": pedido.quantidade
+                }
+            )
 
             return {
                 "id": new_order["order_id"],
@@ -293,7 +303,16 @@ class OrderService:
                 payloads = [{"order_id": new_id, "sku_id": i["sku_id"], "quantity_ordered": i["quantity"], "unit_cost": i["unit_cost"]} for i in group_items]
                 self.repository.insert_order_items(payloads)
         
-        logger.info(f"Pedidos em lote concluídos - usuário: {current_user.get('user_id')} - criados: {count}")
+        #logger.info(f"Pedidos em lote concluídos - usuário: {current_user.get('user_id')} - criados: {count}")
+        
+        self.audit_service.log(
+            action=AuditAction.ORDER_CREATE,
+            performed_by=current_user.get("user_id"),
+            entity="ORDER_BATCH",
+            entity_id=current_user.get("user_id"),
+            extra={"orders_created": count}
+        )
+        
         return count
 
     def update_order(self, order_id: str, payload: Any):
@@ -315,7 +334,19 @@ class OrderService:
             if delivery_value and str(delivery_value).strip() not in ["", "None", "null", "NaN"]:
                 update_dict["status"] = "Finalizado"
                 
-            return self.repository.update_order(clean_order_id, update_dict, table)
+            result = self.repository.update_order(clean_order_id, update_dict, table)
+
+            if "status" in update_dict:
+                self.audit_service.log(
+                    action=AuditAction.ORDER_STATUS_CHANGE,
+                    performed_by=None,
+                    entity="ORDER",
+                    entity_id=clean_order_id,
+                    extra={"new_status": update_dict["status"]}
+                )
+
+            return result
+
         except Exception as e:
             logger.error(f"Erro ao atualizar pedido {order_id}: {e}")
             raise

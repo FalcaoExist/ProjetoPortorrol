@@ -1,16 +1,34 @@
 from enum import Enum
 
 class AuditAction(str, Enum):
-    LOGIN = "login"
 
-    CREATE_USER = "create_user"
-    UPDATE_USER = "update_user"
-    DELETE_USER = "delete_user"
-    UPDATE_PASSWORD = "update_password"
+    # ===== AUTH =====
+    LOGIN_SUCCESS = "LOGIN_SUCCESS"
+    LOGIN_FAILURE = "LOGIN_FAILURE"
+    LOGOUT = "LOGOUT"
 
-    IMPORT_SUCCESS = "import_success"
-    IMPORT_ERROR = "import_error"
-    IMPORT_ROW_FAILURE = "import_row_failure"
-    IMPORT_FILE_FAILURE = "import_file_failure"
+    # ===== USER =====
+    USER_CREATE = "USER_CREATE"
+    USER_UPDATE = "USER_UPDATE"
+    USER_DELETE = "USER_DELETE"
+    USER_PASSWORD_UPDATE = "USER_PASSWORD_UPDATE"
 
-    SYSTEM_ERROR = "system_error"
+    # ===== SUPPLIER =====
+    SUPPLIER_CREATE = "SUPPLIER_CREATE"
+    SUPPLIER_UPDATE = "SUPPLIER_UPDATE"
+    SUPPLIER_DELETE = "SUPPLIER_DELETE"
+
+    # ===== ORDER =====
+    ORDER_CREATE = "ORDER_CREATE"
+    ORDER_STATUS_CHANGE = "ORDER_STATUS_CHANGE"
+
+    # ===== DEMAND =====
+    DEMAND_UPDATE = "DEMAND_UPDATE"
+
+    # ===== IMPORT =====
+    IMPORT_SUCCESS = "IMPORT_SUCCESS"
+    IMPORT_FAILURE = "IMPORT_FAILURE"
+    IMPORT_ROW_FAILURE = "IMPORT_ROW_FAILURE"
+
+    # ===== SYSTEM =====
+    SYSTEM_ERROR = "SYSTEM_ERROR"

@@ -15,6 +15,7 @@ from app.services.user_service import UserService
 from app.services.supplier_service import SupplierService
 from app.services.order_service import OrderService
 from app.services.stock_service import StockService
+from app.services.dashboard_service import DashboardService
 
 from app.repositories.order_aggregate_repository import OrderAggregateRepository
 from app.repositories.stock_repository import StockRepository
@@ -71,6 +72,11 @@ def get_order_aggregate_repository():
 def get_stock_service() -> StockService:
     repo = StockRepository()
     return StockService(stock_repository=repo)
+
+def get_dashboard_service(
+    audit_service: AuditService = Depends(get_audit_service),
+) -> DashboardService:
+    return DashboardService(audit_service=audit_service)
 
 # --- Dependência de Autenticação (JWT) ---
 

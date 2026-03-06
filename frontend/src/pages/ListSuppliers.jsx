@@ -10,6 +10,16 @@ import { useLeadtimeHistory } from "../hooks/useLeadtimeHistory";
 import { getSuppliers, deleteSupplier } from "../services/supplierService";
 import { logger } from "../utils/logger";
 
+const parseDateForGrid = (value) => {
+    if (!value) return null;
+    if (value instanceof Date) return value;
+    if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+        return new Date(`${value}T00:00:00`);
+    }
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
 export default function ListSuppliers() {
     const { user } = useAuth();
 
@@ -35,8 +45,8 @@ export default function ListSuppliers() {
                     name: item.name,
                     budget: item.budget,
                     leadtimes: item.leadtimes || [],
-                    start: item.start ? new Date(item.start) : null,
-                    end: item.end ? new Date(item.end) : null,
+                    start: parseDateForGrid(item.start),
+                    end: parseDateForGrid(item.end),
                     is_active: item.is_active,
                 }));
 

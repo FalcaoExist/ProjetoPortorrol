@@ -144,9 +144,14 @@ class SupplierService:
             before_budget = current_data.get("budget")
             before_start = current_data.get("start")
             before_end = current_data.get("end")
+            current_leadtimes = self.leadtime_repo.list_by_supplier(supplier_id)
+            new_lt_map = {str(lt.get("branch_id")): lt.get("leadtime") for lt in (leadtimes or [])}
 
             after_start = start.isoformat() if start else None
             after_end = end.isoformat() if end else None
+
+            if after_start and after_end and after_start > after_end:
+                raise ValueError("Data de término deve ser igual ou posterior à data de início.")
 
             if before_name != name:
                 self.audit_service.log(
@@ -183,6 +188,83 @@ class SupplierService:
                     supplier_id,
                     {"field": "end", "old_value": before_end, "new_value": after_end},
                 )
+
+            changes = []
+
+            if before_name != name:
+                changes.append(f"nome: {before_name} -> {name}")
+
+            if before_budget != budget:
+                changes.append(f"Alteração de orçamento: {before_budget} -> {budget}")
+
+            if str(before_start) != str(after_start):
+                changes.append(f"Início: {before_start} -> {after_start}")
+
+            if str(before_end) != str(after_end):
+                changes.append(f"Fim: {before_end} -> {after_end}")
+
+            if changes:
+                self.history_repo.insert({
+                    "supplier_id": str(supplier_id),
+                    "budget": before_budget,
+                    "start": before_start,
+                    "end": before_end,
+                    "notes": "; ".join(changes),
+                    "created_at": now,
+                    "updated_at": now,
+                })
+
+            try:
+                branches = self.dashboard_repo.get_active_branches() or []
+                branches_map = {str(branch.get("branch_id")): branch.get("name") for branch in branches}
+            except Exception:
+                logger.exception("Erro ao buscar filiais ativas para histórico de fornecedor")
+                branches_map = {}
+
+            for lt in current_leadtimes:
+                branch_id = lt.get("branch_id")
+                before_lt = lt.get("leadtime")
+                after_lt = new_lt_map.get(str(branch_id), before_lt)
+
+                if before_lt != after_lt:
+                    branch_name = branches_map.get(str(branch_id)) or None
+                    if branch_name:
+                        notes_lt = f"Alteração de leadtime filial {branch_name}: {before_lt} -> {after_lt}"
+                    else:
+                        notes_lt = f"Alteração de leadtime: {before_lt} -> {after_lt}"
+
+                    self.history_repo.insert({
+                        "supplier_id": str(supplier_id),
+                        "branch_id": branch_id,
+                        "leadtime": before_lt,
+                        "budget": before_budget,
+                        "start": before_start,
+                        "end": before_end,
+                        "notes": notes_lt,
+                        "created_at": now,
+                        "updated_at": now,
+                    })
+
+            existing_branch_ids = {str(lt.get("branch_id")) for lt in current_leadtimes}
+            for branch_id_str, after_lt in new_lt_map.items():
+                if branch_id_str not in existing_branch_ids:
+                    branch_name = branches_map.get(branch_id_str) or None
+                    if branch_name:
+                        notes_lt = f"Criação de leadtime filial {branch_name}: None -> {after_lt}"
+                    else:
+                        notes_lt = f"Criação de leadtime: None -> {after_lt}"
+
+                    self.history_repo.insert({
+                        "supplier_id": str(supplier_id),
+                        "branch_id": branch_id_str,
+                        "leadtime": None,
+                        "budget": before_budget,
+                        "start": before_start,
+                        "end": before_end,
+                        "notes": notes_lt,
+                        "created_at": now,
+                        "updated_at": now,
+                    })
 
             payload = {
                 "name": name,

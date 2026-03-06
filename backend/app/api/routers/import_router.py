@@ -3,10 +3,10 @@ import logging
 from typing import Annotated
 import pandas as pd
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Path, UploadFile, HTTPException
-from app.core.dependencies import get_current_user
+from app.core.dependencies import get_current_user, get_audit_service
 from app.services.import_service import process_background
 from app.services.import_orders_service import ImportOrdersService
-from app.repositories.repositories_supabase import SupabaseUserRepository
+from app.services.audit_service import AuditService
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -45,7 +45,8 @@ async def import_stock(
 async def import_orders_file(
     supplier: Annotated[str, Path(...)], 
     file: UploadFile = File(...), 
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user),
+    audit_service: AuditService = Depends(get_audit_service),
 ):
     user_id = current_user.get("user_id")
     filename = file.filename.lower()
@@ -55,8 +56,8 @@ async def import_orders_file(
         raise HTTPException(status_code=400, detail="Formato inválido. Envie um ficheiro Excel.")
 
     try:
-        service = ImportOrdersService()
-        count = await service.import_file(supplier, file)
+        service = ImportOrdersService(audit_service)
+        count = await service.import_file(supplier, file, user_id)
         
         if count == 0:
             logger.info(f"Importação de {supplier} concluída sem novos registros.")

@@ -13,6 +13,26 @@ import {
     createSupplier
 } from "../../services/supplierService";
 
+const parseDateForGrid = (value) => {
+    if (!value) return null;
+    if (value instanceof Date) return value;
+    if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+        return new Date(`${value}T00:00:00`);
+    }
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const toDateOnlyString = (value) => {
+    if (!value) return null;
+    if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+        return value;
+    }
+    const parsed = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(parsed.getTime())) return null;
+    return parsed.toISOString().slice(0, 10);
+};
+
 export default function SuppliersTable({
     rows = [],
     setRows,
@@ -60,8 +80,8 @@ export default function SuppliersTable({
             const normalizedRow = {
                 id: created.supplier_id,
                 name: created.name,
-                start: created.start ? new Date(created.start) : null,
-                end: created.end ? new Date(created.end) : null,
+                start: parseDateForGrid(created.start),
+                end: parseDateForGrid(created.end),
                 budget: created.budget ?? 0,
                 leadtimes: created.leadtimes || [],
             };
@@ -117,13 +137,20 @@ export default function SuppliersTable({
                 leadtime: lt.leadtime != null ? lt.leadtime : (lt.days != null ? lt.days : 0),
             }));
 
+            const startDate = toDateOnlyString(newRow.start);
+            const endDate = toDateOnlyString(newRow.end);
+
+            if (startDate && endDate && startDate > endDate) {
+                throw new Error("Data de término deve ser igual ou posterior à data de início.");
+            }
+
 
 
             const payload = {
                 name: newRow.name,
                 budget: Number(newRow.budget),
-                start: newRow.start?.toISOString().split("T")[0],
-                end: newRow.end?.toISOString().split("T")[0],
+                start: startDate,
+                end: endDate,
                 leadtimes: normalizedLeadtimes,
             };
             const updated = await updateSupplier(newRow.id, payload);
@@ -131,8 +158,8 @@ export default function SuppliersTable({
             const updatedRow = {
                 id: updated.supplier_id,
                 name: updated.name,
-                start: updated.start ? new Date(updated.start) : null,
-                end: updated.end ? new Date(updated.end) : null,
+                start: parseDateForGrid(updated.start),
+                end: parseDateForGrid(updated.end),
                 budget: updated.budget,
                 leadtimes: updated.leadtimes || []
             };
@@ -276,6 +303,7 @@ export default function SuppliersTable({
                 rowModesModel={rowModesModel}
                 onRowModesModelChange={setRowModesModel}
                 processRowUpdate={processRowUpdate}
+                onProcessRowUpdateError={(error) => logger.error("Erro ao atualizar linha de fornecedor:", error)}
                 headerStyle="alternative"
             />
 
@@ -303,8 +331,8 @@ export default function SuppliersTable({
                     const updatedRow = {
                         id: updated.supplier_id,
                         name: updated.name,
-                        start: updated.start ? new Date(updated.start) : null,
-                        end: updated.end ? new Date(updated.end) : null,
+                        start: parseDateForGrid(updated.start),
+                        end: parseDateForGrid(updated.end),
                         budget: updated.budget,
                         leadtimes: updated.leadtimes || [],
                     };

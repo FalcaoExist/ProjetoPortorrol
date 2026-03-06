@@ -6,6 +6,7 @@ from app.audit.audit_actions import AuditAction
 from app.repositories.repositories_supabase import SupabaseUserRepository
 from app.repositories.import_repository import ImportRepository
 from app.services.demand_service import DemandService
+from app.services.audit_service import AuditService
 
 logger = logging.getLogger(__name__)
 
@@ -148,22 +149,44 @@ def process_batch(batch: list, import_repo: ImportRepository) -> int:
         raise e
 
 def process_background(file_contents: bytes, filename: str, user_id: str):
-    user_repo = SupabaseUserRepository()
+
+    audit_service = AuditService(SupabaseUserRepository())
     import_repo = ImportRepository()
     demand_service = DemandService()
+
     try:
-        # Apenas EXCEL
+
         df = pd.read_excel(io.BytesIO(file_contents))
-        if df.empty: return
+
+        if df.empty:
+            return
 
         data_batch = df.to_dict('records')
+
         success = 0
         chunk_size = 1000
+
         for i in range(0, len(data_batch), chunk_size):
             success += process_batch(data_batch[i:i + chunk_size], import_repo)
 
         demand_service.calculate_and_save_all_monthly_demands()
-        user_repo.insert_audit_log(performed_by=user_id, action=AuditAction.IMPORT_SUCCESS, entity="import", entity_id=filename, extra={"processed": success})
+
+        audit_service.log(
+            action=AuditAction.IMPORT_SUCCESS,
+            performed_by=user_id,
+            entity="IMPORT",
+            entity_id=filename,
+            extra={"processed": success},
+        )
+
     except Exception as e_critic:
-        user_repo.insert_audit_log(performed_by=user_id, action=AuditAction.SYSTEM_ERROR, entity="import", entity_id=filename, extra={"error": str(e_critic)})
+
+        audit_service.log(
+            action=AuditAction.IMPORT_FAILURE,
+            performed_by=user_id,
+            entity="IMPORT",
+            entity_id=filename,
+            extra={"error": str(e_critic)},
+        )
+
         raise e_critic

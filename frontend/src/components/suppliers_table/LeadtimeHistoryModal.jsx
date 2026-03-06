@@ -5,6 +5,16 @@ import { BaseDataGrid } from "../common/BaseDataGrid";
 import { getSupplierHistory, updateSupplier, getSupplierById } from "../../services/supplierService";
 import dashboardService from "../../services/dashboardService";
 
+const toDateOnlyString = (value) => {
+    if (!value) return null;
+    if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+        return value;
+    }
+    const parsed = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(parsed.getTime())) return null;
+    return parsed.toISOString().slice(0, 10);
+};
+
 
 const historyColumns = [
     {
@@ -154,15 +164,18 @@ export default function LeadtimeHistoryModal({
 
         try {
 
+            const startDate = toDateOnlyString(supplier.start);
+            const endDate = toDateOnlyString(supplier.end);
+
+            if (startDate && endDate && startDate > endDate) {
+                throw new Error("Data de término deve ser igual ou posterior à data de início.");
+            }
+
             const payload = {
                 name: supplier.name,
                 budget: supplier.budget,
-                start: supplier.start
-                    ? new Date(supplier.start).toISOString().split("T")[0]
-                    : null,
-                end: supplier.end
-                    ? new Date(supplier.end).toISOString().split("T")[0]
-                    : null,
+                start: startDate,
+                end: endDate,
                 leadtimes: updatedLeadtimes.map(b => ({
                     branch_id: b.branch_id,
                     leadtime: b.days,

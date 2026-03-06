@@ -15,6 +15,8 @@ from app.services.user_service import UserService
 from app.services.supplier_service import SupplierService
 from app.services.order_service import OrderService
 from app.services.stock_service import StockService
+from app.services.dashboard_service import DashboardService
+
 from app.repositories.order_aggregate_repository import OrderAggregateRepository
 from app.repositories.stock_repository import StockRepository
 
@@ -31,30 +33,38 @@ def get_user_repository() -> IUserRepository:
 def get_password_hasher() -> IPasswordHasher:
     return BcryptHasher()
 
-# --- Provedores de Serviço ---
-
-def get_auth_service(
-    repo: IUserRepository = Depends(get_user_repository),
-    hasher: IPasswordHasher = Depends(get_password_hasher)
-) -> AuthService:
-    return AuthService(repo, hasher)
-
-def get_user_service(
-    repo: IUserRepository = Depends(get_user_repository),
-    hasher: IPasswordHasher = Depends(get_password_hasher)
-) -> UserService:
-    return UserService(repo, hasher)
+# --- Provedor de Auditoria ---
 
 def get_audit_service(
     repo: IUserRepository = Depends(get_user_repository)
 ) -> AuditService:
     return AuditService(repo)
 
-def get_supplier_service() -> SupplierService:
-    return SupplierService()
+# --- Provedores de Serviço ---
 
-def get_order_service() -> OrderService:
-    return OrderService()
+def get_auth_service(
+    repo: IUserRepository = Depends(get_user_repository),
+    hasher: IPasswordHasher = Depends(get_password_hasher),
+    audit_service: AuditService = Depends(get_audit_service),
+) -> AuthService:
+    return AuthService(repo, hasher, audit_service)
+
+def get_user_service(
+    repo: IUserRepository = Depends(get_user_repository),
+    hasher: IPasswordHasher = Depends(get_password_hasher),
+    audit_service: AuditService = Depends(get_audit_service),
+) -> UserService:
+    return UserService(repo, hasher, audit_service)
+
+def get_supplier_service(
+    audit_service: AuditService = Depends(get_audit_service),
+) -> SupplierService:
+    return SupplierService(audit_service)
+
+def get_order_service(
+    audit_service: AuditService = Depends(get_audit_service),
+) -> OrderService:
+    return OrderService(audit_service)
 
 def get_order_aggregate_repository():
     return OrderAggregateRepository()
@@ -62,6 +72,11 @@ def get_order_aggregate_repository():
 def get_stock_service() -> StockService:
     repo = StockRepository()
     return StockService(stock_repository=repo)
+
+def get_dashboard_service(
+    audit_service: AuditService = Depends(get_audit_service),
+) -> DashboardService:
+    return DashboardService(audit_service=audit_service)
 
 # --- Dependência de Autenticação (JWT) ---
 
@@ -80,28 +95,26 @@ def get_current_user(
     if not access_token:
         raise credentials_exception
 
-    # Remove 'Bearer ' se estiver presente (comum em headers, mas prevenindo no cookie)
     token_str = access_token.replace("Bearer ", "") if access_token.startswith("Bearer ") else access_token
 
     try:
         payload = jwt.decode(token_str, SECRET_KEY, algorithms=[ALGORITHM])
         user_id: str = payload.get("sub")
-        
+
         if user_id is None:
             raise credentials_exception
-            
+
     except JWTError:
         raise credentials_exception
 
     user = repo.get_user_by_id(user_id)
+
     if not user:
         raise credentials_exception
-    # Tenta anexar a lista de fornecedores associados ao usuário
+
     try:
-        # Alguns repositórios implementam get_suppliers_for_user
         if hasattr(repo, 'get_suppliers_for_user'):
             suppliers = repo.get_suppliers_for_user(user_id)
-            # Normaliza para lista (pode ser vazio)
             user['supplier'] = suppliers or []
     except Exception:
         print(f"Aviso: falha ao carregar suppliers para user {user_id}")

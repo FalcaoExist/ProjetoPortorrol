@@ -27,3 +27,23 @@ def get_stock_endpoint(
     except Exception as e:
         # Captura erros do serviço e converte num erro HTTP para o Frontend
         raise HTTPException(status_code=500, detail=f"Erro ao buscar estoque: {str(e)}")
+
+
+@router.get("/stock/skus/no-pending-units")
+def get_stock_with_no_pending_units_endpoint(
+    filial: Optional[str] = None,
+    fornecedor: Optional[str] = None,
+    limit: Optional[int] = Query(default=None, ge=1),
+    current_user: dict = Depends(get_current_user),
+    stock_service: StockService = Depends(get_stock_service)
+):
+    try:
+        return stock_service.get_stock(
+            filial=filial,
+            fornecedor=fornecedor,
+            limit=limit,
+            current_user=current_user,
+            unidades_pendentes=0,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao buscar SKUs com unidades pendentes zeradas: {str(e)}")

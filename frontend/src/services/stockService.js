@@ -48,14 +48,18 @@ const mapStockToFrontend = (item, index) => {
 export const getStockData = async (filial, fornecedor, status) => {
     try {
         const args = typeof filial === 'object' ? filial : { filial, fornecedor, status };
+        const usePendingUnitsZeroRoute = Number(args.unidadesPendentes) === 0;
 
         const params = new URLSearchParams();
         if (args.filial && args.filial !== "Todos") params.append('filial', args.filial);
         if (args.fornecedor && args.fornecedor !== "Todos") params.append('fornecedor', args.fornecedor);
-        if (args.status && args.status !== "Todos") params.append('status', args.status);
+        if (!usePendingUnitsZeroRoute && args.status && args.status !== "Todos") params.append('status', args.status);
 
         const queryString = params.toString();
-        const endpoint = queryString ? `/stock?${queryString}` : '/stock';
+        const baseEndpoint = usePendingUnitsZeroRoute
+            ? '/stock/skus/no-pending-units'
+            : '/stock';
+        const endpoint = queryString ? `${baseEndpoint}?${queryString}` : baseEndpoint;
         
         const response = await httpClient.get(endpoint);
         const dataList = Array.isArray(response) ? response : (response.data || []);

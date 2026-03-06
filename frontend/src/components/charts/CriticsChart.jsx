@@ -1,7 +1,9 @@
 import { Bar, BarChart, Tooltip, XAxis, YAxis, ResponsiveContainer, Label, CartesianGrid, ReferenceLine } from 'recharts';
 import { useNavigate } from 'react-router-dom';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import BarChartSkeleton from './BarChartSkeleton';
+import dashboardService from '../../services/dashboardService';
+import { logger } from '../../utils/logger';
 
 
 
@@ -47,17 +49,22 @@ export default function CriticsChart({
 }) {
     const navigate = useNavigate();
     const [showOnlyWithoutPending, setShowOnlyWithoutPending] = useState(false);
-    const hasData = Array.isArray(data) && data.length > 0;
+    const [filteredCriticalData, setFilteredCriticalData] = useState([]);
+    const [loadingFilteredCriticalData, setLoadingFilteredCriticalData] = useState(false);
+    const sourceData = showOnlyWithoutPending ? filteredCriticalData : data;
+    const hasData = Array.isArray(sourceData) && sourceData.length > 0;
     const isAllSuppliers = !supplier || supplier === "Todos";
     const rawChartData = hasData
-        ? data.map((row) => {
+        ? sourceData.map((row) => {
             const supplierName = row.supplier_name || row.fornecedor || row.primary_supplier || row.suppliers?.name || "";
             const unidadesPendentes = Number(row.unidades_pendentes || row.pedidos_pendentes || 0);
             const hasPendencia = unidadesPendentes > 0;
-            const baseDisplayName = isAllSuppliers && supplierName ? `${row.name} - ${supplierName}` : row.name;
+            const nomeProduto = row.nome_produto || row.name || row.item || "";
+            const baseDisplayName = isAllSuppliers && supplierName ? `${nomeProduto} - ${supplierName}` : nomeProduto;
             return {
                 ...row,
-                skuName: row.name,
+                nome_produto: nomeProduto,
+                skuName: nomeProduto,
                 displayName: baseDisplayName,
                 displayNameWithIcon: hasPendencia
                     ? `🚚 ${baseDisplayName}`
@@ -67,22 +74,59 @@ export default function CriticsChart({
         })
         : [];
 
-    const chartData = useMemo(() => {
-        if (!showOnlyWithoutPending) return rawChartData;
-        return rawChartData.filter((row) => Number(row.unidades_pendentes || 0) <= 0);
-    }, [rawChartData, showOnlyWithoutPending]);
+    const chartData = useMemo(() => rawChartData, [rawChartData]);
+
+    useEffect(() => {
+        let isMounted = true;
+
+        const loadFilteredCriticalData = async () => {
+            if (!showOnlyWithoutPending) return;
+
+            setLoadingFilteredCriticalData(true);
+            try {
+                const response = await dashboardService.getCriticalItems(20, supplier, true);
+                const safeList = Array.isArray(response) ? response : [];
+                const mapped = safeList.map((item) => ({
+                    name: item.codigo,
+                    qtd: item.dias_cobertura,
+                    dias: item.dias_cobertura,
+                    demanda_real: item.demanda_mensal_media,
+                    ...item,
+                }));
+
+                if (isMounted) {
+                    setFilteredCriticalData(mapped);
+                }
+            } catch (error) {
+                logger.error('Erro ao carregar SKUs críticos sem pendências:', error);
+                if (isMounted) {
+                    setFilteredCriticalData([]);
+                }
+            } finally {
+                if (isMounted) {
+                    setLoadingFilteredCriticalData(false);
+                }
+            }
+        };
+
+        loadFilteredCriticalData();
+
+        return () => {
+            isMounted = false;
+        };
+    }, [showOnlyWithoutPending, supplier]);
 
     const hasFilteredData = chartData.length > 0;
 
     const resolveSkuName = (value) => {
         if (!value) return "";
         const found = chartData.find((row) =>
+            row.nome_produto === value ||
             row.skuName === value ||
             row.displayName === value ||
-            row.displayNameWithIcon === value ||
-            row.name === value
+            row.displayNameWithIcon === value
         );
-        return found?.skuName || value;
+        return found?.nome_produto || found?.skuName || value;
     };
 
     const handleNavigation = (skuName) => {
@@ -91,6 +135,7 @@ export default function CriticsChart({
         params.set('sku', skuName);
         if (supplier && supplier !== 'Todos') params.set('supplier', supplier);
         if (branch && branch !== 'Todos') params.set('branch', branch);
+        if (showOnlyWithoutPending) params.set('pendingUnits', 'zero');
         navigate(`/stock?${params.toString()}`);
     };
 
@@ -100,7 +145,7 @@ export default function CriticsChart({
             style={{ cursor: 'pointer', pointerEvents: 'all' }} 
             onClick={(e) => {
                 e.stopPropagation();
-                const targetSku = resolveSkuName(payload?.payload?.skuName || payload?.value);
+                const targetSku = resolveSkuName(payload?.payload?.nome_produto || payload?.payload?.skuName || payload?.value);
                 if (targetSku) handleNavigation(targetSku);
             }} 
             >
@@ -109,7 +154,7 @@ export default function CriticsChart({
         </g>
     );
 
-    if (loading) {
+    if (loading || loadingFilteredCriticalData) {
         return <BarChartSkeleton />;
     }
 
@@ -157,7 +202,7 @@ export default function CriticsChart({
                         <Tooltip content={CustomTooltip} />
                         <Bar dataKey="qtd" fill="#212560" barSize={25}
                             onClick={(entry) => {
-                                const targetSku = resolveSkuName(entry?.skuName || entry?.name || entry?.displayName);
+                                const targetSku = resolveSkuName(entry?.nome_produto || entry?.skuName || entry?.displayName);
                                 if (targetSku) handleNavigation(targetSku);
                             }}
                         />

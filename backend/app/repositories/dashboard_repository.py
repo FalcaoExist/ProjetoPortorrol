@@ -106,13 +106,15 @@ class DashboardRepository:
             logger.exception(f"Erro ao buscar status dos fornecedores: {e}")
             return []
         
-    def get_critical_skus(self, limit: int, supplier: str = None):
+    def get_critical_skus(self, limit: int, supplier: str = None, no_pending_only: bool = False):
         try:
             query = supabase.table("vw_skus_criticos_ruptura").select("*")
+            if no_pending_only:
+                query = query.eq("unidades_pendentes", 0)
             if supplier and supplier.strip():
-                query = query.eq("fornecedor", supplier).lte("ranking_fornecedor", limit).order("ranking_fornecedor")
+                query = query.eq("fornecedor", supplier).order("ranking_fornecedor").limit(limit)
             else:
-                query = query.lte("ranking_global", limit).order("ranking_global")
+                query = query.order("ranking_global").limit(limit)
             return query.execute().data or []
         except Exception as e:
             logger.exception(f"Erro em get_critical_skus: {e}")

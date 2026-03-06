@@ -39,6 +39,7 @@ export const useStock = () => {
     const [statusFilter, setStatusFilter] = useState("");
     const [fornecedor, setFornecedor] = useState("");
     const [filial, setFilial] = useState("");
+    const [unidadesPendentesFiltro, setUnidadesPendentesFiltro] = useState(null);
 
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [itemToDelete, setItemToDelete] = useState(null);
@@ -109,8 +110,11 @@ export const useStock = () => {
         const activeFilters = {};
         if (filial) activeFilters.filial = filial;
         if (fornecedor) activeFilters.fornecedor = fornecedor;
+        if (unidadesPendentesFiltro !== null && unidadesPendentesFiltro !== undefined) {
+            activeFilters.unidadesPendentes = unidadesPendentesFiltro;
+        }
         fetchStock(activeFilters);
-    }, [fetchStock, filial, fornecedor]);
+    }, [fetchStock, filial, fornecedor, unidadesPendentesFiltro]);
 
     useEffect(() => {
         const selectionSet = rowSelectionModel?.ids || new Set();
@@ -249,6 +253,7 @@ export const useStock = () => {
         statusFilter, setStatusFilter,
         fornecedor, setFornecedor,
         filial, setFilial,
+        unidadesPendentesFiltro, setUnidadesPendentesFiltro,
         isDeleteModalOpen, setIsDeleteModalOpen,
         isImportConfirmModalOpen, setIsImportConfirmModalOpen,
         selectedFile, setSelectedFile,

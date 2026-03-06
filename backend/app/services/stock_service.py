@@ -15,7 +15,8 @@ class StockService:
         fornecedor: Optional[str] = None,
         status: Optional[str] = None,
         limit: Optional[int] = None,
-        current_user: Optional[dict] = None
+        current_user: Optional[dict] = None,
+        unidades_pendentes: Optional[int] = None,
     ) -> list:
         # Pega dados brutos da view via repositorio
         logger.info(
@@ -28,6 +29,7 @@ class StockService:
                 filial=filial,
                 fornecedor=fornecedor,
                 limit=limit,
+                unidades_pendentes=unidades_pendentes,
             )
         except Exception:
             logger.exception(

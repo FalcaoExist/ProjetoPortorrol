@@ -30,6 +30,7 @@ export default function Stock() {
             const status = params.get('status');
             const supplier = params.get('supplier');
             const branch = params.get('branch');
+            const pendingUnits = params.get('pendingUnits');
 
             if (sku) setSearchQuery(decodeURIComponent(sku));
 
@@ -42,6 +43,7 @@ export default function Stock() {
 
             if (supplier) setFornecedor(decodeURIComponent(supplier));
             if (branch) setFilial(decodeURIComponent(branch));
+            if (pendingUnits === 'zero') setUnidadesPendentesFiltro(0);
         } catch (err) {
             // noop
         }
@@ -66,6 +68,7 @@ export default function Stock() {
         setFornecedor,
         filial,
         setFilial,
+        setUnidadesPendentesFiltro,
         isDeleteModalOpen,
         setIsDeleteModalOpen,
         handleShowNewOrder,

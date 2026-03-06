@@ -192,9 +192,9 @@ class DashboardService:
             logger.exception(f"Erro ao buscar status do fornecedor por nome: {str(e)}")
             raise HTTPException(status_code=500, detail=f"Erro ao buscar status do fornecedor por nome: {str(e)}")
 
-    def get_critical_items(self, limit: int = 20, supplier: str = None):
+    def get_critical_items(self, limit: int = 20, supplier: str = None, no_pending_only: bool = False):
         try:
-            return self.repo.get_critical_skus(limit, supplier)
+            return self.repo.get_critical_skus(limit, supplier, no_pending_only)
         except Exception as e:
             logger.exception(f"Erro ao buscar SKUs criticos: {str(e)}")
             raise HTTPException(status_code=500, detail=f"Erro ao buscar SKUs criticos: {str(e)}")

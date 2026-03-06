@@ -37,7 +37,7 @@ const dashboardService = {
       throw error;
     }
   },
-  getCriticalItems: async (limit = 20, supplier = null) => {
+  getCriticalItems: async (limit = 20, supplier = null, noPendingOnly = false) => {
     try {
       let url = '/dashboard/critics';
       const params = new URLSearchParams();
@@ -45,6 +45,10 @@ const dashboardService = {
       
       if (supplier && supplier !== "Todos") {
         params.append('supplier', supplier);
+      }
+
+      if (noPendingOnly) {
+        params.append('no_pending_only', 'true');
       }
 
       url += `?${params.toString()}`;

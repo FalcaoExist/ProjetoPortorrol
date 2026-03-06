@@ -87,6 +87,14 @@ def _build_action_message(
         name = details.get("name")
         return f"{user} criou o fornecedor {name}" if name else f"{user} criou um fornecedor"
 
+    if action == AuditAction.SUPPLIER_LEADTIME_UPDATE:
+        branch_name = details.get("branch_name")
+        old = details.get("old_value")
+        new = details.get("new_value")
+        if branch_name:
+            return f"{user} atualizou leadtime da filial {branch_name} de {old} para {new}"
+        return f"{user} atualizou leadtime do fornecedor de {old} para {new}"
+
     if action == AuditAction.SUPPLIER_DELETE:
         name = details.get("name")
         return f"{user} desativou o fornecedor {name}" if name else f"{user} desativou um fornecedor"

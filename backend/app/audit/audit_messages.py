@@ -80,6 +80,13 @@ AUDIT_MESSAGES: Dict[AuditAction, AuditMessage] = {
         category="SUPPLIER",
     ),
 
+    AuditAction.SUPPLIER_LEADTIME_UPDATE: AuditMessage(
+        label="Leadtime atualizado",
+        description="Leadtime do fornecedor por filial foi atualizado",
+        severity="INFO",
+        category="SUPPLIER",
+    ),
+
     AuditAction.SUPPLIER_DELETE: AuditMessage(
         label="Fornecedor removido",
         description="Fornecedor foi excluído do sistema",

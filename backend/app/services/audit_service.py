@@ -91,7 +91,10 @@ class AuditService:
                 action_enum = AuditAction(action_str)
                 message_cfg = AUDIT_MESSAGES.get(action_enum)
             except Exception:
-                message_cfg = None
+                continue
+
+            if not message_cfg:
+                continue
 
             formatted_logs.append(
                 {

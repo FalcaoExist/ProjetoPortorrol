@@ -27,7 +27,7 @@ def get_suppliers_list(
 @router.post("/suppliers", response_model=FornecedorResponse)
 def create_supplier(
     data: FornecedorCreate, 
-    #current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(get_current_user),
     supplier_service: SupplierService = Depends(get_supplier_service)
     ):
     try:
@@ -37,7 +37,8 @@ def create_supplier(
         start=data.start,
         end=data.end,
         leadtimes=[lt.dict() for lt in data.leadtimes] if data.leadtimes else [],
-        external_id=data.external_id
+        external_id=data.external_id,
+        user_id=current_user.get("user_id"),
     )
         return created
     except Exception as e:
@@ -49,7 +50,7 @@ def create_supplier(
 def update_supplier(
     id: UUID,
     data: FornecedorUpdate,
-    #current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(get_current_user),
     supplier_service: SupplierService = Depends(get_supplier_service)
     ):
     try:
@@ -60,6 +61,7 @@ def update_supplier(
         start=data.start,
         end=data.end,
         leadtimes=[lt.dict() for lt in data.leadtimes] if hasattr(data, "leadtimes") else [],
+        user_id=current_user.get("user_id"),
     )
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -67,11 +69,11 @@ def update_supplier(
 @router.delete("/suppliers/{id}")
 def delete_supplier(
     id: UUID, 
-    #current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(get_current_user),
     supplier_service: SupplierService = Depends(get_supplier_service)
     ):
     try:
-        supplier_service.deactivate_supplier(id)
+        supplier_service.deactivate_supplier(id, user_id=current_user.get("user_id"))
         return {"message": "Fornecedor inativado com sucesso"}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))

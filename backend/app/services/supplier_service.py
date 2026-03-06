@@ -228,6 +228,21 @@ class SupplierService:
 
                 if before_lt != after_lt:
                     branch_name = branches_map.get(str(branch_id)) or None
+
+                    self.audit_service.log(
+                        AuditAction.SUPPLIER_LEADTIME_UPDATE,
+                        user_id,
+                        "SUPPLIER",
+                        supplier_id,
+                        {
+                            "field": "leadtime",
+                            "branch_id": str(branch_id) if branch_id is not None else None,
+                            "branch_name": branch_name,
+                            "old_value": before_lt,
+                            "new_value": after_lt,
+                        },
+                    )
+
                     if branch_name:
                         notes_lt = f"Alteração de leadtime filial {branch_name}: {before_lt} -> {after_lt}"
                     else:
@@ -249,6 +264,21 @@ class SupplierService:
             for branch_id_str, after_lt in new_lt_map.items():
                 if branch_id_str not in existing_branch_ids:
                     branch_name = branches_map.get(branch_id_str) or None
+
+                    self.audit_service.log(
+                        AuditAction.SUPPLIER_LEADTIME_UPDATE,
+                        user_id,
+                        "SUPPLIER",
+                        supplier_id,
+                        {
+                            "field": "leadtime",
+                            "branch_id": branch_id_str,
+                            "branch_name": branch_name,
+                            "old_value": None,
+                            "new_value": after_lt,
+                        },
+                    )
+
                     if branch_name:
                         notes_lt = f"Criação de leadtime filial {branch_name}: None -> {after_lt}"
                     else:
@@ -266,15 +296,24 @@ class SupplierService:
                         "updated_at": now,
                     })
 
-            payload = {
-                "name": name,
-                "budget": budget,
-                "start": after_start,
-                "end": after_end,
-                "updated_at": now,
-            }
+            supplier_fields_changed = any([
+                before_name != name,
+                before_budget != budget,
+                str(before_start) != str(after_start),
+                str(before_end) != str(after_end),
+            ])
 
-            updated_supplier = self.repository.update(supplier_id, payload)
+            if supplier_fields_changed:
+                payload = {
+                    "name": name,
+                    "budget": budget,
+                    "start": after_start,
+                    "end": after_end,
+                    "updated_at": now,
+                }
+                updated_supplier = self.repository.update(supplier_id, payload)
+            else:
+                updated_supplier = dict(current_data)
 
             self.leadtime_repo.delete_by_supplier(supplier_id)
 

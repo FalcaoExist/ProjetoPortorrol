@@ -14,6 +14,14 @@ const getStatusText = (dias) => {
     return "Excesso";
 };
 
+const getSuggestedQuantity = (row) => {
+    const unidadesPendentes = parseFloat(row?.unidades_pendentes) || 0;
+    const sugeridaProjetada = parseFloat(row?.quantidade_sugerida_compra_projetada) || 0;
+    const sugeridaPadrao = parseFloat(row?.qtd_sugerida) || 0;
+
+    return unidadesPendentes > 0 ? sugeridaProjetada : sugeridaPadrao;
+};
+
 export const useStock = () => {
     const { user } = useAuth();
     const hasAutoAppliedSupplier = useRef(false);
@@ -114,13 +122,13 @@ export const useStock = () => {
                     const existingItem = prevOrderRows.find(nr => nr.real_sku_id === item.real_sku_id);
                     if (existingItem) return existingItem;
 
-                    const qtdSugerida = item.qtd_sugerida > 0 ? item.qtd_sugerida : 0;
+                    const qtdSugerida = getSuggestedQuantity(item);
                     
                     return {
                         ...item,
                         real_sku_id: item.real_sku_id || item.sku_id || item.id,
-                        unidades: item.qtd_sugerida !== undefined ? item.qtd_sugerida : 0,
-                        quantidade: item.qtd_sugerida !== undefined ? item.qtd_sugerida : 0,
+                        unidades: qtdSugerida > 0 ? qtdSugerida : 0,
+                        quantidade: qtdSugerida > 0 ? qtdSugerida : 0,
                         filial: item.filial || "",
                         // Setada para o leadtime vindo do back
                         previsao_entrega: new Date(Date.now() + (item.leadtime || 15) * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
@@ -154,7 +162,7 @@ export const useStock = () => {
                 if (row.dias_cobertura === null || row.dias_cobertura === undefined) return false;
                 const rop = parseFloat(row.rop) || 0;
                 const unidades = parseFloat(row.unidades) || 0;
-                const sugerida = parseFloat(row.qtd_sugerida) || 0;
+                const sugerida = getSuggestedQuantity(row);
                 return (unidades <= rop) && (sugerida > 0);
             });
             

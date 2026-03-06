@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.router import router as api_router
 
-app = FastAPI(title="IBy Backend API", version="1.0.0")
+app = FastAPI(title="IBy Backend API", versioruen="1.0.0")
 
 origins = [
     "http://localhost:5173",

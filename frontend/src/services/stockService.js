@@ -38,6 +38,8 @@ const mapStockToFrontend = (item, index) => {
         sao_paulo: item.sao_paulo || item.estoque_sp || 0,
         rop: Math.ceil(item.rop || 0),
         qtd_sugerida: Math.ceil(item.qtd_sugerida || 0),
+        unidades_pendentes: Math.ceil(item.unidades_pendentes || item.pedidos_pendentes || 0),
+        quantidade_sugerida_compra_projetada: Math.ceil(item.quantidade_sugerida_compra_projetada || 0),
         leadtime: item.leadtime || 0,
         _raw: item
     };

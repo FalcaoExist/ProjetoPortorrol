@@ -161,6 +161,10 @@ class StockItemResponse(BaseModel):
     filial: Optional[str] = None
     dias_cobertura: Optional[int] = 0
     valor: Optional[float] = 0.0
+    pedidos_pendentes: Optional[int] = 0
+    estoque_projetado: Optional[int] = 0
+    dias_cobertura_projetado: Optional[float] = None
+    quantidade_sugerida_compra_projetada: Optional[int] = 0
 
 class BatchOrderItem(BaseModel):
     id: Optional[str] = None

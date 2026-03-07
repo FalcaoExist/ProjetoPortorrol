@@ -1,8 +1,6 @@
-import { useState,  useRef, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/authContext";
-import { useStock } from "../hooks/useStock";
-import { importStockFromFile, exportStockData } from "../services/stockService";
+import { useStockPageLogic } from "../hooks/useStockPageLogic";
+import { exportStockData } from "../services/stockService";
 import { exportStockCSV } from "../services/csvExporter";
 import { logger } from "../utils/logger";
 
@@ -16,41 +14,24 @@ import NewOrderTable from "../components/new_order_table/NewOrderTable";
 import ConfirmationModal from "../components/common/ConfirmationModal";
 import ExportDropdown from "../components/common/ExportDropdown";
 
-const statusOptions = ["Ok", "Subdimensionado", "Ruptura iminente", "Excesso", "Sem demanda"];
-
 
 export default function Stock() {
     const { user } = useAuth();
-    const navigate = useNavigate();
 
-    useEffect(() => {
-        try {
-            const params = new URLSearchParams(window.location.search);
-            const sku = params.get('sku');
-            const status = params.get('status');
-            const supplier = params.get('supplier');
-            const branch = params.get('branch');
-
-            if (sku) setSearchQuery(decodeURIComponent(sku));
-
-            if (status) {
-                const raw = decodeURIComponent(status);
-                // Normaliza comparando case-insensitive com as opções conhecidas
-                const matched = statusOptions.find(opt => opt.toLowerCase() === raw.toLowerCase());
-                setStatusFilter(matched || raw);
-            }
-
-            if (supplier) setFornecedor(decodeURIComponent(supplier));
-            if (branch) setFilial(decodeURIComponent(branch));
-        } catch (err) {
-            // noop
-        }
-    }, []);
-
-    const fileInputRef = useRef(null);
-    const [isConfirmOrderModalOpen, setIsConfirmOrderModalOpen] = useState(false);
-    const [isImportConfirmModalOpen, setIsImportConfirmModalOpen] = useState(false);
-    const [selectedFile, setSelectedFile] = useState(null);
+    const {
+        statusOptions,
+        fileInputRef,
+        stock,
+        selectedFile,
+        isImportConfirmModalOpen,
+        setIsImportConfirmModalOpen,
+        isConfirmOrderModalOpen,
+        setIsConfirmOrderModalOpen,
+        handleImportClick,
+        handleFileChange,
+        handleConfirmImport,
+        handleConfirmCreateOrder,
+    } = useStockPageLogic();
 
     const {
         isNewOrderVisible,
@@ -64,8 +45,6 @@ export default function Stock() {
         setStatusFilter,
         fornecedor,
         setFornecedor,
-        filial,
-        setFilial,
         isDeleteModalOpen,
         setIsDeleteModalOpen,
         handleShowNewOrder,
@@ -73,38 +52,9 @@ export default function Stock() {
         handleNewOrderRowUpdate,
         handleDeleteClick,
         confirmDelete,
-        handleCreateOrder,
         supplierOptions, 
         loading 
-    } = useStock(); 
-
-    const handleImportClick = () => {
-        if (fileInputRef.current) {
-            fileInputRef.current.click();
-        }
-    };
-
-    const handleFileChange = (event) => {
-        const file = event.target.files[0];
-        if (file) {
-            setSelectedFile(file);
-            setIsImportConfirmModalOpen(true);
-        }
-        event.target.value = '';
-    };
-
-    const handleConfirmImport = async () => {
-        if (selectedFile) {
-            try {
-                const result = await importStockFromFile(selectedFile);
-            } catch (error) {
-                logger.error("Erro ao importar arquivo:", error);
-            } finally {
-                setSelectedFile(null);
-                setIsImportConfirmModalOpen(false);
-            }
-        }
-    };
+    } = stock; 
 
 
     return (
@@ -130,7 +80,6 @@ export default function Stock() {
                                 onChange={(e) => setStatusFilter(e.target.value)}
                                 options={statusOptions}
                             />
-                            {/* AQUI: Agora usa a lista real do banco, não o mock */}
                             <SelectFilter
                                 label="Fornecedor"
                                 name="fornecedor"
@@ -241,7 +190,7 @@ export default function Stock() {
             <ConfirmationModal
                 isOpen={isConfirmOrderModalOpen}
                 onClose={() => setIsConfirmOrderModalOpen(false)}
-                onConfirm={() => handleCreateOrder(navigate)}
+                onConfirm={handleConfirmCreateOrder}
                 title="Confirmar Novo Pedido"
                 message="Você gostaria de fazer um novo pedido?"
                 confirmButtonText="Sim"

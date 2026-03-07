@@ -2,7 +2,6 @@ import React from 'react';
 
 export default function DateFilterControl({ value = {}, onChange }) {
   const handleDateChange = (part) => (event) => {
-    // Cria um novo objeto para garantir a re-renderização
     const newValue = { ...value, [part]: event.target.value };
     onChange(newValue);
   };

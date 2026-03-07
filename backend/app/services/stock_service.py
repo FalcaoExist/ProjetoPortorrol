@@ -14,18 +14,22 @@ class StockService:
         filial: Optional[str] = None,
         fornecedor: Optional[str] = None,
         status: Optional[str] = None,
-        current_user: Optional[dict] = None
+        limit: Optional[int] = None,
+        current_user: Optional[dict] = None,
+        unidades_pendentes: Optional[int] = None,
     ) -> list:
         # Pega dados brutos da view via repositorio
         logger.info(
-            "Buscando estoque - filial: %s - fornecedor: %s",
-            filial, fornecedor,
+            "Buscando estoque - filial: %s - fornecedor: %s - limit: %s",
+            filial, fornecedor, limit,
         )
 
         try:
             raw_data = self.stock_repo.get_stock_analysis(
                 filial=filial,
-                fornecedor=fornecedor
+                fornecedor=fornecedor,
+                limit=limit,
+                unidades_pendentes=unidades_pendentes,
             )
         except Exception:
             logger.exception(
@@ -68,9 +72,15 @@ class StockService:
                         return 0.0 if default_to_zero else None
 
                 sugerida = safe_float(item.get("quantidade_sugerida_compra"))
+                sugerida_projetada = safe_float(
+                    item.get("quantidade_sugerida_compra_projetada", item.get("quantidade_sugerida_compra_v2"))
+                )
                 rop = safe_float(item.get("rop"))
                 stock = safe_float(item.get("estoque_atual"))
                 dias_cobertura = safe_float(item.get("dias_cobertura"), default_to_zero=False)
+                unidades_pendentes = safe_float(item.get("unidades_pendentes"))
+                estoque_projetado = safe_float(item.get("estoque_projetado"))
+                dias_cobertura_projetado = safe_float(item.get("dias_cobertura_projetado"), default_to_zero=False)
                 
                 mapped_item = {
                     "id": unique_id,
@@ -89,7 +99,13 @@ class StockService:
                     "rop": math.ceil(rop),
                     "qtd_sugerida": math.ceil(sugerida),
                     "leadtime": int(safe_float(item.get("leadtime_utilizado_dias"))),
-                    "demanda_mensal": safe_float(item.get("demanda_mensal_media"))
+                    "demanda_mensal": safe_float(item.get("demanda_mensal_media")),
+                    "unidades_pendentes": int(unidades_pendentes),
+                    "estoque_projetado": int(estoque_projetado),
+                    "dias_cobertura_projetado": (
+                        dias_cobertura_projetado if dias_cobertura_projetado is None else round(dias_cobertura_projetado, 2)
+                    ),
+                    "quantidade_sugerida_compra_projetada": math.ceil(sugerida_projetada)
                 }
                 result.append(mapped_item)
 

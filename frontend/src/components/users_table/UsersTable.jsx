@@ -3,24 +3,18 @@ import { GridActionsCellItem, GridRowModes } from "@mui/x-data-grid";
 import { Popover, useMediaQuery } from "@mui/material";
 import { FiCheck, FiX, FiEdit, FiTrash2, FiLock } from "react-icons/fi";
 
-// Imports organizados
 import { BaseDataGrid } from "../common/BaseDataGrid";
 import CustomFilterHeader from "./CustomFilterHeader";
 import SupplierEditCell from "./SupplierEditCell";
-// StatusCell removido, pois voltamos ao texto padrão
 import { useUsersTableLogic } from "../../hooks/useUsersTableLogic";
 import { logger } from "../../utils/logger";
 
-// Função auxiliar para ordenar textos em Português
 const ptBRComparator = (v1, v2) => {
   const s1 = v1?.toString() || "";
   const s2 = v2?.toString() || "";
   return s1.localeCompare(s2, 'pt-BR', { sensitivity: 'base' });
 };
 
-// ---------------------------------------------------------------------------
-// COMPONENTE PRINCIPAL: UsersTable
-// ---------------------------------------------------------------------------
 export default function UsersTable({ users = [], onDelete, onUpdate, onChangePassword, availableSuppliers = [], loading = false }) {
   const isCompactLayout = useMediaQuery("(max-width:1279px)");
   const {
@@ -40,7 +34,6 @@ export default function UsersTable({ users = [], onDelete, onUpdate, onChangePas
   } = useUsersTableLogic({ users, availableSuppliers, onUpdate });
 
   const onProcessRowUpdateError = (error) => logger.error("Erro ao atualizar linha:", error);
-  // Definição das Colunas (limpo)
   const columns = useMemo(
     () => [
       {

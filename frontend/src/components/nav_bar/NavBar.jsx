@@ -13,7 +13,6 @@ export default function Navbar({
 } = {}) {
     const { logout, isGestor } = useAuth();
 
-    // Limitar visibilidade das opções
     const visibleSections = sections
         ?.map((section) => {
             if ((section.requiresGestor || section.onlyGestor) && !isGestor) {
@@ -52,8 +51,6 @@ export default function Navbar({
                             key={section.id || section.title || `section-${sectionIndex}`}
                         >
                             {section.items?.map((item, i) => {
-                                // [NOVA LÓGICA] 
-                                // Se o item requer gestor e o usuário não é gestor, não renderiza o botão no menu.
                                 if ((item.onlyGestor || item.requiresGestor) && !isGestor) {
                                     return null;
                                 }
@@ -73,7 +70,6 @@ export default function Navbar({
 
                 ))}
 
-                {/* Botão de sair */}
                 <button 
                     onClick={logout} 
                     className="text-sm tracking-widest self-start font-poppins mt-2 ml-8 block text-left hover:text-red-600 transition-colors"

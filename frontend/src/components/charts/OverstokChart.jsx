@@ -1,6 +1,9 @@
 import { Bar, BarChart, Tooltip, XAxis, YAxis, ResponsiveContainer, Label, CartesianGrid, ReferenceLine } from 'recharts';
 import { useNavigate } from 'react-router-dom';
+import { useMemo } from 'react';
 import BarChartSkeleton from './BarChartSkeleton';
+import { navigateToStock } from '../../utils/stockNavigation';
+import { buildSkuCoverageChartData, resolveSkuNameFromChartData } from '../../utils/skuCoverageChart';
 
 
 
@@ -17,11 +20,13 @@ function CustomTooltip({ payload, label, active }) {
     if (active && payload && payload.length) {
         const row = payload[0].payload || {};
         const supplierName = row.supplier_name || row.fornecedor || row.primary_supplier || row.suppliers?.name || "";
+        const unidadesPendentes = Number(row.unidades_pendentes || row.pedidos_pendentes || 0);
         return (
             <div className="border border-[#d88488] bg-white p-[10px] rounded-[5px] shadow-[1px_1px_2px_rgba(216,132,136,1)]">
                 <p className="m-0 font-bold">{`${label} : ${payload[0].value} dias de cobertura`}</p>
                 {supplierName && <p className="m-0 font-bold">{`Fornecedor: ${supplierName}`}</p>}
                 <p className="m-0 font-bold">{`Estoque total: ${row.estoque_atual}`}</p>
+                {unidadesPendentes > 0 && <p className="m-0 font-bold">{`Unidades pendentes: ${unidadesPendentes}`}</p>}
                 <p className="m-0 font-bold">{`Demanda mensal: ${(parseFloat(row.demanda_mensal_media) || 0).toFixed(1)}`}</p>
                 <p className="m-0 font-bold">{`Demanda diária: ${(parseFloat(row.demanda_diaria) || 0).toFixed(1)}`}</p>
                 <p className="m-0 font-bold">{`Ranking Global: ${(row.ranking_global)}`}</p>
@@ -42,31 +47,26 @@ export default function OverstokChart({
 }) {
     const navigate = useNavigate();
     const hasData = Array.isArray(data) && data.length > 0;
-    const isAllSuppliers = !supplier || supplier === "Todos";
-    const chartData = hasData
-        ? data.map((row) => {
-            const supplierName = row.supplier_name || row.fornecedor || row.primary_supplier || row.suppliers?.name || "";
-            return {
-                ...row,
-                skuName: row.name,
-                displayName: isAllSuppliers && supplierName ? `${row.name} - ${supplierName}` : row.name,
-            };
-        })
-        : [];
+    const chartData = useMemo(
+        () =>
+            buildSkuCoverageChartData(data, {
+                supplier,
+                getSkuName: (row) => row.name || row.nome_produto || row.item || "",
+            }),
+        [data, supplier]
+    );
 
     const resolveSkuName = (value) => {
-        if (!value) return "";
-        const found = chartData.find((row) => row.skuName === value || row.displayName === value || row.name === value);
-        return found?.skuName || value;
+        return resolveSkuNameFromChartData(chartData, value);
     };
 
     const handleNavigation = (skuName) => {
         if (!skuName) return;
-        const params = new URLSearchParams();
-        params.set('sku', skuName);
-        if (supplier && supplier !== 'Todos') params.set('supplier', supplier);
-        if (branch && branch !== 'Todos') params.set('branch', branch);
-        navigate(`/stock?${params.toString()}`);
+        navigateToStock(navigate, {
+            sku: skuName,
+            supplier,
+            branch,
+        });
     };
 
       const CustomTick = ({ x, y, payload }) => (
@@ -108,7 +108,7 @@ export default function OverstokChart({
                     if (targetSku) handleNavigation(targetSku);
                 }}
             >
-                <XAxis dataKey="displayName"  interval={0}  height={120}  tick={<CustomTick />}/>
+                <XAxis dataKey="displayNameWithIcon"  interval={0}  height={120}  tick={<CustomTick />}/>
                 <Label value="Dias de cobertura" angle={-90} position="left" dx={-55} style={{ textAnchor: 'middle' }} />
                 <YAxis ticks={[100, 200, 300, 400, 500, 600]} domain={[100, 600]} />
                 <CartesianGrid stroke="#e6e6e6" horizontal={true} vertical={false} />

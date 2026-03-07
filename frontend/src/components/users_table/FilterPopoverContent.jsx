@@ -1,10 +1,7 @@
 import React from "react";
-import { FiX, FiCheck } from "react-icons/fi"; // Adicionado FiCheck
+import { FiX, FiCheck } from "react-icons/fi";
 import DateFilterControl from "./DateFilterControl";
 
-// --- SUB-COMPONENTES ---
-
-// Renderiza um input de texto simples
 function TextFilterControl({ value, placeholder, onChange }) {
     return (
         <input
@@ -18,7 +15,6 @@ function TextFilterControl({ value, placeholder, onChange }) {
     );
 }
 
-// Renderiza um dropdown (select) simples
 function SelectFilterControl({ value, options = [], onChange }) {
     return (
         <select
@@ -40,23 +36,20 @@ function SelectFilterControl({ value, options = [], onChange }) {
     );
 }
 
-// [NOVO] Renderiza uma lista de seleção múltipla (estilo checkbox)
 function MultiSelectFilterControl({ value = [], options = [], onChange }) {
-    // Garante que o valor seja sempre um array
     const selectedValues = Array.isArray(value) ? value : [];
 
     const toggleOption = (option) => {
         const optValue = typeof option === 'object' && option !== null ? option.value : option;
         const newValues = selectedValues.includes(optValue)
-            ? selectedValues.filter((v) => v !== optValue) // Remove
-            : [...selectedValues, optValue]; // Adiciona
+            ? selectedValues.filter((v) => v !== optValue)
+            : [...selectedValues, optValue];
         onChange(newValues);
     };
 
     return (
         <div className="max-h-48 overflow-y-auto border border-gray-300 rounded p-1 bg-gray-50">
             {options.length > 0 ? options.map((option, idx) => {
-                // Ignora opções vazias se houver
                 if (!option) return null;
                 const optValue = typeof option === 'object' && option !== null ? option.value : option;
                 const optLabel = typeof option === 'object' && option !== null ? option.label : option;
@@ -86,15 +79,13 @@ function MultiSelectFilterControl({ value = [], options = [], onChange }) {
     );
 }
 
-// Mapeamento para escolher qual componente renderizar
 const CONTROL_MAP = {
     text: TextFilterControl,
     select: SelectFilterControl,
     date: DateFilterControl,
-    multiSelect: MultiSelectFilterControl, // [REGISTRADO AQUI]
+    multiSelect: MultiSelectFilterControl,
 };
 
-// --- COMPONENTE PRINCIPAL ---
 export default function FilterPopoverContent({ column, value, onChange, onClose }) {
     const ControlComponent = CONTROL_MAP[column.filterType] ?? TextFilterControl;
     const title = column.label ? `FILTRAR ${column.label}` : "FILTRAR";
@@ -129,7 +120,7 @@ export default function FilterPopoverContent({ column, value, onChange, onClose 
                 <button
                     type="button"
                     onClick={() => {
-                        onChange(""); // Limpa o valor (MultiSelect lidará com string vazia convertendo para [])
+                        onChange("");
                         onClose();
                     }}
                     className="w-full rounded py-1.5 text-[0.75rem] font-semibold uppercase tracking-wide text-gray-600 bg-gray-100 hover:bg-gray-200 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-300"

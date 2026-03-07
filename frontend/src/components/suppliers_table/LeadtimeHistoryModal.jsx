@@ -1,19 +1,8 @@
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useMemo } from "react";
 import { FiClock, FiX, FiEdit2, FiCheck } from "react-icons/fi";
 import { GridToolbarQuickFilter } from "@mui/x-data-grid";
 import { BaseDataGrid } from "../common/BaseDataGrid";
-import { getSupplierHistory, updateSupplier, getSupplierById } from "../../services/supplierService";
-import dashboardService from "../../services/dashboardService";
-
-const toDateOnlyString = (value) => {
-    if (!value) return null;
-    if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
-        return value;
-    }
-    const parsed = value instanceof Date ? value : new Date(value);
-    if (Number.isNaN(parsed.getTime())) return null;
-    return parsed.toISOString().slice(0, 10);
-};
+import { useSupplierLeadtimeModal } from "../../hooks/useSupplierLeadtimeModal";
 
 
 const historyColumns = [
@@ -80,128 +69,21 @@ export default function LeadtimeHistoryModal({
     onUpdateSupplier = () => {},
     columnsConfig = historyColumns,
 }) {
-
-    const [branchLeadtimes, setBranchLeadtimes] = useState([]);
-    const [editingBranchId, setEditingBranchId] = useState(null);
-    const [tempLeadtime, setTempLeadtime] = useState("");
-    const [historyRows, setHistoryRows] = useState([]);
-    const [historyLoading, setHistoryLoading] = useState(false);
-
-    const fetchHistory = async (supplierId) => {
-        if (!supplierId) return;
-        setHistoryLoading(true);
-
-        try {
-            const data = await getSupplierHistory(supplierId);
-
-            const normalized = (data || []).map((item) => ({
-                ...item,
-                recordedAt: item.created_at,
-                id: item.history_id,
-            }));
-
-            setHistoryRows(normalized);
-
-        } catch (error) {
-            console.error("Erro ao buscar histórico:", error);
-        } finally {
-            setHistoryLoading(false);
-        }
-    };
-
-    useEffect(() => {
-        if (!supplier || !isOpen) return;
-
-        (async () => {
-            setHistoryLoading(true);
-            try {
-                const [filiais, freshSupplier] = await Promise.all([dashboardService.getFiliais(), getSupplierById(supplier.id)]);
-                const supplierLeadtimes = (freshSupplier && (freshSupplier.leadtimes || [])) || [];
-                const ltMap = new Map((supplierLeadtimes || []).map(lt => [lt.branch_id, lt.leadtime]));
-
-                const mapped = (filiais || []).map((branch) => ({
-                    id: branch.id,
-                    branch_id: branch.id,
-                    name: branch.nome || branch.name || branch.id,
-                    days: ltMap.has(branch.id) ? ltMap.get(branch.id) : 0,
-                }));
-
-                setBranchLeadtimes(mapped);
-
-                await fetchHistory(freshSupplier.supplier_id || freshSupplier.id || supplier.id);
-
-            } catch (error) {
-                console.error("Erro ao inicializar modal de leadtimes:", error);
-            } finally {
-                setHistoryLoading(false);
-            }
-        })();
-
-    }, [supplier, isOpen]);
-
-    // Clear internal state when modal is closed to avoid leaking previous supplier data
-    useEffect(() => {
-        if (isOpen) return;
-        setBranchLeadtimes([]);
-        setHistoryRows([]);
-        setEditingBranchId(null);
-        setTempLeadtime("");
-        setHistoryLoading(false);
-    }, [isOpen]);
-
-    const handleEdit = (branch) => {
-        setEditingBranchId(branch.id);
-        setTempLeadtime(branch.days);
-    };
-
-    const handleSave = async (branchId) => {
-
-        const updatedLeadtimes = branchLeadtimes.map(b =>
-            b.id === branchId
-                ? { ...b, days: Number(tempLeadtime) }
-                : b
-        );
-
-        try {
-
-            const startDate = toDateOnlyString(supplier.start);
-            const endDate = toDateOnlyString(supplier.end);
-
-            if (startDate && endDate && startDate > endDate) {
-                throw new Error("Data de término deve ser igual ou posterior à data de início.");
-            }
-
-            const payload = {
-                name: supplier.name,
-                budget: supplier.budget,
-                start: startDate,
-                end: endDate,
-                leadtimes: updatedLeadtimes.map(b => ({
-                    branch_id: b.branch_id,
-                    leadtime: b.days,
-                })),
-            };
-
-            
-
-            const resp = await updateSupplier(supplier.id, payload);
-            
-
-            // notify parent to sync rows
-            try {
-                onUpdateSupplier(resp);
-            } catch (e) {
-                console.warn("onUpdateSupplier callback failed:", e);
-            }
-            setBranchLeadtimes(updatedLeadtimes);
-            await fetchHistory(supplier.id);
-            setEditingBranchId(null);
-            setTempLeadtime("");
-
-        } catch (error) {
-            console.error("Erro ao atualizar leadtime:", error, error?.data || error?.message || error?.toString());
-        }
-    };
+    const {
+        branchLeadtimes,
+        editingBranchId,
+        tempLeadtime,
+        historyRows,
+        historyLoading,
+        setTempLeadtime,
+        handleEdit,
+        handleCancelEdit,
+        handleSave,
+    } = useSupplierLeadtimeModal({
+        isOpen,
+        supplier,
+        onUpdateSupplier,
+    });
 
     const rows = useMemo(() => historyRows, [historyRows]);
     const columns = useMemo(() => columnsConfig, [columnsConfig]);
@@ -260,7 +142,7 @@ export default function LeadtimeHistoryModal({
                                                 </button>
                                                 <button
                                                     type="button"
-                                                    onClick={() => setEditingBranchId(null)}
+                                                    onClick={handleCancelEdit}
                                                     className="p-1.5 text-gray-500 hover:bg-gray-200 rounded-md"
                                                     aria-label="Cancelar"
                                                 >

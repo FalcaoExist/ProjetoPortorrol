@@ -63,7 +63,7 @@ export default function useDashboardData() {
     hasInitializedSupplierFromStorage.current = true;
   }, [user]);
 
-  // 1. CARGA INICIAL
+  // Carrega os dados base do dashboard e reaplica filtros quando filial/fornecedor mudam.
   useEffect(() => {
     async function loadInitialData() {
       let autoSelectedSupplier = false;
@@ -113,15 +113,8 @@ export default function useDashboardData() {
         setAllSkus(fetchedSkus); 
 
         // Itens criticos
-        const criticalItems = await dashboardService.getCriticalItems(20, supplier);
-        const mappedCritical = criticalItems.map(item => ({
-             name: item.codigo,
-             qtd: item.dias_cobertura,
-             dias: item.dias_cobertura,
-             demanda_real: item.demanda_mensal_media,
-             ...item
-        }));
-        setDataCritic(mappedCritical);
+           const criticalItems = await dashboardService.getFormattedCriticalItems(20, supplier);
+           setDataCritic(Array.isArray(criticalItems) ? criticalItems : []);
 
         // Itens em excesso
         const excessItems = await dashboardService.getExcessItems(20, supplier);
@@ -134,8 +127,6 @@ export default function useDashboardData() {
         }));
         setDataOverstock(mappedExcess);
 
-        
-        // BUSCA DADOS AGREGADOS PARA PREENCHER O STOCK RANGE GRAPH
         const statusResponse = await dashboardService.getSupplierStatus(branch, supplier);
         if (Array.isArray(statusResponse)) {
            let acc = { excesso: 0, rupturaIminente: 0, subdimensionado: 0, ok: 0 };
@@ -151,11 +142,6 @@ export default function useDashboardData() {
            totalAcc = acc.excesso + acc.rupturaIminente + acc.subdimensionado + acc.ok;
            setStockOverview({ data: acc, total: totalAcc });
         }
-
-        // =========================================================
-        // BUSCA STATUS DE PEDIDOS (ORDERS)
-        // =========================================================
-       
 
       } catch (error) {
         logger.error("Erro dashboard:", error);
@@ -174,10 +160,8 @@ export default function useDashboardData() {
   useEffect(()=>{
     async function fetchBudget() {
         try {
-            // "Todos" garante que o backend some os orçamentos globais
             const info = await dashboardService.getSupplierBudget(supplier || "Todos");
 
-            // Garantia contra campos undefined para evitar NaN no frontend
             setBudgetInfo({
               valor_total: info?.valor_total ?? 0,
               valor_individual: info?.valor_individual ?? 0,
@@ -197,7 +181,7 @@ export default function useDashboardData() {
     }
   }, [supplier, user]);
 
-  // 2. RECALCULAR GRÁFICOS E KPIs QUANDO SKU MUDAR
+  // Recalcula opções e KPI principal quando muda o SKU selecionado.
   useEffect(() => {
     if (!allSkus || allSkus.length === 0) return;
 
@@ -220,7 +204,6 @@ export default function useDashboardData() {
     }
   }, [allSkus, sku]);
 
-  // 3. Busca de SKU no Input
   const onSkuSearch = async (query) => {
     if (!query || query.length < 1) return; 
     try {
@@ -236,10 +219,9 @@ export default function useDashboardData() {
     }
   };
 
-  // 4. Carregar Histórico do Gráfico de Linha (SOMENTE INDIVIDUAL)
+  // Histórico é sempre individual: sem SKU selecionado o gráfico permanece vazio.
   useEffect(() => {
     async function loadHistory() {
-      // Se não tem SKU selecionado, esvazia o gráfico (não busca soma de nada)
       if (!sku) {
         setMonthsData([]);
         return;

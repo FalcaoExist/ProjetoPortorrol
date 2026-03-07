@@ -12,7 +12,6 @@ export const AuthProvider = ({ children }) => {
 useEffect(() => {
         const checkSession = async () => {
             try {
-                // Tenta validar a sessão no backend (cookie)
                 const data = await httpClient.get("/me");
                 if (data && data.success) {
                     setUser(data.user);
@@ -21,8 +20,7 @@ useEffect(() => {
                     try { localStorage.removeItem("user_data"); localStorage.removeItem("user"); } catch (e) {}
                 }
             } catch (error) {
-                // Se der erro  considera deslogado
-                console.log("Sessão inválida ou expirada");
+                logger.warn("Sessão inválida ou expirada");
                 setUser(null);
             } finally {
                 setLoading(false);
@@ -33,7 +31,6 @@ useEffect(() => {
     }, []);
 
     const checkAndShowReminder = (currentUser) => {
-        // Lembrete agora é para todos os usuários logados
         if (currentUser) {
             const lastDismissed = localStorage.getItem('lastReminderDismissedTimestamp');
             const twentyFourHours = 24 * 60 * 60 * 1000;
@@ -49,9 +46,6 @@ useEffect(() => {
         localStorage.setItem('lastReminderDismissedTimestamp', Date.now().toString());
     };
 
-    // -------------------------------------------------------------------------
-    // LOGIN
-    // -------------------------------------------------------------------------
     const login = async (email, password) => {
         try {
             const data = await httpClient.post("/login", { email, password });
@@ -64,22 +58,19 @@ useEffect(() => {
                     };
                 }
 
-                // Após o login, recarrega /me para garantir que venham os suppliers (cookie já setado)
                 try {
                     const me = await httpClient.get("/me");
                     if (me && me.success) {
-                            setUser(me.user);
-                            // armazenamos apenas metadados não sensíveis para conveniência
-                            try {
-                                const meta = { id: me.user?.id ?? null, lastSeen: Date.now() };
-                                localStorage.setItem("user_meta", JSON.stringify(meta));
-                                // remove eventuais chaves antigas
-                                localStorage.removeItem("user_data");
-                                localStorage.removeItem("user");
-                            } catch (e) {
-                                logger.error(e);
-                            }
-                            checkAndShowReminder(me.user);
+                        setUser(me.user);
+                        try {
+                            const meta = { id: me.user?.id ?? null, lastSeen: Date.now() };
+                            localStorage.setItem("user_meta", JSON.stringify(meta));
+                            localStorage.removeItem("user_data");
+                            localStorage.removeItem("user");
+                        } catch (e) {
+                            logger.error(e);
+                        }
+                        checkAndShowReminder(me.user);
                     } else {
                         setUser(data.user);
                         try {
@@ -91,7 +82,6 @@ useEffect(() => {
                         checkAndShowReminder(data.user);
                     }
                 } catch (err) {
-                    // Se /me falhar por algum motivo, fallback para dados vindos do /login
                     setUser(data.user);
                     try { localStorage.setItem("user_meta", JSON.stringify({ id: data.user?.id ?? null, lastSeen: Date.now() })); localStorage.removeItem("user_data"); localStorage.removeItem("user"); } catch (e) {}
                     checkAndShowReminder(data.user);
@@ -103,8 +93,6 @@ useEffect(() => {
                     role: data.user.role
                 };
             }
-
-            // CASO 2: Backend retornou ERRO (senha errada, etc)
             else {
                 const msgErro = data.message || data.detail || "Credenciais inválidas.";
                 return {
@@ -115,13 +103,10 @@ useEffect(() => {
 
         } catch (error) {
             logger.error("Erro no login context:", error);
-            // Normaliza a mensagem de erro para string (backend pode retornar array/obj)
             const extractMessage = (data) => {
                 if (!data) return null;
                 if (typeof data === 'string') return data;
-                // Pydantic/fastapi commonly returns { detail: [ { msg, loc, ...}, ... ] }
                 if (Array.isArray(data)) {
-                    // array of error objects or strings
                     try {
                         return data.map(d => (typeof d === 'string' ? d : (d.msg || JSON.stringify(d)))).join(' | ');
                     } catch (e) {
@@ -148,13 +133,10 @@ useEffect(() => {
         } finally {
             setUser(null);
             try { localStorage.removeItem("user_meta"); localStorage.removeItem("user_data"); localStorage.removeItem("user"); } catch (e) {}
-            // Redireciona
             window.location.href = "/";
         }
     };
     
-
-    // Helper para verificar permissão facilmente nos componentes
     const isGestor = user?.role === "gestor";
 
     return (

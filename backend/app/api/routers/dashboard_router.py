@@ -73,9 +73,10 @@ def get_supplier_status(
 def get_critical_items(
     limit: int = 20,
     supplier: Optional[str] = Query(None),
+    no_pending_only: bool = Query(False),
     service: DashboardService = Depends(get_dashboard_service)
 ):
-    return service.get_critical_items(limit=limit, supplier=supplier)
+    return service.get_critical_items(limit=limit, supplier=supplier, no_pending_only=no_pending_only)
 
 @router.get("/dashboard/excess", response_model=List[Dict[str, Any]])
 def get_excess_items(

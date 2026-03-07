@@ -2,15 +2,24 @@ import httpClient from './validators/api/httpClient';
 import { exportStockXLSX } from "./xlsxExporter";
 import { logger } from "../utils/logger";
 
-const FILIAL_OPTIONS = ["Porto Alegre", "Joinville", "São Paulo"];
+export const BRANCH_OPTIONS = ["Porto Alegre", "Joinville", "São Paulo"];
+export const STOCK_STATUS_OPTIONS = ["Ok", "Subdimensionado", "Ruptura iminente", "Excesso", "Sem demanda"];
+
+export const getStockCoverageStatus = (daysCoverage) => {
+    if (daysCoverage === null || daysCoverage === undefined) return "Sem demanda";
+    if (daysCoverage <= 30) return "Ruptura iminente";
+    if (daysCoverage <= 60) return "Subdimensionado";
+    if (daysCoverage <= 100) return "Ok";
+    return "Excesso";
+};
 
 const normalizeFilial = (value) => {
     const text = String(value || "").trim();
     if (!text) return "";
-    return FILIAL_OPTIONS.includes(text) ? text : "";
+    return BRANCH_OPTIONS.includes(text) ? text : "";
 };
 
-// Adicionado o parâmetro 'index' para criar uma chave única
+
 const mapStockToFrontend = (item, index) => {
     let rawSupplier = item.primary_supplier || item.supplier_name || item.fornecedor || item.supplier || item.suppliers?.name;
     let supplierStr = String(rawSupplier || "").trim();
@@ -23,8 +32,8 @@ const mapStockToFrontend = (item, index) => {
     const uniqueReactId = `${baseId}-${index}-${Math.random().toString(36).substr(2, 5)}`;
 
     return {
-        id: uniqueReactId, // ID Único para o DataGrid renderizar sem erros
-        real_sku_id: item.sku_id || item.id, // O ID real guardado para quando for criar a encomenda (pedido)
+        id: uniqueReactId,
+        real_sku_id: item.sku_id || item.id,
         codigo: item.sku_code || item.codigo || item.tb_skus?.codigo || "S/C",
         item: item.name || item.item || item.tb_skus?.nome_produto || "Item sem nome",
         categoria: item.category || item.categoria || "Geral",
@@ -38,6 +47,8 @@ const mapStockToFrontend = (item, index) => {
         sao_paulo: item.sao_paulo || item.estoque_sp || 0,
         rop: Math.ceil(item.rop || 0),
         qtd_sugerida: Math.ceil(item.qtd_sugerida || 0),
+        unidades_pendentes: Math.ceil(item.unidades_pendentes || item.pedidos_pendentes || 0),
+        quantidade_sugerida_compra_projetada: Math.ceil(item.quantidade_sugerida_compra_projetada || 0),
         leadtime: item.leadtime || 0,
         _raw: item
     };
@@ -46,19 +57,22 @@ const mapStockToFrontend = (item, index) => {
 export const getStockData = async (filial, fornecedor, status) => {
     try {
         const args = typeof filial === 'object' ? filial : { filial, fornecedor, status };
+        const usePendingUnitsZeroRoute = Number(args.unidadesPendentes) === 0;
 
         const params = new URLSearchParams();
         if (args.filial && args.filial !== "Todos") params.append('filial', args.filial);
         if (args.fornecedor && args.fornecedor !== "Todos") params.append('fornecedor', args.fornecedor);
-        if (args.status && args.status !== "Todos") params.append('status', args.status);
+        if (!usePendingUnitsZeroRoute && args.status && args.status !== "Todos") params.append('status', args.status);
 
         const queryString = params.toString();
-        const endpoint = queryString ? `/stock?${queryString}` : '/stock';
+        const baseEndpoint = usePendingUnitsZeroRoute
+            ? '/stock/skus/no-pending-units'
+            : '/stock';
+        const endpoint = queryString ? `${baseEndpoint}?${queryString}` : baseEndpoint;
         
         const response = await httpClient.get(endpoint);
         const dataList = Array.isArray(response) ? response : (response.data || []);
-        
-        // Passa o item e o índice (index) para a função de mapeamento
+
         return dataList.map((item, index) => mapStockToFrontend(item, index));
 
     } catch (error) {
@@ -118,7 +132,6 @@ export const importStockFromFile = async (file) => {
     const response = await fetch(`${API_URL}/stock/import`, {
         method: "POST",
         body: formData,
-        // ESTA É A LINHA QUE RESOLVE O 401: Envia o cookie de login para o backend
         credentials: "include",
     });
 

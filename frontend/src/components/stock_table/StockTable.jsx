@@ -73,6 +73,15 @@ export default function StockTable({
             align: "left",
         },
         {
+            field: "unidades_pendentes",
+            headerName: "Unidades pendentes",
+            type: "number",
+            minWidth: 150,
+            flex: 0.9,
+            headerAlign: "left",
+            align: "left",
+        },
+        {
             field: "fornecedor",
             headerName: "Fornecedor",
             minWidth: 150,

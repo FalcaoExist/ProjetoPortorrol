@@ -1,17 +1,21 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
-import { getStockData, createOrderBatch, getSuppliers } from "../services/stockService";
+import {
+    BRANCH_OPTIONS,
+    createOrderBatch,
+    getStockCoverageStatus,
+    getStockData,
+    getSuppliers,
+} from "../services/stockService";
 import { logger } from "../utils/logger";
 import { useAuth } from "../context/authContext";
 import { getPersistedSupplierFilter, setPersistedSupplierFilter } from "../utils/supplierFilterPersistence";
 
-const BRANCH_OPTIONS = ["Porto Alegre", "Joinville", "São Paulo"];
+const getSuggestedQuantity = (row) => {
+    const unidadesPendentes = parseFloat(row?.unidades_pendentes) || 0;
+    const sugeridaProjetada = parseFloat(row?.quantidade_sugerida_compra_projetada) || 0;
+    const sugeridaPadrao = parseFloat(row?.qtd_sugerida) || 0;
 
-const getStatusText = (dias) => {
-    if (dias === null || dias === undefined) return "Sem demanda";
-    if (dias <= 30) return "Ruptura iminente";
-    if (dias <= 60) return "Subdimensionado";
-    if (dias <= 100) return "Ok";
-    return "Excesso";
+    return unidadesPendentes > 0 ? sugeridaProjetada : sugeridaPadrao;
 };
 
 export const useStock = () => {
@@ -31,6 +35,7 @@ export const useStock = () => {
     const [statusFilter, setStatusFilter] = useState("");
     const [fornecedor, setFornecedor] = useState("");
     const [filial, setFilial] = useState("");
+    const [unidadesPendentesFiltro, setUnidadesPendentesFiltro] = useState(null);
 
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [itemToDelete, setItemToDelete] = useState(null);
@@ -101,8 +106,11 @@ export const useStock = () => {
         const activeFilters = {};
         if (filial) activeFilters.filial = filial;
         if (fornecedor) activeFilters.fornecedor = fornecedor;
+        if (unidadesPendentesFiltro !== null && unidadesPendentesFiltro !== undefined) {
+            activeFilters.unidadesPendentes = unidadesPendentesFiltro;
+        }
         fetchStock(activeFilters);
-    }, [fetchStock, filial, fornecedor]);
+    }, [fetchStock, filial, fornecedor, unidadesPendentesFiltro]);
 
     useEffect(() => {
         const selectionSet = rowSelectionModel?.ids || new Set();
@@ -114,13 +122,13 @@ export const useStock = () => {
                     const existingItem = prevOrderRows.find(nr => nr.real_sku_id === item.real_sku_id);
                     if (existingItem) return existingItem;
 
-                    const qtdSugerida = item.qtd_sugerida > 0 ? item.qtd_sugerida : 0;
+                    const qtdSugerida = getSuggestedQuantity(item);
                     
                     return {
                         ...item,
                         real_sku_id: item.real_sku_id || item.sku_id || item.id,
-                        unidades: item.qtd_sugerida !== undefined ? item.qtd_sugerida : 0,
-                        quantidade: item.qtd_sugerida !== undefined ? item.qtd_sugerida : 0,
+                        unidades: qtdSugerida > 0 ? qtdSugerida : 0,
+                        quantidade: qtdSugerida > 0 ? qtdSugerida : 0,
                         filial: item.filial || "",
                         // Setada para o leadtime vindo do back
                         previsao_entrega: new Date(Date.now() + (item.leadtime || 15) * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
@@ -134,7 +142,7 @@ export const useStock = () => {
 
     const filteredRows = useMemo(() => {
         return stockData.filter(row => {
-            const statusText = getStatusText(row.dias_cobertura);
+            const statusText = getStockCoverageStatus(row.dias_cobertura);
             const searchLower = searchQuery.toLowerCase();
             const itemText = (row.item || "").toLowerCase();
             const codigoText = (row.codigo || "").toLowerCase();
@@ -154,7 +162,7 @@ export const useStock = () => {
                 if (row.dias_cobertura === null || row.dias_cobertura === undefined) return false;
                 const rop = parseFloat(row.rop) || 0;
                 const unidades = parseFloat(row.unidades) || 0;
-                const sugerida = parseFloat(row.qtd_sugerida) || 0;
+                const sugerida = getSuggestedQuantity(row);
                 return (unidades <= rop) && (sugerida > 0);
             });
             
@@ -241,6 +249,7 @@ export const useStock = () => {
         statusFilter, setStatusFilter,
         fornecedor, setFornecedor,
         filial, setFilial,
+        unidadesPendentesFiltro, setUnidadesPendentesFiltro,
         isDeleteModalOpen, setIsDeleteModalOpen,
         isImportConfirmModalOpen, setIsImportConfirmModalOpen,
         selectedFile, setSelectedFile,

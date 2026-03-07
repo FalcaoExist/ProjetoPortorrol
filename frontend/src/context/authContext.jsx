@@ -61,26 +61,27 @@ useEffect(() => {
                 try {
                     const me = await httpClient.get("/me");
                     if (me && me.success) {
-                            setUser(me.user);
-                            try {
-                                const meta = { id: me.user?.id ?? null, lastSeen: Date.now() };
-                                localStorage.setItem("user_meta", JSON.stringify(meta));
-                                localStorage.removeItem("user_data");
-                                localStorage.removeItem("user");
-                            } catch (e) {
-                                logger.error(e);
-                            }
-                            checkAndShowReminder(me.user);
+                        setUser(me.user);
+                        try {
+                            const meta = { id: me.user?.id ?? null, lastSeen: Date.now() };
+                            localStorage.setItem("user_meta", JSON.stringify(meta));
+                            localStorage.removeItem("user_data");
+                            localStorage.removeItem("user");
+                        } catch (e) {
+                            logger.error(e);
+                        }
+                        checkAndShowReminder(me.user);
                     } else {
                         setUser(data.user);
+                        try {
                             const meta = { id: data.user?.id ?? null, lastSeen: Date.now() };
                             localStorage.setItem("user_meta", JSON.stringify(meta));
                             localStorage.removeItem("user_data");
                             localStorage.removeItem("user");
                         } catch (e) {}
+                        checkAndShowReminder(data.user);
                     }
                 } catch (err) {
-                    // Se /me falhar por algum motivo, fallback para dados vindos do /login
                     setUser(data.user);
                     try { localStorage.setItem("user_meta", JSON.stringify({ id: data.user?.id ?? null, lastSeen: Date.now() })); localStorage.removeItem("user_data"); localStorage.removeItem("user"); } catch (e) {}
                     checkAndShowReminder(data.user);

@@ -1,71 +1,153 @@
-AUDIT_MESSAGES = {
-    "login": {
-        "label": "Login",
-        "severity": "INFO",
-        "default_description": "Usuário realizou login no sistema."
-    },
+from dataclasses import dataclass
+from typing import Dict
+from app.audit.audit_actions import AuditAction
 
-    "create_user": {
-        "label": "Criação de usuário",
-        "severity": "INFO",
-        "default_description": "Usuário criado com sucesso."
-    },
+@dataclass(frozen=True)
+class AuditMessage:
+    label: str
+    description: str
+    severity: str  # INFO | WARNING | ERROR | SUCCESS
+    category: str  # AUTH | USER | SUPPLIER | ORDER | DEMAND | STOCK | IMPORT | SYSTEM
 
-    "update_user": {
-        "label": "Atualização de usuário",
-        "severity": "INFO",
-        "default_description": "Usuário atualizado com sucesso."
-    },
+AUDIT_MESSAGES: Dict[AuditAction, AuditMessage] = {
 
-    "delete_user": {
-        "label": "Exclusão de usuário",
-        "severity": "WARNING",
-        "default_description": "Usuário excluído com sucesso."
-    },
+    # ===== AUTH =====
 
-    # LEGADO - manter para logs antigos - revisar depois de limpeza das rotas
-    "insert": {
-        "label": "Criação de registro",
-        "severity": "INFO",
-    },
+    AuditAction.LOGIN_SUCCESS: AuditMessage(
+        label="Login realizado",
+        description="Usuário autenticado com sucesso",
+        severity="INFO",
+        category="AUTH",
+    ),
 
-    "delete": {
-        "label": "Exclusão de registro",
-        "severity": "WARNING",
-        "default_description": "Registro excluído com sucesso."
-    },
+    AuditAction.LOGIN_FAILURE: AuditMessage(
+        label="Falha no login",
+        description="Tentativa de login com credenciais inválidas",
+        severity="WARNING",
+        category="AUTH",
+    ),
 
-    "import_error": {
-        "label": "Erro de importação",
-        "severity": "ERROR",
-    },
+    AuditAction.LOGOUT: AuditMessage(
+        label="Logout realizado",
+        description="Usuário encerrou a sessão no sistema",
+        severity="INFO",
+        category="AUTH",
+    ),
 
-    "import_row_failure": {
-        "label": "Erro em linha importada",
-        "severity": "ERROR",
-    },
+    # ===== USER =====
 
-    "import_file_failure": {
-        "label": "Erro no arquivo importado",
-        "severity": "ERROR",
-        "default_description": "Erro ao importar arquivo."
-    },
+    AuditAction.USER_CREATE: AuditMessage(
+        label="Usuário criado",
+        description="Novo usuário cadastrado no sistema",
+        severity="INFO",
+        category="USER",
+    ),
 
-    "import_success": {
-        "label": "Importação concluída",
-        "severity": "INFO",
-        "default_description": "Arquivo importado com sucesso."
-    },
+    AuditAction.USER_UPDATE: AuditMessage(
+        label="Usuário atualizado",
+        description="Dados do usuário foram alterados",
+        severity="INFO",
+        category="USER",
+    ),
 
-    "system_error": {
-        "label": "Erro do sistema",
-        "severity": "ERROR",
-        "default_description": "Ocorreu um erro inesperado no sistema."
-    },
+    AuditAction.USER_DELETE: AuditMessage(
+        label="Usuário removido",
+        description="Usuário excluído do sistema",
+        severity="WARNING",
+        category="USER",
+    ),
 
-    "update_password": {
-        "label": "Alteração de senha",
-        "severity": "INFO",
-        "default_description": "Senha do usuário alterada."
-    },
+    AuditAction.USER_PASSWORD_UPDATE: AuditMessage(
+        label="Senha alterada",
+        description="Senha do usuário foi atualizada",
+        severity="WARNING",
+        category="USER",
+    ),
+
+    # ===== SUPPLIER =====
+
+    AuditAction.SUPPLIER_CREATE: AuditMessage(
+        label="Fornecedor criado",
+        description="Novo fornecedor cadastrado",
+        severity="INFO",
+        category="SUPPLIER",
+    ),
+
+    AuditAction.SUPPLIER_UPDATE: AuditMessage(
+        label="Fornecedor atualizado",
+        description="Dados do fornecedor foram modificados",
+        severity="INFO",
+        category="SUPPLIER",
+    ),
+
+    AuditAction.SUPPLIER_LEADTIME_UPDATE: AuditMessage(
+        label="Leadtime atualizado",
+        description="Leadtime do fornecedor por filial foi atualizado",
+        severity="INFO",
+        category="SUPPLIER",
+    ),
+
+    AuditAction.SUPPLIER_DELETE: AuditMessage(
+        label="Fornecedor removido",
+        description="Fornecedor foi excluído do sistema",
+        severity="WARNING",
+        category="SUPPLIER",
+    ),
+
+    # ===== ORDER =====
+
+    AuditAction.ORDER_CREATE: AuditMessage(
+        label="Pedido criado",
+        description="Novo pedido registrado no sistema",
+        severity="INFO",
+        category="ORDER",
+    ),
+
+    AuditAction.ORDER_STATUS_CHANGE: AuditMessage(
+        label="Status do pedido alterado",
+        description="Status do pedido foi modificado",
+        severity="WARNING",
+        category="ORDER",
+    ),
+
+    # ===== DEMAND =====
+
+    AuditAction.DEMAND_UPDATE: AuditMessage(
+        label="Demanda atualizada",
+        description="Demanda foi alterada manualmente",
+        severity="INFO",
+        category="DEMAND",
+    ),
+
+    # ===== IMPORT =====
+
+    AuditAction.IMPORT_SUCCESS: AuditMessage(
+        label="Importação concluída",
+        description="Arquivo importado com sucesso",
+        severity="INFO",
+        category="IMPORT",
+    ),
+
+    AuditAction.IMPORT_FAILURE: AuditMessage(
+        label="Falha na importação",
+        description="Erro durante processamento do arquivo",
+        severity="ERROR",
+        category="IMPORT",
+    ),
+
+    AuditAction.IMPORT_ROW_FAILURE: AuditMessage(
+        label="Erro em linha da importação",
+        description="Falha ao processar linha específica do arquivo",
+        severity="WARNING",
+        category="IMPORT",
+    ),
+
+    # ===== SYSTEM =====
+    
+    AuditAction.SYSTEM_ERROR: AuditMessage(
+        label="Erro interno do sistema",
+        description="Erro inesperado registrado pelo sistema",
+        severity="ERROR",
+        category="SYSTEM",
+    ),
 }

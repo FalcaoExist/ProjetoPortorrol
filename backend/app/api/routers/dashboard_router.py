@@ -4,12 +4,9 @@ from app.api.schemas import (
     ConfigUpdate, FilialResponse, SkuAnaliseResponse, StatusProduto,
 )
 from app.services.dashboard_service import DashboardService
-from app.core.dependencies import get_current_user
+from app.core.dependencies import get_current_user, get_dashboard_service
 
 router = APIRouter()
-
-def get_dashboard_service():
-    return DashboardService()
 
 @router.get("/dashboard/search")
 def search_skus(

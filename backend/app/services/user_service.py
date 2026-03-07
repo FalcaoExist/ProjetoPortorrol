@@ -5,19 +5,29 @@ from fastapi import HTTPException, status
 from app.core.interfaces import IPasswordHasher, IUserRepository
 from .service_models import UserCreateRequest, UserUpdateRequest
 from app.audit.audit_actions import AuditAction
+from app.services.audit_service import AuditService
 
 logger = logging.getLogger(__name__)
 
 class UserService:
-    
-    def __init__(self, user_repo: IUserRepository, hasher: IPasswordHasher):
+
+    def __init__(self, user_repo: IUserRepository, hasher: IPasswordHasher, audit_service: AuditService):
         self.user_repo = user_repo
         self.hasher = hasher
+        self.audit_service = audit_service
 
-    def create_new_user(self, data: UserCreateRequest, performed_by: Optional[str] = None) -> Dict[str, Any]:
+    def create_new_user(
+        self,
+        data: UserCreateRequest,
+        performed_by: Optional[str] = None
+    ) -> Dict[str, Any]:
+
         if self.user_repo.get_user_by_email(data.email.lower()):
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="E-mail já cadastrado no sistema.")
-        
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="E-mail já cadastrado no sistema.",
+            )
+
         new_user_data_db = {
             "user_id": str(uuid.uuid4()),
             "name": data.name,
@@ -26,8 +36,9 @@ class UserService:
             "role": data.role,
             "is_active": True
         }
-        
+
         try:
+
             created_user = self.user_repo.create_user(new_user_data_db)
             new_user_id = created_user["user_id"]
 
@@ -36,24 +47,20 @@ class UserService:
 
             created_user.pop("password_hash", None)
             created_user["supplier"] = data.supplier
-            
-            try:
-                self.user_repo.insert_audit_log(
-                    performed_by=performed_by or new_user_id,
-                    action=AuditAction.CREATE_USER,
-                    entity="users",
-                    entity_id=new_user_id,
-                    extra={"name": created_user["name"], "role": created_user["role"]}
-                )
-            except Exception as e:
-                logger.error(
-                    "Falha ao registrar auditoria de criação de usuário - user_id: %s - erro: %s",
-                    new_user_id,
-                    str(e),
-                )
+
+            self.audit_service.log(
+                action=AuditAction.USER_CREATE,
+                performed_by=performed_by or new_user_id,
+                entity="USER",
+                entity_id=new_user_id,
+                extra={
+                    "name": created_user["name"],
+                    "role": created_user["role"]
+                }
+            )
 
             return created_user
-        
+
         except Exception:
             logger.exception("Erro ao criar usuário - email: %s", data.email)
             raise HTTPException(
@@ -61,24 +68,46 @@ class UserService:
                 detail="Erro ao salvar usuário.",
             )
 
-    def get_formatted_users(self, name: Optional[str] = None, email: Optional[str] = None) -> Dict[str, Any]:
+    def get_formatted_users(
+        self,
+        name: Optional[str] = None,
+        email: Optional[str] = None
+    ) -> Dict[str, Any]:
+
         try:
-            all_users = self.user_repo.get_all_users()        
+
+            all_users = self.user_repo.get_all_users()
             filtered_users = all_users
-            
+
             if name:
-                filtered_users = [u for u in filtered_users if name.lower() in u.get("name", "").lower()]
+                filtered_users = [
+                    u for u in filtered_users
+                    if name.lower() in u.get("name", "").lower()
+                ]
+
             if email:
-                filtered_users = [u for u in filtered_users if email.lower() in u.get("email", "").lower()]
-            
-            sorted_users = sorted(filtered_users, key=lambda u: u.get("name", "").lower())
-            
+                filtered_users = [
+                    u for u in filtered_users
+                    if email.lower() in u.get("email", "").lower()
+                ]
+
+            sorted_users = sorted(
+                filtered_users,
+                key=lambda u: u.get("name", "").lower()
+            )
+
             users_list = []
+
             for user in sorted_users:
                 user.pop("password_hash", None)
                 users_list.append(user)
-            
-            return {"success": True, "users": users_list, "total": len(users_list)}
+
+            return {
+                "success": True,
+                "users": users_list,
+                "total": len(users_list)
+            }
+
         except Exception:
             logger.exception("Erro ao buscar usuários")
             raise HTTPException(
@@ -87,93 +116,98 @@ class UserService:
             )
 
     def get_user_by_id(self, user_id: str) -> Dict[str, Any]:
+
         user = self.user_repo.get_user_by_id(user_id)
+
         if not user:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuário não encontrado.")
-        
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Usuário não encontrado."
+            )
+
         supplier_list = self.user_repo.get_suppliers_for_user(user_id)
+
         user.pop("password_hash", None)
         user["supplier"] = supplier_list
+
         return user
 
-    def update_existing_user(self, user_id: str, request_data: UserUpdateRequest, performed_by: Optional[str] = None) -> Dict[str, Any]:
+    def update_existing_user(
+        self,
+        user_id: str,
+        request_data: UserUpdateRequest,
+        performed_by: Optional[str] = None
+    ) -> Dict[str, Any]:
+
         old_user = self.get_user_by_id(user_id)
-        
+
         updates = request_data.model_dump(exclude_unset=True)
-        supplier_list = updates.pop("supplier", None) 
-        
+
+        supplier_list = updates.pop("supplier", None)
+
         new_password = updates.pop("password", None)
+
         if new_password:
             updates["password_hash"] = self.hasher.hash(new_password)
 
         if not updates and supplier_list is None:
-             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Nenhum dado fornecido.")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Nenhum dado fornecido.",
+            )
 
         if updates:
-            try:
-                self.user_repo.update_user(user_id, updates)
-            except Exception:
-                logger.exception("Erro ao atualizar usuário - user_id: %s", user_id)
-                raise
+            self.user_repo.update_user(user_id, updates)
 
         if supplier_list is not None:
-            try:
-                self.user_repo.sync_user_suppliers(user_id, supplier_list)
-            except Exception:
-                logger.exception(
-                    "Erro ao sincronizar fornecedores do usuário - user_id: %s",
-                    user_id,
-                )
-                raise
-        
-        try:
-            changed_fields = {}
-            for key in ["name", "email", "role", "is_active"]:
-                if key in updates and updates[key] != old_user.get(key):
-                    changed_fields[key] = {"old": old_user.get(key), "new": updates[key]}
-            
-            if supplier_list is not None and set(supplier_list) != set(old_user.get("supplier", [])):
-                changed_fields["supplier"] = {"old": old_user.get("supplier"), "new": supplier_list}
+            self.user_repo.sync_user_suppliers(user_id, supplier_list)
 
-            if changed_fields:
-                self.user_repo.insert_audit_log(
-                    performed_by=performed_by or "system",
-                    action=AuditAction.UPDATE_USER,
-                    entity="users",
+        for key in ["name", "email", "role", "is_active"]:
+
+            if key in updates and updates[key] != old_user.get(key):
+
+                self.audit_service.log(
+                    action=AuditAction.USER_UPDATE,
+                    performed_by=performed_by,
+                    entity="USER",
                     entity_id=user_id,
-                    extra=changed_fields
+                    extra={
+                        "field": key,
+                        "old_value": old_user.get(key),
+                        "new_value": updates[key]
+                    }
                 )
-        except Exception as e:
-            logger.error(
-                "Falha ao registrar auditoria de atualização de usuário - user_id: %s - erro: %s",
-                user_id, str(e),
-            )
-        
+
         return self.get_user_by_id(user_id)
-  
-    def delete_user_permanently(self, user_id: str, performed_by: Optional[str] = None):
+
+    def delete_user_permanently(
+        self,
+        user_id: str,
+        performed_by: Optional[str] = None
+    ):
+
         user = self.user_repo.get_user_by_id(user_id)
+
         if not user:
-             raise HTTPException(status_code=404, detail="Usuário não encontrado.")
+            raise HTTPException(
+                status_code=404,
+                detail="Usuário não encontrado."
+            )
 
         try:
-            self.user_repo.delete_user(user_id) 
-            
-            try:
-                self.user_repo.insert_audit_log(
-                    performed_by=performed_by or "system",
-                    action=AuditAction.DELETE_USER,
-                    entity="users",
-                    entity_id=user_id,
-                    extra={"deleted_user": user.get("email")}
-                )
-            except Exception as e:
-                logger.error(
-                    "Falha ao registrar auditoria de exclusão de usuário - user_id: %s - erro: %s",
-                    user_id, str(e),
-                )
+
+            self.user_repo.delete_user(user_id)
+
+            self.audit_service.log(
+                action=AuditAction.USER_DELETE,
+                performed_by=performed_by,
+                entity="USER",
+                entity_id=user_id,
+                extra={"email": user.get("email")}
+            )
 
             return True
+
         except Exception:
             logger.exception("Erro ao excluir usuário - user_id: %s", user_id)
             raise HTTPException(
@@ -182,10 +216,19 @@ class UserService:
             )
 
     def get_available_suppliers(self) -> List[str]:
+
         return self.user_repo.get_all_suppliers()
-    
-    def change_password(self, user_id: str, old_password: str, new_password: str, performed_by: str):
+
+    def change_password(
+        self,
+        user_id: str,
+        old_password: str,
+        new_password: str,
+        performed_by: str
+    ):
+
         user = self.user_repo.get_user_by_id(user_id)
+
         if not user:
             raise HTTPException(status_code=404, detail="Usuário não encontrado.")
 
@@ -196,19 +239,12 @@ class UserService:
 
         self.user_repo.update_user(user_id, {"password_hash": new_hash})
 
-        try:
-            self.user_repo.insert_audit_log(
-                performed_by=performed_by,
-                action=AuditAction.UPDATE_PASSWORD,
-                entity="users",
-                entity_id=user_id,
-                extra={"message": "Senha alterada pelo próprio usuário"}
-            )
-        except Exception as e:
-            logger.error(
-                "Falha ao registrar auditoria de alteração de senha - user_id: %s - erro: %s",
-                user_id,
-                str(e),
-            )
+        self.audit_service.log(
+            action=AuditAction.USER_PASSWORD_UPDATE,
+            performed_by=performed_by,
+            entity="USER",
+            entity_id=user_id,
+            extra={"message": "Senha alterada"}
+        )
 
         return True

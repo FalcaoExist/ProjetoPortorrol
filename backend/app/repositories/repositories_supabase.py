@@ -179,8 +179,9 @@ class SupabaseUserRepository(IUserRepository):
 
     def insert_audit_log(self, performed_by: str, action: str, entity: str, entity_id: Optional[str], extra: Optional[dict] = None) -> None:
         try:
+            actor = str(performed_by).strip() if performed_by is not None else ""
             payload = {
-                "user_id": str(performed_by),
+                "user_id": actor or "system",
                 "action": action,
                 "entity": entity,
                 "entity_id": str(entity_id) if entity_id else None,

@@ -1,11 +1,9 @@
 import { useState, useEffect, useMemo } from "react";
-import { FiEdit } from "react-icons/fi";
 
 import Navbar from "../components/nav_bar/NavBar";
 import Header from "../components/header/Header";
 import UserFilter from "../components/user_filter/UserFilter";
 import RecordsTable from "../components/records_table/RecordsTable";
-import TimeEditModal from "../components/records_table/TimeEditModal";
 import { useAuth } from "../context/authContext";
 import { getAuditLogs } from "../services/auditService";
 import { logger } from "../utils/logger";
@@ -19,8 +17,6 @@ export default function Records() {
     const [usersList, setUsersList] = useState([ALL_USERS_OPTION]);
     const [selectedUser, setSelectedUser] = useState(ALL_USERS_OPTION);
     const [loading, setLoading] = useState(true);
-    const [isModalOpen, setIsModalOpen] = useState(false);
-    const [importTime, setImportTime] = useState("05:00");
 
     useEffect(() => {
         if (!isGestor) {
@@ -36,19 +32,10 @@ export default function Records() {
         try {
             const logs = await getAuditLogs({ limit: 500 });
 
-            const mapped = logs.map((log) => ({
-                id: log.id ?? log.log_id,              
-                user: log.user,                        
-                timestamp: log.timestamp,              
-                action_label: log.action_label,        
-                severity: log.severity,                
-                description: log.description,          
-            }));
-
-            setRecords(mapped);
+            setRecords(logs);
 
             const uniqueUsers = Array.from(
-                new Set(mapped.map((l) => l.user).filter(Boolean))
+                new Set(logs.map((l) => l.user).filter(Boolean))
             ).map((name, index) => ({
                 id: index + 1,
                 name
@@ -66,10 +53,6 @@ export default function Records() {
 
     const handleUserFilterChange = (option) => {
         setSelectedUser(option ?? ALL_USERS_OPTION);
-    };
-
-    const handleSaveTime = (newTime) => {
-        setImportTime(newTime);
     };
 
     const filteredRecords = useMemo(() => {

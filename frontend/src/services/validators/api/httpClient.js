@@ -1,11 +1,8 @@
-// src/services/validators/api/httpClient.js
-
 const API_URL = import.meta.env.VITE_API_URL || "";
 
 const customFetch = async (endpoint, options = {}) => {
   const url = `${API_URL}${endpoint}`;
 
-  // LÓGICA DE HEADER DE USUÁRIO (Mantenha como estava)
   let userHeader = {};
     try {
       const storedMeta = localStorage.getItem("user_meta") || localStorage.getItem("user_data") || localStorage.getItem("user");
@@ -27,9 +24,7 @@ const customFetch = async (endpoint, options = {}) => {
       ...userHeader,
       ...options.headers,
     },
-    // 👇 ADICIONE ESTA LINHA OBRIGATORIAMENTE 👇
     credentials: "include", 
-    // 👆 Isso permite que o Cookie de sessão vá e volte entre Frontend e Backend
   };
 
   try {
@@ -50,7 +45,6 @@ const customFetch = async (endpoint, options = {}) => {
     }
 
     if (!response.ok) {
-      // Se for 401 no endpoint /me, é apenas sessão expirada, não precisa poluir o console com erro crítico
       if (response.status === 401 && endpoint.includes("/me")) {
          throw new Error("Sessão expirada");
       }

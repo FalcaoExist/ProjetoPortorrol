@@ -5,9 +5,8 @@ import UserProfileSummary from "../components/user_profile_summary/UserProfileSu
 import SuppliersTable from "../components/suppliers_table/SuppliersTable";
 import ConfirmDeleteModal from "../components/common/ConfirmDeleteModal.jsx";
 import { useAuth } from "../context/authContext";
-import { useLeadtimeHistory } from "../hooks/useLeadtimeHistory";
 
-import { getSuppliers, deleteSupplier } from "../services/supplierService";
+import { getSuppliers, deleteSupplier, mapSupplierToGrid } from "../services/supplierService";
 import { logger } from "../utils/logger";
 
 export default function ListSuppliers() {
@@ -15,12 +14,6 @@ export default function ListSuppliers() {
 
     const [suppliers, setSuppliers] = useState([]);
     const [loading, setLoading] = useState(true);
-
-    const {
-        history: leadtimeHistory,
-        registerSnapshot,
-        removeSupplierHistory,
-    } = useLeadtimeHistory({});
 
     const [deleteModalOpen, setDeleteModalOpen] = useState(false);
     const [deleteTarget, setDeleteTarget] = useState(null);
@@ -30,15 +23,7 @@ export default function ListSuppliers() {
             try {
                 const data = await getSuppliers();
 
-                const formatted = data.map((item) => ({
-                    id: item.supplier_id,
-                    name: item.name,
-                    budget: item.budget,
-                    leadtimes: item.leadtimes || [],
-                    start: item.start ? new Date(item.start) : null,
-                    end: item.end ? new Date(item.end) : null,
-                    is_active: item.is_active,
-                }));
+                const formatted = (data || []).map(mapSupplierToGrid);
 
                 setSuppliers(formatted);
             } catch (error) {
@@ -74,8 +59,6 @@ export default function ListSuppliers() {
                 prev.filter((supplier) => supplier.id !== deleteTarget.id)
             );
 
-            removeSupplierHistory(deleteTarget.id);
-
             return {
                 success: true,
                 message: `Fornecedor ${deleteTarget.name} excluído com sucesso.`,
@@ -88,15 +71,7 @@ export default function ListSuppliers() {
                 message: "Erro ao excluir fornecedor.",
             };
         }
-    }, [deleteTarget, removeSupplierHistory]);
-
-    const handleRegisterCurrentSnapshot = useCallback(
-        (supplierId, notes = "") => {
-            const supplier = suppliers.find((row) => row.id === supplierId);
-            return registerSnapshot(supplier, notes);
-        },
-        [suppliers, registerSnapshot]
-    );
+    }, [deleteTarget]);
 
     return (
         <div className="grid min-h-screen grid-cols-[16rem_minmax(0,1fr)]">
@@ -120,8 +95,6 @@ export default function ListSuppliers() {
                             rows={suppliers}
                             setRows={setSuppliers}
                             onRequestDelete={handleRequestDeleteSupplier}
-                            historyBySupplier={leadtimeHistory}
-                            onRegisterCurrentSnapshot={handleRegisterCurrentSnapshot}
                             loading={loading}
                         />
                     </section>

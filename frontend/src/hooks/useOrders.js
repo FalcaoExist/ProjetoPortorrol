@@ -1,11 +1,10 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
-import httpClient from "../services/validators/api/httpClient";
+import ordersService from "../services/ordersService";
 import { getSuppliers } from "../services/stockService";
 import { logger } from "../utils/logger";
 import { useAuth } from "../context/authContext";
 import { getPersistedSupplierFilter, setPersistedSupplierFilter } from "../utils/supplierFilterPersistence";
 
-// Função utilitária para remover acentos e facilitar a busca
 const removeAcentos = (str) => {
     if (!str) return "";
     return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
@@ -99,62 +98,11 @@ export function useOrders() {
     const fetchOrders = useCallback(async () => {
         setLoading(true);
         try {
-            const response = await httpClient.get("/orders");
-            
-            let rawData = [];
-            if (Array.isArray(response)) rawData = response;
-            else if (response?.data && Array.isArray(response.data)) rawData = response.data;
-            else if (response?.items && Array.isArray(response.items)) rawData = response.items;
-
-            const formattedData = rawData.map((item, index) => {
-                const finalId = item.id || `temp-${index}`;
-                
-                const previsaoRaw = item.expected_delivery_date || item.previsao_entrega || null;
-                const entregaRaw = item.data_entrega || null;
-                
-                let statusBinario = item.status || "Aprovado";
-                const hoje = new Date();
-                hoje.setHours(0,0,0,0);
-                
-                // AJUSTE SOLID: Prioriza o status "Finalizado" vindo do banco ou a existência de data de entrega
-                if (statusBinario === "Finalizado" || entregaRaw) {
-                    statusBinario = "Finalizado";
-                } else if (previsaoRaw) {
-                    const dataPrevisao = new Date(previsaoRaw);
-                    const dataPrevisaoLimpa = new Date(dataPrevisao.valueOf() + dataPrevisao.getTimezoneOffset() * 60000);
-                    dataPrevisaoLimpa.setHours(0,0,0,0);
-                    
-                    if (dataPrevisaoLimpa < hoje) {
-                        statusBinario = "Atrasado";
-                    } else {
-                        statusBinario = "Aprovado";
-                    }
-                }
-
-                const dataCriacao = item.created_at || item.data_pedido || new Date().toISOString();
-
-                return {
-                    id: finalId, 
-                    real_id: item.real_id || item.order_id, 
-                    numero_pedido: item.numero_pedido || String(finalId).substring(0,8).toUpperCase(),
-                    responsavel: item.responsavel || "Sistema", 
-                    item: item.item_name || item.item || "Item",
-                    fornecedor: item.supplier_name || item.fornecedor || "Desc.", 
-                    filial: item.branch_name || item.filial || "", 
-                    quantidade: Number(item.quantity || item.quantidade || 0),
-                    valor: Number(item.total_value || item.valor || 0),
-                    data_pedido: dataCriacao, 
-                    created_at: dataCriacao,
-                    previsao_entrega: previsaoRaw,
-                    data_entrega: entregaRaw, 
-                    status: statusBinario,
-                    origem: item.origem || "MANUAL", // Essencial para o Service identificar a tabela correta
-                    _raw: item 
-                };
-            });
-            setOrdersData(formattedData);
+            const data = await ordersService.getAll();
+            setOrdersData(Array.isArray(data) ? data : []);
         } catch (error) {
             logger.error("Erro busca:", error);
+            setOrdersData([]);
         } finally {
             setLoading(false);
         }
@@ -163,65 +111,14 @@ export function useOrders() {
     useEffect(() => { fetchOrders(); }, [fetchOrders]);
 
     const handleUpdateData = async (rowId, field, value) => {
-        const isSameRow = (row) =>
-            String(row.id) === String(rowId) ||
-            String(row.real_id) === String(rowId) ||
-            String(row._raw?.order_id) === String(rowId);
+        const snapshot = Array.isArray(ordersData) ? ordersData : [];
 
-        let newStatus = null;
-
-        if (field === "data_entrega" && value) {
-            newStatus = "Finalizado";
-        }
-
-        setOrdersData(prev => prev.map(row => {
-            if (isSameRow(row)) {
-                const updated = { ...row, [field]: value };
-                if (newStatus) updated.status = newStatus;
-                
-                 if (field === "data_entrega" && !value && row.previsao_entrega) {
-                     const today = new Date();
-                     today.setHours(0,0,0,0);
-                     const prevDate = new Date(row.previsao_entrega);
-                     const prevLimpa = new Date(prevDate.valueOf() + prevDate.getTimezoneOffset() * 60000);
-                     prevLimpa.setHours(0,0,0,0);
-                     if (prevLimpa < today) updated.status = "Atrasado";
-                     else updated.status = "Aprovado";
-                }
-                
-                return updated;
-            }
-            return row;
-        }));
-
-        const itemsToUpdate = ordersData.filter(isSameRow);
-
-        if (itemsToUpdate.length === 0) return;
+        setOrdersData((previous) =>
+            ordersService.applyFieldUpdateLocally(previous, rowId, field, value)
+        );
 
         try {
-            await Promise.all(itemsToUpdate.map(async (item) => {
-                const apiField = field === "previsao_entrega" ? "expected_delivery_date" : field;
-                
-                // AJUSTE SOLID: Envia 'origem' e 'status' para garantir que o Backend grave na tabela certa com o status certo
-                const payload = { 
-                    [apiField]: value,
-                    origem: item.origem || "MANUAL"
-                };
-                if (newStatus) payload.status = newStatus;
-
-                const idParaSalvar = item.real_id || item._raw?.order_id || (!String(item.id).startsWith('temp') ? item.id : null);
-                if (!idParaSalvar) return;
-
-                const url = `/orders/${idParaSalvar}`;
-
-                if (typeof httpClient.put === 'function') {
-                    return await httpClient.put(url, payload);
-                } else if (typeof httpClient.patch === 'function') {
-                    return await httpClient.patch(url, payload);
-                } else {
-                    return await httpClient.post(url, payload);
-                }
-            }));
+            await ordersService.persistFieldUpdate(snapshot, rowId, field, value);
         } catch (err) {
             logger.error("ERRO AO SALVAR NA API:", err);
         }
@@ -250,8 +147,7 @@ export function useOrders() {
             acc[k].valor += item.valor;
             acc[k].quantidade += item.quantidade;
             acc[k].items.push(item);
-            
-            // AJUSTE SOLID: Garante que o status do grupo reflita se algum item está Atrasado ou Finalizado
+
             if (item.status === "Atrasado") {
                 acc[k].status = "Atrasado";
             } else if (item.status === "Finalizado" && acc[k].status !== "Atrasado") {
@@ -332,5 +228,6 @@ export function useOrders() {
         modalOpen, selectedOrderItems, handleOpenModal, handleCloseModal: () => setModalOpen(false),
         groupedAndFilteredOrders, handleUpdateData, fornecedorFilter, setFornecedorFilter,
         supplierOptions,
+        fetchOrders,
     };
 }

@@ -1,8 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import * as supplierService from "../services/supplierService";
 import dashboardService from "../services/dashboardService";
-
-const BRANCH_NAMES = ["Porto Alegre", "Joinville", "São Paulo"];
+import { logger } from "../utils/logger";
 
 export function useSupplierLeadtimes(supplierName) {
   const [leadtimes, setLeadtimes] = useState({});
@@ -26,34 +25,15 @@ export function useSupplierLeadtimes(supplierName) {
 
       const targetSupplier = suppliers.find(s => (s.name || s.nome) === supplierName);
 
-      const supplierLeadtimes = targetSupplier?.leadtimes || [];
-      const leadtimeMap = new Map(
-        supplierLeadtimes.map((lt) => [lt.branch_id, lt.leadtime])
+      const mappedLeadtimes = supplierService.buildSupplierLeadtimeMap(
+        filiais || [],
+        targetSupplier?.leadtimes || [],
+        supplierService.DEFAULT_BRANCH_NAMES
       );
-
-      const allBranches = filiais || [];
-      const relevantBranches = allBranches.filter(branch => 
-          BRANCH_NAMES.includes(branch.nome || branch.name)
-      );
-
-      const mappedLeadtimes = relevantBranches.reduce((acc, branch) => {
-        const branchName = branch.nome || branch.name;
-        acc[branchName] = leadtimeMap.has(branch.id)
-          ? leadtimeMap.get(branch.id)
-          : 0;
-        return acc;
-      }, {});
-
-      // Ensure all required branches are present in the final object
-      BRANCH_NAMES.forEach(name => {
-          if (!mappedLeadtimes.hasOwnProperty(name)) {
-              mappedLeadtimes[name] = 0; // Default to 0 if not found
-          }
-      });
       
       setLeadtimes(mappedLeadtimes);
     } catch (err) {
-      console.error("Erro ao buscar leadtimes do fornecedor:", err);
+      logger.error("Erro ao buscar leadtimes do fornecedor:", err);
       setError(err);
       setLeadtimes({});
     } finally {
@@ -61,19 +41,17 @@ export function useSupplierLeadtimes(supplierName) {
     }
   }, [supplierName]);
 
-  // Fetch on initial load and when supplierName changes
   useEffect(() => {
     fetchLeadtimes();
   }, [fetchLeadtimes]);
 
-  // Re-fetch when the window gains focus to ensure data is fresh
+  // Mantém os leadtimes sincronizados ao retornar para a aba.
   useEffect(() => {
     window.addEventListener('focus', fetchLeadtimes);
     return () => {
       window.removeEventListener('focus', fetchLeadtimes);
     };
   }, [fetchLeadtimes]);
-
 
   return { leadtimes, isLoading, error };
 }

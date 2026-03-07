@@ -1,16 +1,20 @@
-import httpClient from './validators/api/httpClient'; // Verifique se o caminho do httpClient está correto no seu projeto
+import httpClient from './validators/api/httpClient';
 import { logger } from "../utils/logger";
 
-const dashboardService = {
+const mapCriticalItem = (item = {}) => ({
+  name: item.codigo,
+  qtd: item.dias_cobertura,
+  dias: item.dias_cobertura,
+  demanda_real: item.demanda_mensal_media,
+  ...item,
+});
 
-  // ---> ADICIONE ESTA FUNÇÃO AQUI <---
+const dashboardService = {
   searchSkus: async (term) => {
     try {
-      // Faz a chamada HTTP para a rota nova que adicionamos no Python
       const response = await httpClient.get('/dashboard/search', {
         params: { term }
       });
-      // Garante que retorne o array de resultados (dependendo de como o Axios ou Fetch está configurado)
       return response.data || response || [];
     } catch (error) {
       logger.error("Erro ao buscar SKUs no backend:", error);
@@ -61,6 +65,17 @@ const dashboardService = {
     }
   },
 
+  getFormattedCriticalItems: async (limit = 20, supplier = null, noPendingOnly = false) => {
+    try {
+      const response = await dashboardService.getCriticalItems(limit, supplier, noPendingOnly);
+      const safeList = Array.isArray(response) ? response : [];
+      return safeList.map(mapCriticalItem);
+    } catch (error) {
+      logger.error("Erro ao normalizar itens críticos:", error);
+      return [];
+    }
+  },
+
   getExcessItems: async (limit = 20, supplier = null) => {
     try {
       let url = '/dashboard/excess';
@@ -94,8 +109,6 @@ const dashboardService = {
     try {
       let url = '/dashboard/suppliers/status';
       const params = new URLSearchParams();
-      // Se selecionou "Todos" (ou vazio), busca pelo fornecedor especial "TOTAL_GERAL"
-      // Caso contrário, busca pelo nome do fornecedor
       const targetSupplier = (fornecedor && fornecedor !== "Todos") ? fornecedor : "TOTAL_GERAL";
       params.append('supplier_name', targetSupplier);
 
@@ -107,8 +120,6 @@ const dashboardService = {
       return response.data || response;
     } catch (error) {
       logger.error("Erro ao buscar status do fornecedor:", error);
-      // Retorna array vazio ou lança, dependendo da estratégia. 
-      // Como o componente espera os dados, melhor retornar array vazio para não quebrar.
       return [];
     }
   },

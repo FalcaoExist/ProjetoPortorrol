@@ -3,18 +3,14 @@ import Header from "../components/header/Header";
 import Navbar from "../components/nav_bar/NavBar";
 import { BaseDataGrid } from "../components/common/BaseDataGrid";
 import { useOrders } from "../hooks/useOrders";
+import { useOrdersPageLogic } from "../hooks/useOrdersPageLogic";
 import { getMainOrdersColumns } from "./ordersConfig.jsx";
 import { exportRowsCSV } from "../services/csvExporter";
 import { exportRowsXLSX } from "../services/xlsxExporter";
 import OrderDetailsModal from "../components/order_details_modal/OrderDetailsModal.jsx";
 import OrdersFilter from "../components/orders_filter/OrdersFilter.jsx";
-import { useRef, useState, useEffect } from "react";
-import ordersService from "../services/ordersService";
 import ConfirmationModal from "../components/common/ConfirmationModal";
-import { importOrdersFromExcel } from "../services/ordersImporter";
 import ExportDropdown from "../components/common/ExportDropdown";
-import { useSearchParams } from "react-router-dom";
-import { logger } from "../utils/logger";
 
 export default function Orders() {
     const { user, showReminder, dismissReminder } = useAuth();
@@ -37,69 +33,27 @@ export default function Orders() {
         groupedAndFilteredOrders,
         handleUpdateData,
         loading,
+        fetchOrders,
     } = useOrders();
 
-    useEffect(() => {
-        if (showReminder) {
-            dismissReminder();
-        }
-    }, [showReminder, dismissReminder]);
-
     const mainOrdersColumns = getMainOrdersColumns(handleOpenModal);
-    const fileInputRef = useRef(null);
-    const [isImportConfirmModalOpen, setIsImportConfirmModalOpen] = useState(false);
-    const [selectedFile, setSelectedFile] = useState(null);
-    // Read max import size from env (value in MB). Default to 100 MB if not set.
-    const MAX_IMPORT_FILE_SIZE = (Number(import.meta.env.VITE_MAX_IMPORT_FILE_SIZE_MB) || 100) * 1024 * 1024;
-
-     const [searchParams] = useSearchParams();
-
-    useEffect(() => {
-        const statusFromParams = searchParams.get("status");
-        const fornecedorFromParams = searchParams.get("fornecedor");
-        if (statusFromParams) {
-            setStatusFilter(statusFromParams);
-        }
-        if (fornecedorFromParams) {
-            setFornecedorFilter(fornecedorFromParams);
-        }
-    }, [searchParams]);
-
-    const handleImportClick = () => {
-        fileInputRef.current.click();
-    };
-
-    const handleFileChange = (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            if (file.size && file.size > MAX_IMPORT_FILE_SIZE) {
-                alert(`Arquivo muito grande. Tamanho máximo: ${Math.round(MAX_IMPORT_FILE_SIZE / 1024 / 1024)} MB.`);
-            } else {
-                setSelectedFile(file);
-                setIsImportConfirmModalOpen(true);
-            }
-        }
-        e.target.value = '';
-    };
-
-    const handleConfirmImport = async () => {
-        if (!selectedFile) return;
-        
-        try {
-            // Chama a função do service que envia o arquivo para o backend
-            await ordersService.importOrdersFromFile(selectedFile);
-            
-            // Recarrega a página para os novos pedidos aparecerem na tabela na hora
-            window.location.reload(); 
-            
-        } catch (err) {
-            alert("Erro: " + err.message);
-            console.error('Erro ao importar arquivo: ', err);
-        } finally {
-            setSelectedFile(null);
-            setIsImportConfirmModalOpen(false);
-        }
-    };
+    const {
+        fileInputRef,
+        selectedFile,
+        isImportConfirmModalOpen,
+        exportRows,
+        handleImportClick,
+        handleFileChange,
+        handleConfirmImport,
+        closeImportModal,
+    } = useOrdersPageLogic({
+        setStatusFilter,
+        setFornecedorFilter,
+        groupedAndFilteredOrders,
+        showReminder,
+        dismissReminder,
+        onImportSuccess: fetchOrders,
+    });
 
     return (
         <div className="grid min-h-screen grid-cols-[16rem_minmax(0,1fr)]">
@@ -155,51 +109,13 @@ export default function Orders() {
                                 options={[{
                                     label: "CSV",
                                     onClick: () => {
-                                        const rows = [];
-                                        rows.push(["Número do Pedido", "Data do Pedido", "Status", "Item", "Fornecedor", "Quantidade", "Valor", "Filial", "Previsão Entrega", "Data Entrega"]);
-                                        groupedAndFilteredOrders.forEach(order => {
-                                            order.items.forEach(it => {
-                                                rows.push([
-                                                    order.numero_pedido,
-                                                    order.data_pedido,
-                                                    order.status,
-                                                    it.item,
-                                                    it.fornecedor,
-                                                    it.quantidade,
-                                                    it.valor,
-                                                    it.filial,
-                                                    it.previsao_entrega,
-                                                    it.data_entrega || "",
-                                                ]);
-                                            });
-                                            rows.push([]);
-                                        });
-                                        exportRowsCSV(rows, "PEDIDOS");
+                                        exportRowsCSV(exportRows, "PEDIDOS");
                                     }
                                 },
                                 {
                                     label: "Excel",
                                     onClick: () => {
-                                        const rows = [];
-                                        rows.push(["Número do Pedido", "Data do Pedido", "Status", "Item", "Fornecedor", "Quantidade", "Valor", "Filial", "Previsão Entrega", "Data Entrega"]);
-                                        groupedAndFilteredOrders.forEach(order => {
-                                            order.items.forEach(it => {
-                                                rows.push([
-                                                    order.numero_pedido,
-                                                    order.data_pedido,
-                                                    order.status,
-                                                    it.item,
-                                                    it.fornecedor,
-                                                    it.quantidade,
-                                                    it.valor,
-                                                    it.filial,
-                                                    it.previsao_entrega,
-                                                    it.data_entrega || "",
-                                                ]);
-                                            });
-                                            rows.push([]);
-                                        });
-                                        exportRowsXLSX(rows, "PEDIDOS");
+                                        exportRowsXLSX(exportRows, "PEDIDOS");
                                     }
                                 },
                                 ]}
@@ -218,10 +134,7 @@ export default function Orders() {
 
             <ConfirmationModal
                 isOpen={isImportConfirmModalOpen}
-                onClose={() => {
-                    setSelectedFile(null);
-                    setIsImportConfirmModalOpen(false);
-                }}
+                onClose={closeImportModal}
                 onConfirm={handleConfirmImport}
                 title="Confirmar Importação"
                 message={`Você tem certeza que deseja importar o arquivo ${selectedFile?.name}?`}

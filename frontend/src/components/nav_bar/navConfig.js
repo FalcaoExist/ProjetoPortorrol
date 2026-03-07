@@ -13,13 +13,10 @@ export const defaultSections = [
     title: "Gerenciar",
     requiresGestor: true,
     items: [
-      // Apenas gestor vê "Comprador"
       { to: "/list_users", label: "Comprador", icon: BsChatDotsFill, onlyGestor: true },
       
-      // Todos veem "Fornecedores" (se quiser restringir, adicione onlyGestor: true aqui também)
       { to: "/list_suppliers", label: "Fornecedores", icon: BsFileEarmarkText },
       
-      // [ALTERADO] Agora apenas gestor vê "Registros"
       { to: "/records", label: "Registros", icon: BsFileEarmarkText, onlyGestor: true },
     ],
   },

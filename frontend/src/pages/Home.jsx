@@ -20,7 +20,6 @@ import ExportDropdown from "../components/common/ExportDropdown";
 import { useOrders } from "../hooks/useOrders";
 import { useNavigate } from "react-router-dom";
 
-// ---> ADICIONADO: Função isolada para formatar datas da tabela <---
 const formatDate = (dateString) => {
   if (!dateString) return "--/--/----";
   const d = new Date(dateString);
@@ -204,7 +203,6 @@ export default function Home() {
               <div className="flex-1 min-w-0">
                 <p className="text-start font-semibold text-primary text-2xl py-5">Gastos</p>
                 <div className="h-[128px] flex items-center">
-                  {/* ---> ADICIONADO: Props conectadas aos dados do banco <--- */}
                   <BudgetProgressCard
                     value={budgetInfo ? Number(budgetInfo.valor_individual) : 0} 
                     budget={budgetInfo ? Number(budgetInfo.valor_total) : 0}     

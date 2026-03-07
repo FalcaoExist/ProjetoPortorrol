@@ -1,18 +1,14 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
-import { getStockData, createOrderBatch, getSuppliers } from "../services/stockService";
+import {
+    BRANCH_OPTIONS,
+    createOrderBatch,
+    getStockCoverageStatus,
+    getStockData,
+    getSuppliers,
+} from "../services/stockService";
 import { logger } from "../utils/logger";
 import { useAuth } from "../context/authContext";
 import { getPersistedSupplierFilter, setPersistedSupplierFilter } from "../utils/supplierFilterPersistence";
-
-const BRANCH_OPTIONS = ["Porto Alegre", "Joinville", "São Paulo"];
-
-const getStatusText = (dias) => {
-    if (dias === null || dias === undefined) return "Sem demanda";
-    if (dias <= 30) return "Ruptura iminente";
-    if (dias <= 60) return "Subdimensionado";
-    if (dias <= 100) return "Ok";
-    return "Excesso";
-};
 
 const getSuggestedQuantity = (row) => {
     const unidadesPendentes = parseFloat(row?.unidades_pendentes) || 0;
@@ -146,7 +142,7 @@ export const useStock = () => {
 
     const filteredRows = useMemo(() => {
         return stockData.filter(row => {
-            const statusText = getStatusText(row.dias_cobertura);
+            const statusText = getStockCoverageStatus(row.dias_cobertura);
             const searchLower = searchQuery.toLowerCase();
             const itemText = (row.item || "").toLowerCase();
             const codigoText = (row.codigo || "").toLowerCase();

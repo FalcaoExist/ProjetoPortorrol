@@ -1,12 +1,12 @@
 import React, { useState, useRef } from 'react';
 import { DEFAULT_SEGMENT_METADATA } from './segmentMetadata';
 import { useNavigate } from 'react-router-dom';
+import { navigateToStock } from '../../utils/stockNavigation';
 
 export default function StockRangeGraph({ data, totalItems, segmentMetadata = DEFAULT_SEGMENT_METADATA, branch, supplier, loading = false }){
   const navigate = useNavigate();
   const containerRef = useRef(null);
   const [tooltip, setTooltip] = useState({ visible: false, text: '', left: 0, top: 0, direction: 'top' });
-  // Permite sobrescrever/estender o metadata via prop
   const mergedMetadata = { ...DEFAULT_SEGMENT_METADATA, ...segmentMetadata };
 
   const segments = Object.keys(data).map(key => ({
@@ -17,9 +17,9 @@ export default function StockRangeGraph({ data, totalItems, segmentMetadata = DE
 
   const segmentsForBar = [...segments].sort((a, b) => a.orderBar - b.orderBar);
   const segmentsForLegend = [...segments].sort((a, b) => a.orderLegend - b.orderLegend);
-  const overlapPx = 34; // distância de sobreposição entre segmentos
+  const overlapPx = 34;
 
-  // detecta se os valores passados são percentuais (somando ~100) ou absolutos
+  // Permite receber dados em percentual (soma ~100) ou absoluto (contagem de itens).
   const valuesSum = Object.values(data).reduce((s, v) => s + Number(v || 0), 0);
   const valuesArePercent = Math.abs(valuesSum - 100) < 0.5;
   const percentWidths = segmentsForBar.map((segment) => {
@@ -65,15 +65,12 @@ export default function StockRangeGraph({ data, totalItems, segmentMetadata = DE
       <div ref={containerRef} className="relative flex items-center w-full">
         <div className="flex flex-auto h-9 ml-5 overflow-hidden w-full items-center rounded-full">
         {segmentsForBar.map((segment, index, array) => {
-          // calcula largura da barra: se os valores são absolutos, converte para % usando a soma
           const percentWidth = percentWidths[index];
           const extraPx = percentWidth > 0 ? (percentWidth / 100) * totalOverlapPx : 0;
           const style = {
             width: `calc(${percentWidth}% + ${extraPx}px)`,
             backgroundColor: segment.color,
-            // zIndex faz com que os segmentos renderizados primeiro fiquem por cima
             zIndex: array.length - index,
-            // aplica margem negativa para sobrepor o anterior (exceto o primeiro)
             marginLeft: index === 0 || prevVisibleIndex[index] === -1 ? '0px' : `-${overlapPx}px`,
           };
 
@@ -84,7 +81,6 @@ export default function StockRangeGraph({ data, totalItems, segmentMetadata = DE
             percentage = Number(segment.value) || 0;
             if (totalItems) itemCount = Math.round((percentage / 100) * totalItems);
           } else {
-            // valores absolutos
             itemCount = Number(segment.value) || 0;
             percentage = valuesSum > 0 ? (Number(segment.value) / valuesSum) * 100 : 0;
           }
@@ -104,16 +100,12 @@ export default function StockRangeGraph({ data, totalItems, segmentMetadata = DE
               role="img"
               aria-label={tooltipText}
               onClick={() => {
-                try {
-                  const params = new URLSearchParams();
-                  const statusValue = segment.label || segment.key;
-                  params.set('status', statusValue);
-                  if (supplier && supplier !== 'Todos') params.set('supplier', supplier);
-                  if (branch && branch !== 'Todos') params.set('branch', branch);
-                  navigate(`/stock?${params.toString()}`);
-                } catch (err) {
-                  window.location.href = '/stock';
-                }
+                const statusValue = segment.label || segment.key;
+                navigateToStock(navigate, {
+                  status: statusValue,
+                  supplier,
+                  branch,
+                });
               }}
             
               onMouseEnter={(e) => {
@@ -168,22 +160,18 @@ export default function StockRangeGraph({ data, totalItems, segmentMetadata = DE
               onMouseEnter={(e) => {
                 const rect = e.currentTarget.getBoundingClientRect();
                 const containerRect = containerRef.current?.getBoundingClientRect() || { left: 0, top: 0 };
-                const left = rect.left - containerRect.left; // align to left side of legend item
+                const left = rect.left - containerRect.left;
                 const top = rect.top - containerRect.top + rect.height / 2;
                 setTooltip({ visible: true, text: legendTooltip, left, top, direction: 'left' });
               }}
               onMouseLeave={() => setTooltip(t => ({ ...t, visible: false }))}
               onClick={() => {
-                try {
-                  const params = new URLSearchParams();
-                  const statusValue = segment.label || segment.key;
-                  params.set('status', statusValue);
-                  if (supplier && supplier !== 'Todos') params.set('supplier', supplier);
-                  if (branch && branch !== 'Todos') params.set('branch', branch);
-                  navigate(`/stock?${params.toString()}`);
-                } catch (err) {
-                  window.location.href = '/stock';
-                }
+                const statusValue = segment.label || segment.key;
+                navigateToStock(navigate, {
+                  status: statusValue,
+                  supplier,
+                  branch,
+                });
               }}
             >
               <span className="inline-block w-3 h-3 mr-2 rounded-[3px]" style={{ backgroundColor: segment.color }} />

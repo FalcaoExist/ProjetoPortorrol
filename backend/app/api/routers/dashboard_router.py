@@ -6,7 +6,7 @@ from app.api.schemas import (
 from app.services.dashboard_service import DashboardService
 from app.core.dependencies import get_current_user, get_dashboard_service
 
-router = APIRouter(tags=["Dashboard"])
+router = APIRouter(tags=["Dashboard"], dependencies=[Depends(get_current_user)])
 
 @router.get(
     "/dashboard/search",

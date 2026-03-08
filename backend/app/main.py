@@ -1,4 +1,5 @@
 import logging
+import os
 from fastapi import FastAPI
 from fastapi.openapi.docs import get_redoc_html
 from fastapi.middleware.cors import CORSMiddleware
@@ -6,11 +7,9 @@ from app.api.router import router as api_router
 
 app = FastAPI(title="IBy Backend API", version="1.0.0", redoc_url=None)
 
-origins = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-    "http://localhost:3000",
-]
+_default_origins = "http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000"
+origins_str = os.getenv("CORS_ORIGINS", _default_origins)
+origins = [o.strip() for o in origins_str.split(",") if o.strip()]
 
 app.add_middleware(
     CORSMiddleware,

@@ -51,7 +51,7 @@ class OrderService:
             return formatted
         except Exception as e:
             logger.error(f"Erro ao buscar pedidos manuais: {e}")
-            raise
+            raise RuntimeError("Falha ao buscar pedidos") from e
 
     def get_all_orders(self) -> List[dict]:
         all_orders = []

@@ -61,6 +61,35 @@ def login(
 
     return {"success": True, "user": result, "message": "Login realizado com sucesso"}
 
+
+@router.post(
+    "/logout",
+    response_model=SimpleMessageResponse,
+    summary="Encerrar sessão",
+    description="Remove o cookie de autenticação do usuário.",
+    responses={
+        200: {
+            "description": "Logout realizado com sucesso",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "success": True,
+                        "message": "Logout realizado com sucesso.",
+                    }
+                }
+            },
+        }
+    },
+)
+def logout(response: Response):
+    response.delete_cookie(
+        key="access_token",
+        httponly=True,
+        samesite="lax",
+        secure=False,
+    )
+    return {"success": True, "message": "Logout realizado com sucesso."}
+
 @router.get(
     "/me",
     response_model=UserGetResponse,

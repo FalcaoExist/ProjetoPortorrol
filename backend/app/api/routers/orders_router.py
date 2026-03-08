@@ -12,7 +12,7 @@ from app.api.schemas import (
     PedidoCreate,
 )
 
-router = APIRouter(tags=["Orders"])
+router = APIRouter(tags=["Orders"], dependencies=[Depends(get_current_user)])
 
 @router.get(
     "/orders",

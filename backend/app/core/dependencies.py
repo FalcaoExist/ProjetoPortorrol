@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 SECRET_KEY = os.getenv("SECRET_KEY")
 if not SECRET_KEY:
-    raise ValueError("SECRET_KEY deve ser definida nas variáveis de ambiente. Não use valor default em produção.")
+    raise ValueError("SECRET_KEY deve ser definida nas variáveis de ambiente.")
 ALGORITHM = os.getenv("ALGORITHM", "HS256")
 
 # --- Provedores de Implementação ---

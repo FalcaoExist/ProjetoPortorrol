@@ -7,6 +7,11 @@ from app.api.schemas import FornecedorCreate, FornecedorResponse, FornecedorUpda
 
 router = APIRouter(tags=["Suppliers"])
 
+
+def _ensure_gestor(current_user: dict) -> None:
+    if current_user.get("role") != "gestor":
+        raise HTTPException(status_code=403, detail="Permissão negada.")
+
 @router.get(
     "/suppliers",
     response_model=List[FornecedorResponse],
@@ -46,7 +51,7 @@ router = APIRouter(tags=["Suppliers"])
 )
 def get_suppliers_list(
     supplier_id: UUID = None,
-    #current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(get_current_user),
     supplier_service: SupplierService = Depends(get_supplier_service)
     ):
     try:
@@ -94,6 +99,7 @@ def create_supplier(
     supplier_service: SupplierService = Depends(get_supplier_service)
     ):
     try:
+        _ensure_gestor(current_user)
         created = supplier_service.create_supplier(
         name=data.name,
         budget=data.budget,
@@ -144,6 +150,7 @@ def update_supplier(
     supplier_service: SupplierService = Depends(get_supplier_service)
     ):
     try:
+        _ensure_gestor(current_user)
         return supplier_service.update_supplier(
         supplier_id=id,
         name=data.name,
@@ -168,6 +175,7 @@ def delete_supplier(
     supplier_service: SupplierService = Depends(get_supplier_service)
     ):
     try:
+        _ensure_gestor(current_user)
         supplier_service.deactivate_supplier(id, user_id=current_user.get("user_id"))
         return {"message": "Fornecedor inativado com sucesso"}
     except Exception as e:
@@ -181,10 +189,11 @@ def delete_supplier(
 )
 def get_supplier_history(
     id: UUID,
-    #current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(get_current_user),
     supplier_service: SupplierService = Depends(get_supplier_service)
 ):
     try:
+        _ensure_gestor(current_user)
         return supplier_service.get_supplier_history(id)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))

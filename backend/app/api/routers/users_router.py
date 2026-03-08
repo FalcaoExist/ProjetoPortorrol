@@ -7,6 +7,11 @@ from app.api.schemas import UserCreateResponse, UserGetResponse, UserListRespons
 
 router = APIRouter(tags=["Users"])
 
+
+def _ensure_gestor(current_user: dict) -> None:
+    if current_user.get("role") != "gestor":
+        raise HTTPException(status_code=403, detail="Permissão negada.")
+
 @router.post(
     "/users",
     response_model=UserCreateResponse,
@@ -42,8 +47,7 @@ def create_user(
     user_service: UserService = Depends(get_user_service),
     current_user: dict = Depends(get_current_user),
 ):
-    if current_user.get("role") != "gestor":
-        raise HTTPException(status_code=403, detail="Permissão negada.")
+    _ensure_gestor(current_user)
     created_user = user_service.create_new_user(data, performed_by=current_user.get("user_id"))
     return {"success": True, "user": created_user, "message": "Usuário cadastrado com sucesso!"}
 
@@ -81,7 +85,9 @@ def list_users(
     name: Optional[str] = Query(default=None, description="Filtrar por nome"),
     email: Optional[str] = Query(default=None, description="Filtrar por email"),
     user_service: UserService = Depends(get_user_service),
+    current_user: dict = Depends(get_current_user),
 ):
+    _ensure_gestor(current_user)
     return user_service.get_formatted_users(name, email)
 
 @router.get(
@@ -111,7 +117,8 @@ def list_users(
         404: {"description": "Usuário não encontrado"},
     },
 )
-def get_user_by_id(user_id: str, user_service: UserService = Depends(get_user_service)):
+def get_user_by_id(user_id: str, user_service: UserService = Depends(get_user_service), current_user: dict = Depends(get_current_user)):
+    _ensure_gestor(current_user)
     user = user_service.get_user_by_id(user_id)
     return {"success": True, "user": user}
 
@@ -150,8 +157,7 @@ def update_user(
     user_service: UserService = Depends(get_user_service),
     current_user: dict = Depends(get_current_user),
 ):
-    if current_user.get("role") != "gestor":
-        raise HTTPException(status_code=403, detail="Permissão negada.")
+    _ensure_gestor(current_user)
         
     updated_user = user_service.update_existing_user(user_id, data, performed_by=current_user.get("user_id"))
     return {"success": True, "user": updated_user, "message": "Usuário atualizado com sucesso!"}
@@ -176,7 +182,6 @@ def update_user(
     },
 )
 def delete_user_endpoint(user_id: str, service: UserService = Depends(get_user_service), current_user: dict = Depends(get_current_user)):
-    if current_user.get("role") != "gestor":
-        raise HTTPException(status_code=403, detail="Permissão negada.")
+    _ensure_gestor(current_user)
     service.delete_user_permanently(user_id, performed_by=current_user.get("user_id"))
     return None

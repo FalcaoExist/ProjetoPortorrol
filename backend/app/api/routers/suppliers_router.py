@@ -5,9 +5,45 @@ from app.core.dependencies import get_current_user, get_supplier_service
 from app.services.supplier_service import SupplierService
 from app.api.schemas import FornecedorCreate, FornecedorResponse, FornecedorUpdate
 
-router = APIRouter()
+router = APIRouter(tags=["Suppliers"])
 
-@router.get("/suppliers", response_model=List[FornecedorResponse], operation_id="list_suppliers")
+@router.get(
+    "/suppliers",
+    response_model=List[FornecedorResponse],
+    operation_id="list_suppliers",
+    summary="Listar fornecedores",
+    description="Retorna fornecedores ativos ou um fornecedor específico quando `supplier_id` for informado.",
+    responses={
+        200: {
+            "description": "Fornecedores retornados com sucesso",
+            "content": {
+                "application/json": {
+                    "example": [
+                        {
+                            "supplier_id": "00000000-0000-4000-8000-000000000010",
+                            "name": "SUPPLIER_DEMO_A",
+                            "is_active": True,
+                            "external_id": "SUP-DEMO-001",
+                            "budget": 10000.0,
+                            "start": "2026-01-01",
+                            "end": "2026-12-31",
+                            "created_at": "2026-01-01T09:00:00Z",
+                            "update_at": None,
+                            "leadtimes": [
+                                {
+                                    "branch_id": "00000000-0000-4000-8000-000000000020",
+                                    "leadtime": 15,
+                                    "leadtime_id": "00000000-0000-4000-8000-000000000021"
+                                }
+                            ]
+                        }
+                    ]
+                }
+            },
+        },
+        500: {"description": "Erro ao buscar fornecedores"},
+    },
+)
 def get_suppliers_list(
     supplier_id: UUID = None,
     #current_user: dict = Depends(get_current_user),
@@ -24,7 +60,34 @@ def get_suppliers_list(
             detail="Erro ao buscar fornecedores"
         )
 
-@router.post("/suppliers", response_model=FornecedorResponse)
+@router.post(
+    "/suppliers",
+    response_model=FornecedorResponse,
+    summary="Criar fornecedor",
+    description="Cria um novo fornecedor com dados básicos e leadtimes opcionais.",
+    responses={
+        200: {
+            "description": "Fornecedor criado com sucesso",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "supplier_id": "00000000-0000-4000-8000-000000000011",
+                        "name": "SUPPLIER_DEMO_B",
+                        "is_active": True,
+                        "external_id": "SUP-DEMO-002",
+                        "budget": 5000.0,
+                        "start": "2026-01-01",
+                        "end": "2026-12-31",
+                        "created_at": "2026-01-02T09:00:00Z",
+                        "update_at": None,
+                        "leadtimes": [],
+                    }
+                }
+            },
+        },
+        400: {"description": "Erro de validação"},
+    },
+)
 def create_supplier(
     data: FornecedorCreate, 
     current_user: dict = Depends(get_current_user),
@@ -46,7 +109,34 @@ def create_supplier(
             raise HTTPException(status_code=400, detail="Fornecedor ou ID externo já existe.")
         raise HTTPException(status_code=400, detail=str(e))
     
-@router.put("/suppliers/{id}", response_model=FornecedorResponse)
+@router.put(
+    "/suppliers/{id}",
+    response_model=FornecedorResponse,
+    summary="Atualizar fornecedor",
+    description="Atualiza os dados de um fornecedor existente.",
+    responses={
+        200: {
+            "description": "Fornecedor atualizado com sucesso",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "supplier_id": "00000000-0000-4000-8000-000000000010",
+                        "name": "SUPPLIER_DEMO_A_UPDATED",
+                        "is_active": True,
+                        "external_id": "SUP-DEMO-001",
+                        "budget": 12000.0,
+                        "start": "2026-01-01",
+                        "end": "2026-12-31",
+                        "created_at": "2026-01-01T09:00:00Z",
+                        "update_at": "2026-04-01T10:00:00Z",
+                        "leadtimes": [],
+                    }
+                }
+            },
+        },
+        400: {"description": "Erro de validação"},
+    },
+)
 def update_supplier(
     id: UUID,
     data: FornecedorUpdate,
@@ -66,7 +156,12 @@ def update_supplier(
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@router.delete("/suppliers/{id}")
+@router.delete(
+    "/suppliers/{id}",
+    summary="Inativar fornecedor",
+    description="Inativa um fornecedor no sistema.",
+    responses={200: {"description": "Fornecedor inativado com sucesso", "content": {"application/json": {"example": {"message": "Fornecedor inativado com sucesso"}}}}, 400: {"description": "Erro de validação"}},
+)
 def delete_supplier(
     id: UUID, 
     current_user: dict = Depends(get_current_user),
@@ -78,7 +173,12 @@ def delete_supplier(
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@router.get("/suppliers/{id}/history")
+@router.get(
+    "/suppliers/{id}/history",
+    summary="Consultar histórico do fornecedor",
+    description="Retorna histórico de alterações de um fornecedor.",
+    responses={200: {"description": "Histórico retornado com sucesso", "content": {"application/json": {"example": [{"notes": "Alteração de orçamento", "created_at": "2026-04-01T10:00:00Z"}]}}}, 400: {"description": "Erro de validação"}},
+)
 def get_supplier_history(
     id: UUID,
     #current_user: dict = Depends(get_current_user),

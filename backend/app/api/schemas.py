@@ -9,6 +9,15 @@ class LoginRequest(BaseModel):
     email: EmailStr
     password: str
 
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "email": "user@example.test",
+                "password": "StrongPass-123",
+            }
+        }
+    }
+
 class LoginResponse(BaseModel):
     success: bool
     user: Optional[dict] = None
@@ -54,6 +63,15 @@ class ChangePasswordRequest(BaseModel):
     current_password: str
     new_password: str
 
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "current_password": "OldPass-123",
+                "new_password": "NewPass-123",
+            }
+        }
+    }
+
 # SCHEMAS DE PRODUTOS
 class StatusProduto(str, Enum):
     RUPTURA = "RUPTURA"
@@ -63,6 +81,8 @@ class StatusProduto(str, Enum):
 
 class ConfigUpdate(BaseModel):
     valor: str
+
+    model_config = {"json_schema_extra": {"example": {"valor": "45"}}}
 
 class SkuAnaliseResponse(BaseModel):
     sku_id: int
@@ -128,6 +148,19 @@ class PedidoCreate(BaseModel):
     previsao_entrega: Optional[date] = None
     branch_name: Optional[str] = "Geral"
 
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "sku_codigo": "SKU-EXAMPLE-001",
+                "fornecedor_nome": "SUPPLIER_DEMO_A",
+                "quantidade": 100,
+                "valor_unitario": 10.5,
+                "previsao_entrega": "2026-04-01",
+                "branch_name": "BRANCH_DEMO_A",
+            }
+        }
+    }
+
 class PedidoResponse(BaseModel):
     order_id: UUID
     status: str
@@ -146,9 +179,31 @@ class OrderItemRequest(BaseModel):
     supplier_name: Optional[str] = None
     branch_name: Optional[str] = None
 
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "sku_id": 1001,
+                "quantity": 50,
+                "unit_cost": 20.0,
+                "expected_delivery_date": "2026-04-01",
+                "supplier_name": "SUPPLIER_DEMO_A",
+                "branch_name": "BRANCH_DEMO_A",
+            }
+        }
+    }
+
 class OrderUpdate(BaseModel):
     data_entrega: Optional[str] = None
     status: Optional[str] = None
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "data_entrega": "2026-04-05",
+                "status": "Pendente",
+            }
+        }
+    }
     
 # SCHEMAS DE ESTOQUE
 class StockItemResponse(BaseModel):
@@ -184,6 +239,22 @@ class UpdateItemDate(BaseModel):
 class BatchOrderRequest(BaseModel):
     items: List[OrderItemRequest]
 
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "items": [
+                    {
+                        "sku_id": 1001,
+                        "quantity": 30,
+                        "unit_cost": 12.25,
+                        "supplier_name": "SUPPLIER_DEMO_A",
+                        "branch_name": "BRANCH_DEMO_A",
+                    }
+                ]
+            }
+        }
+    }
+
 class BatchOrderResponse(BaseModel):
     success: bool
     message: str
@@ -192,3 +263,43 @@ class BatchOrderResponse(BaseModel):
 class StockImportPayload(BaseModel):
     filename: str
     data: List[Dict[str, Any]]
+
+
+class ImportStockResponse(BaseModel):
+    success: bool
+    message: str
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "success": True,
+                "message": "Importação de stock iniciada com sucesso.",
+            }
+        }
+    }
+
+
+class ImportOrdersResponse(BaseModel):
+    success: bool
+    message: str
+    count: Optional[int] = None
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "success": True,
+                "message": "Sucesso! 35 pedidos do fornecedor de exemplo foram importados.",
+                "count": 35,
+            }
+        }
+    }
+
+
+class SimpleMessageResponse(BaseModel):
+    success: bool
+    message: str
+
+
+class AuditListResponse(BaseModel):
+    success: bool
+    logs: List[Dict[str, Any]]

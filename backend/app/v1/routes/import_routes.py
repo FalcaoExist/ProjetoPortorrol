@@ -6,7 +6,22 @@ from app.services.import_orders_service import ImportOrdersService
 
 router = APIRouter(prefix="/imports", tags=["Imports"])
 
-@router.post("/pedidos/{supplier}")
+@router.post(
+    "/pedidos/{supplier}",
+    summary="Importar pedidos (v1)",
+    description="Importa pedidos por fornecedor via endpoint legado.",
+    responses={
+        200: {
+            "description": "Importação concluída",
+            "content": {
+                "application/json": {
+                    "example": {"imported": 10}
+                }
+            },
+        },
+        400: {"description": "Arquivo inválido ou erro de validação"},
+    },
+)
 async def import_orders(
     supplier: str,
     file: UploadFile = File(...),

@@ -5,14 +5,29 @@ import pandas as pd
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Path, UploadFile, HTTPException
 from app.core.dependencies import get_current_user, get_audit_service
 from app.audit.audit_actions import AuditAction
+from app.api.schemas import ImportOrdersResponse, ImportStockResponse
 from app.services.import_service import process_background
 from app.services.import_orders_service import ImportOrdersService
 from app.services.audit_service import AuditService
 
-router = APIRouter()
+router = APIRouter(tags=["Import"])
 logger = logging.getLogger(__name__)
 
-@router.post("/stock/import")
+@router.post(
+    "/stock/import",
+    response_model=ImportStockResponse,
+    summary="Importar estoque",
+    description="Recebe um arquivo Excel de estoque, valida o conteúdo e inicia o processamento em background.",
+    responses={
+        200: {
+            "description": "Importação iniciada com sucesso",
+            "content": {"application/json": {"example": {"success": True, "message": "Importação de stock iniciada com sucesso."}}},
+        },
+        400: {"description": "Arquivo inválido ou erro de validação"},
+        401: {"description": "Não autenticado"},
+        500: {"description": "Erro interno"},
+    },
+)
 async def import_stock(
     background_tasks: BackgroundTasks, 
     file: UploadFile = File(...), 
@@ -63,9 +78,23 @@ async def import_stock(
     logger.info(f"Importação de stock enviada para background: {filename} por {user_id}")
     return {"success": True, "message": "Importação de stock iniciada com sucesso."}
    
-@router.post("/imports/pedidos/{supplier}")
+@router.post(
+    "/imports/pedidos/{supplier}",
+    response_model=ImportOrdersResponse,
+    summary="Importar pedidos por fornecedor",
+    description="Importa pedidos a partir de arquivo Excel para um fornecedor específico.",
+    responses={
+        200: {
+            "description": "Importação concluída",
+            "content": {"application/json": {"example": {"success": True, "message": "Importação concluída com sucesso.", "count": 12}}},
+        },
+        400: {"description": "Arquivo inválido ou erro de validação"},
+        401: {"description": "Não autenticado"},
+        500: {"description": "Erro interno"},
+    },
+)
 async def import_orders_file(
-    supplier: Annotated[str, Path(...)], 
+    supplier: Annotated[str, Path(description="Nome do fornecedor")], 
     file: UploadFile = File(...), 
     current_user: dict = Depends(get_current_user),
     audit_service: AuditService = Depends(get_audit_service),

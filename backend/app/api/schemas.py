@@ -207,19 +207,28 @@ class OrderUpdate(BaseModel):
     
 # SCHEMAS DE ESTOQUE
 class StockItemResponse(BaseModel):
-    id: int # sku_id
+    id: Union[int, str] # sku_id
+    sku_id: Optional[int] = None
     codigo: str
     item: str # nome do produto
     categoria: Optional[str] = "Geral"
     unidades: int
     fornecedor: Optional[str] = "N/A"
     filial: Optional[str] = None
-    dias_cobertura: Optional[int] = 0
+    dias_cobertura: Optional[float] = 0
     valor: Optional[float] = 0.0
     pedidos_pendentes: Optional[int] = 0
+    unidades_pendentes: Optional[int] = 0
     estoque_projetado: Optional[int] = 0
     dias_cobertura_projetado: Optional[float] = None
     quantidade_sugerida_compra_projetada: Optional[int] = 0
+    rop: Optional[int] = 0
+    qtd_sugerida: Optional[int] = 0
+    leadtime: Optional[int] = 0
+    porto_alegre: Optional[int] = 0
+    joinville: Optional[int] = 0
+    sao_paulo: Optional[int] = 0
+    demanda_mensal: Optional[float] = 0.0
 
 class BatchOrderItem(BaseModel):
     id: Optional[str] = None

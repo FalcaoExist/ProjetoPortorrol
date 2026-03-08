@@ -96,6 +96,11 @@ class SkuAnaliseResponse(BaseModel):
     estoque_soma: int
     demanda_soma: float
     filial_nome: Optional[str] = "Geral"
+    valor: Optional[float] = 0.0
+    fornecedor_nome: Optional[str] = ""
+    estoque_sp: Optional[int] = 0
+    estoque_jv: Optional[int] = 0
+    estoque_poa: Optional[int] = 0
 
 class FilialResponse(BaseModel):
     id: str
@@ -137,6 +142,7 @@ class FornecedorResponse(BaseModel):
     end: Optional[date] = None
     created_at: datetime
     update_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
     leadtimes: List[SupplierLeadtimeResponse] = []
 
 # SCHEMAS DE PEDIDOS

@@ -1,18 +1,66 @@
-# React + Vite
+# Frontend (React + Vite)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Interface web do sistema Portorrol.
 
-Currently, two official plugins are available:
+## Stack
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- React 19
+- Vite
+- React Router
+- MUI (Material UI)
+- TailwindCSS
 
-## React Compiler
+## Requisitos
 
-The React Compiler is enabled on this template. See [this documentation](https://react.dev/learn/react-compiler) for more information.
+- Node.js 18+
+- npm 9+
 
-Note: This will impact Vite dev & build performances.
+## Como rodar
 
-## Expanding the ESLint configuration
+```bash
+npm install
+npm run dev
+```
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+Aplicação local: `http://localhost:5173`
+
+## Scripts úteis
+
+- `npm run dev`: sobe ambiente de desenvolvimento
+- `npm run build`: gera build de produção
+- `npm run preview`: sobe build local para validação
+- `npm run lint`: executa lint do projeto
+
+## Variáveis de ambiente
+
+Criar `.env` (ou `.env.local`) no diretório `frontend/`:
+
+```bash
+VITE_API_URL=http://localhost:8000
+VITE_ISDEV=dev # dev para desenvolvimento
+```
+
+## Rotas principais
+
+Definidas em `src/App.jsx`:
+
+- `/` → login
+- `/home` → dashboard inicial
+- `/stock` → estoque
+- `/orders` → pedidos
+- `/profile` → perfil
+- `/list_users` → gestão de usuários (papel `gestor`)
+- `/list_suppliers` → fornecedores (papel `gestor`)
+- `/records` → registros/auditoria (papel `gestor`)
+
+## Estrutura de pastas
+
+```text
+src/
+	pages/          # páginas por rota
+	components/     # componentes reutilizáveis
+	hooks/          # hooks customizados
+	services/       # chamadas HTTP e integrações
+	context/        # providers globais (ex.: auth)
+	utils/          # utilitários
+```

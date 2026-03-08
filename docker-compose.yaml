@@ -14,21 +14,6 @@ services:
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     networks:
       - app-network
-
-  # NOVO: Serviço para o monitoramento automático do Storage
-  storage_worker:
-    build: ./backend
-    container_name: storage_worker
-    restart: always
-    environment:
-      - PYTHONUNBUFFERED=1
-    volumes:
-      - ./backend:/app
-    env_file:
-      - .env
-    command: python -m app.workers.supabase_worker
-    networks:
-      - app-network
   frontend:
     build: ./frontend
     container_name: frontend

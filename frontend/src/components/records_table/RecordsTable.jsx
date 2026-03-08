@@ -31,7 +31,7 @@ export default function RecordsTable({ records = [], loading = false }) {
     setSelectedLog(null);
   };
 
-  const isCompactLayout = useMediaQuery("(max-width:1279px)");
+  const isCompactLayout = useMediaQuery("(max-width:1579px)");
   const { anchorEl, activeColumnId, openPopover, closePopover } = useColumnPopover();
 
   const { formattedRows, allActionOptions: computedActionOptions, filters, handleFilterChange } = useRecords(records);
@@ -168,7 +168,7 @@ export default function RecordsTable({ records = [], loading = false }) {
         rows={formattedRows}
         columns={columns}
         loading={loading}
-        sx={{height:650}}
+        sx={{ height: isCompactLayout ? 500 : 650 }}
       />
 
       <Dialog

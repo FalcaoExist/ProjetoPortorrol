@@ -1,9 +1,10 @@
 import logging
 from fastapi import FastAPI
+from fastapi.openapi.docs import get_redoc_html
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.router import router as api_router
 
-app = FastAPI(title="IBy Backend API", version="1.0.0")
+app = FastAPI(title="IBy Backend API", version="1.0.0", redoc_url=None)
 
 origins = [
     "http://localhost:5173",
@@ -26,10 +27,47 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 
-@app.get("/")
+@app.get(
+    "/",
+    summary="Root",
+    description="Endpoint raiz da API para verificação rápida de disponibilidade.",
+    responses={
+        200: {
+            "description": "API online",
+            "content": {
+                "application/json": {
+                    "example": {"message": "API Segura Online", "status": "ok"}
+                }
+            },
+        }
+    },
+)
 def root():
     return {"message": "API Segura Online", "status": "ok"}
 
-@app.get("/health")
+@app.get(
+    "/health",
+    summary="Health",
+    description="Endpoint de health check para monitoramento.",
+    responses={
+        200: {
+            "description": "Serviço saudável",
+            "content": {
+                "application/json": {
+                    "example": {"status": "healthy"}
+                }
+            },
+        }
+    },
+)
 def health():
     return {"status": "healthy"}
+
+
+@app.get("/redoc", include_in_schema=False)
+def redoc_html():
+    return get_redoc_html(
+        openapi_url=app.openapi_url,
+        title=f"{app.title} - ReDoc",
+        redoc_js_url="https://cdn.jsdelivr.net/npm/redoc@2/bundles/redoc.standalone.js",
+    )

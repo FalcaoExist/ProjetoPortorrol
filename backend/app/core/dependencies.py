@@ -4,6 +4,7 @@ from typing import Optional
 from dotenv import load_dotenv
 from fastapi import Cookie, Depends, HTTPException, status
 from jose import JWTError, jwt 
+import logging
 
 from app.core.hashers import BcryptHasher
 from app.core.interfaces import IPasswordHasher, IUserRepository
@@ -21,6 +22,7 @@ from app.repositories.order_aggregate_repository import OrderAggregateRepository
 from app.repositories.stock_repository import StockRepository
 
 load_dotenv()
+logger = logging.getLogger(__name__)
 
 SECRET_KEY = os.getenv("SECRET_KEY", "uma_chave_super_secreta_e_segura_123")
 ALGORITHM = os.getenv("ALGORITHM", "HS256")
@@ -116,7 +118,7 @@ def get_current_user(
         if hasattr(repo, 'get_suppliers_for_user'):
             suppliers = repo.get_suppliers_for_user(user_id)
             user['supplier'] = suppliers or []
-    except Exception:
-        print(f"Aviso: falha ao carregar suppliers para user {user_id}")
+    except Exception as e:
+        logger.warning("Aviso: falha ao carregar suppliers para user %s - Erro: %s", user_id, str(e))
 
     return user

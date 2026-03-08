@@ -31,9 +31,9 @@ class SupplierService:
 
             return suppliers
 
-        except Exception:
+        except Exception as e:
             logger.exception("Erro ao buscar fornecedores ativos")
-            raise
+            raise RuntimeError("Falha ao buscar fornecedores ativos") from e
 
     def get_supplier_by_id(self, supplier_id: UUID) -> Optional[dict]:
 

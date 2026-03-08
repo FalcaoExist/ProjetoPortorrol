@@ -119,7 +119,7 @@ def get_user_by_id(user_id: str, user_service: UserService = Depends(get_user_se
     "/users/{user_id}",
     response_model=UserUpdateResponse,
     summary="Atualizar usuário",
-    description="Atualiza dados de um usuário existente.",
+    description="Atualiza dados de um usuário existente. Requer perfil gestor.",
     responses={
         200: {
             "description": "Usuário atualizado com sucesso",
@@ -140,6 +140,7 @@ def get_user_by_id(user_id: str, user_service: UserService = Depends(get_user_se
                 }
             },
         },
+        403: {"description": "Permissão negada"},
         404: {"description": "Usuário não encontrado"},
         422: {"description": "Payload inválido"},
     },
@@ -149,8 +150,12 @@ def update_user(
     user_service: UserService = Depends(get_user_service),
     current_user: dict = Depends(get_current_user),
 ):
+    if current_user.get("role") != "gestor":
+        raise HTTPException(status_code=403, detail="Permissão negada.")
+        
     updated_user = user_service.update_existing_user(user_id, data, performed_by=current_user.get("user_id"))
     return {"success": True, "user": updated_user, "message": "Usuário atualizado com sucesso!"}
+
 
 @router.delete(
     "/users/{user_id}",

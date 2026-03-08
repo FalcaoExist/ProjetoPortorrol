@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { FiLock, FiX, FiCheckCircle, FiAlertTriangle } from "react-icons/fi";
 import InputField from "../common/InputField";
+import { logger } from "../../utils/logger";
 
 /**
  * Modal para alteração de senha de um usuário específico.
@@ -55,7 +56,7 @@ export default function ChangePasswordModal({ isOpen, onClose, onSave, userName 
                 setStatus({ type: "error", message: result?.message || "Não foi possível alterar a senha." });
             }
         } catch (error) {
-            console.error("Erro ao salvar senha:", error);
+            logger.error("Erro ao salvar senha:", error);
             setStatus({ type: "error", message: error?.message || "Erro inesperado ao alterar a senha." });
         } finally {
             setLoading(false);

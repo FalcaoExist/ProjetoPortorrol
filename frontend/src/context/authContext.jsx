@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from "react";
 import httpClient from "../services/validators/api/httpClient";
+import { logger } from "../utils/logger";
 
 const AuthContext = createContext();
 
@@ -11,16 +12,15 @@ export const AuthProvider = ({ children }) => {
 useEffect(() => {
         const checkSession = async () => {
             try {
-                // Tenta validar a sessão no backend (cookie)
                 const data = await httpClient.get("/me");
                 if (data && data.success) {
                     setUser(data.user);
                 } else {
                     setUser(null);
+                    try { localStorage.removeItem("user_data"); localStorage.removeItem("user"); } catch (e) {}
                 }
             } catch (error) {
-                // Se der erro  considera deslogado
-                console.log("Sessão inválida ou expirada");
+                logger.warn("Sessão inválida ou expirada");
                 setUser(null);
             } finally {
                 setLoading(false);
@@ -31,12 +31,11 @@ useEffect(() => {
     }, []);
 
     const checkAndShowReminder = (currentUser) => {
-        // Lembrete agora é para todos os usuários logados
         if (currentUser) {
             const lastDismissed = localStorage.getItem('lastReminderDismissedTimestamp');
-            const fortyEightHours = 48 * 60 * 60 * 1000;
-
-            if (!lastDismissed || (Date.now() - parseInt(lastDismissed, 10)) > fortyEightHours) {
+            const twentyFourHours = 24 * 60 * 60 * 1000;
+            
+            if (!lastDismissed || (Date.now() - parseInt(lastDismissed, 10)) > twentyFourHours) {
                 setShowReminder(true);
             }
         }
@@ -47,9 +46,6 @@ useEffect(() => {
         localStorage.setItem('lastReminderDismissedTimestamp', Date.now().toString());
     };
 
-    // -------------------------------------------------------------------------
-    // LOGIN
-    // -------------------------------------------------------------------------
     const login = async (email, password) => {
         try {
             const data = await httpClient.post("/login", { email, password });
@@ -62,12 +58,34 @@ useEffect(() => {
                     };
                 }
 
-                // Salva o usuário no estado
-                setUser(data.user);
-                localStorage.setItem("user_data", JSON.stringify(data.user));
-
-                // Lógica do lembrete
-                checkAndShowReminder(data.user);
+                try {
+                    const me = await httpClient.get("/me");
+                    if (me && me.success) {
+                        setUser(me.user);
+                        try {
+                            const meta = { id: me.user?.id ?? null, lastSeen: Date.now() };
+                            localStorage.setItem("user_meta", JSON.stringify(meta));
+                            localStorage.removeItem("user_data");
+                            localStorage.removeItem("user");
+                        } catch (e) {
+                            logger.error(e);
+                        }
+                        checkAndShowReminder(me.user);
+                    } else {
+                        setUser(data.user);
+                        try {
+                            const meta = { id: data.user?.id ?? null, lastSeen: Date.now() };
+                            localStorage.setItem("user_meta", JSON.stringify(meta));
+                            localStorage.removeItem("user_data");
+                            localStorage.removeItem("user");
+                        } catch (e) {}
+                        checkAndShowReminder(data.user);
+                    }
+                } catch (err) {
+                    setUser(data.user);
+                    try { localStorage.setItem("user_meta", JSON.stringify({ id: data.user?.id ?? null, lastSeen: Date.now() })); localStorage.removeItem("user_data"); localStorage.removeItem("user"); } catch (e) {}
+                    checkAndShowReminder(data.user);
+                }
 
                 // Retorna a 'role' para que a página de Login saiba para onde redirecionar
                 return {
@@ -75,8 +93,6 @@ useEffect(() => {
                     role: data.user.role
                 };
             }
-
-            // CASO 2: Backend retornou ERRO (senha errada, etc)
             else {
                 const msgErro = data.message || data.detail || "Credenciais inválidas.";
                 return {
@@ -86,9 +102,26 @@ useEffect(() => {
             }
 
         } catch (error) {
-            console.error("Erro no login context:", error);
-            // Tenta pegar a mensagem de erro que veio do httpClient
-            const msg = error.data?.message || error.data?.detail || "Erro de conexão.";
+            logger.error("Erro no login context:", error);
+            const extractMessage = (data) => {
+                if (!data) return null;
+                if (typeof data === 'string') return data;
+                if (Array.isArray(data)) {
+                    try {
+                        return data.map(d => (typeof d === 'string' ? d : (d.msg || JSON.stringify(d)))).join(' | ');
+                    } catch (e) {
+                        return String(data);
+                    }
+                }
+                if (Array.isArray(data.detail)) {
+                    return data.detail.map(d => (d.msg || JSON.stringify(d))).join(' | ');
+                }
+                if (data.message) return String(data.message);
+                if (data.detail) return String(data.detail);
+                return JSON.stringify(data);
+            };
+
+            const msg = extractMessage(error.data) || extractMessage(error.data?.detail) || "Erro de conexão.";
             return { success: false, message: msg };
         }
     };
@@ -96,16 +129,14 @@ useEffect(() => {
         try {
             await httpClient.post("/logout", {});
         } catch (error) {
-            console.error("Erro ao fazer logout no servidor", error);
+            logger.error("Erro ao fazer logout no servidor", error);
         } finally {
             setUser(null);
-            // Redireciona
+            try { localStorage.removeItem("user_meta"); localStorage.removeItem("user_data"); localStorage.removeItem("user"); } catch (e) {}
             window.location.href = "/";
         }
     };
     
-
-    // Helper para verificar permissão facilmente nos componentes
     const isGestor = user?.role === "gestor";
 
     return (

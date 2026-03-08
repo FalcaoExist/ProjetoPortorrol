@@ -1,0 +1,352 @@
+import logging
+from typing import List, Any
+from itertools import groupby
+from uuid import uuid4
+from app.repositories.order_repository import OrdersRepository
+from app.services.audit_service import AuditService
+from app.audit.audit_actions import AuditAction
+
+logger = logging.getLogger(__name__)
+
+class OrderService:
+    def __init__(self, audit_service: AuditService):
+        self.repository = OrdersRepository()
+        self.audit_service = audit_service
+        self.FORBIDDEN_BRANCH_NAMES = {"", "TODAS", "GERAL", "MATRIZ", "NONE", "NULL"}
+
+    def get_orders(self) -> List[dict]:
+        try:
+            resp = self.repository.get_orders()
+            formatted = []
+            
+            for row in resp.data or []:
+                sup_data = row.get("suppliers")
+                items = row.get("purchase_order_items", [])
+                
+                item_data = items[0] if isinstance(items, list) and items else (items if isinstance(items, dict) else {})
+                sku_data = item_data.get("tb_skus") or {}
+                qty = item_data.get("quantity_ordered") or 0
+                
+                try:
+                    cost = float(item_data.get("unit_cost") or 0.0)
+                except (TypeError, ValueError):
+                    logger.debug("Falha ao converter unit_cost para float")
+                    cost = 0.0
+
+                supplier_name = sup_data.get("name", "N/A") if isinstance(sup_data, dict) else "N/A"
+                item_name = sku_data.get("nome_produto", "N/A") if isinstance(sku_data, dict) else "N/A"
+
+                formatted.append({
+                    "id": row.get("order_id"),
+                    "order_id": row.get("order_id"),
+                    "status": row.get("status"),
+                    "created_at": row.get("created_at"),
+                    "supplier_name": supplier_name,
+                    "item_name": item_name,
+                    "quantity": qty,
+                    "total_value": qty * cost,
+                    "previsao_entrega": row.get("expected_delivery_date"),
+                    "data_entrega": row.get("data_entrega")
+                })
+            return formatted
+        except Exception as e:
+            logger.error(f"Erro ao buscar pedidos manuais: {e}")
+            raise RuntimeError("Falha ao buscar pedidos") from e
+
+    def get_all_orders(self) -> List[dict]:
+        all_orders = []
+        suppliers_map = {}
+        skus_map = {}
+        branches_map = {}
+
+        try:
+            res_sup = self.repository.get_all_suppliers()
+            if res_sup and hasattr(res_sup, 'data') and res_sup.data:
+                suppliers_map = {s['supplier_id']: s['name'] for s in res_sup.data if isinstance(s, dict)}
+
+            res_branch = self.repository.get_all_branches()
+            if res_branch and hasattr(res_branch, 'data') and res_branch.data:
+                for b in res_branch.data:
+                    if isinstance(b, dict):
+                        b_id = b.get('branch_id') or b.get('id') or b.get('filial_id')
+                        if b_id:
+                            branches_map[str(b_id)] = b.get('name')
+
+            res_sku = self.repository.get_all_skus()
+            if res_sku and hasattr(res_sku, 'data') and res_sku.data:
+                skus_map = {k['id']: k['nome_produto'] for k in res_sku.data if isinstance(k, dict)}
+        except Exception:
+            logger.exception("Erro ao carregar dados auxiliares")
+
+        try:
+            res_manual = self.repository.get_manual_orders()
+            for row in (res_manual.data or []):
+                order_id = row.get("order_id")
+                raw_date = row.get("created_at")
+                nome_responsavel = row.get("user_name") or "Sistema"
+                nome_fornecedor = suppliers_map.get(row.get("supplier_id"), "Manual")
+                nome_filial = branches_map.get(str(row.get("target_branch_id")), "")
+                
+                items = row.get("purchase_order_items", [])
+                if isinstance(items, dict): items = [items]
+
+                if items:
+                    for idx, i in enumerate(items):
+                        if not isinstance(i, dict): continue
+                        p_sku_id = i.get("sku_id")
+                        qty = i.get("quantity_ordered") or 0
+                        unit_cost = i.get("unit_cost") or 0
+                        
+                        all_orders.append({
+                            "id": f"{order_id}-{p_sku_id}-{idx}",
+                            "numero_pedido": f"MAN-{str(order_id)[:8].upper()}",
+                            "responsavel": nome_responsavel,
+                            "supplier_name": nome_fornecedor,
+                            "item_name": skus_map.get(p_sku_id, f"Item {p_sku_id}"),
+                            "branch_name": nome_filial,
+                            "quantity": qty,
+                            "valor": float(qty) * float(unit_cost),
+                            "status": row.get("status", "Pendente"),
+                            "created_at": raw_date,
+                            "previsao_entrega": row.get("expected_delivery_date"),
+                            "data_entrega": row.get("data_entrega"),
+                            "origem": "MANUAL",
+                            "purchase_order_id": order_id
+                        })
+                else:
+                    all_orders.append({
+                        "id": str(order_id),
+                        "numero_pedido": f"MAN-{str(order_id)[:8].upper()}",
+                        "responsavel": nome_responsavel,
+                        "supplier_name": nome_fornecedor,
+                        "item_name": "Pedido sem itens",
+                        "branch_name": nome_filial,
+                        "quantity": 0,
+                        "valor": 0.0,
+                        "status": row.get("status", "Pendente"),
+                        "created_at": raw_date,
+                        "origem": "MANUAL",
+                        "purchase_order_id": order_id
+                    })
+        except Exception:
+            logger.exception("Erro ao carregar pedidos manuais")
+
+        for table, label in [("orders_nsk", "NSK"), ("orders_timken", "TIMKEN")]:
+            try:
+                res = self.repository.get_external_orders(table)
+                for row in (res.data or []):
+                    po_id = row.get("purchase_order_id")
+                    if label == "NSK":
+                        qty = row.get("qtde_confirmada") or row.get("qtd_solicitada") or 0
+                        price = float(row.get("preco_unitario") or 0)
+                        prev, real, num, prod = row.get("data_solicitada"), row.get("data_entrega"), row.get("ped_nsk") or "NSK", row.get("produto")
+                    else:
+                        qty = row.get("confirmed_qty") or row.get("open_qty") or 0
+                        price = float(row.get("sales_unit_price") or 0)
+                        prev, real, num, prod = row.get("requested_date"), row.get("delivery_date"), row.get("purchase_order_number") or "TIMKEN", row.get("material_full_description")
+
+                    db_status = row.get("status")
+                    final_status = db_status if db_status else ("Vínculo Confirmado" if po_id else "Importado")
+
+                    all_orders.append({
+                        "id": row.get("id"),
+                        "numero_pedido": num,
+                        "responsavel": "Importado",
+                        "supplier_name": label,
+                        "item_name": prod or "S/C",
+                        "quantity": qty,
+                        "valor": float(qty) * price,
+                        "status": final_status,
+                        "created_at": prev or row.get("created_at"),
+                        "previsao_entrega": prev,
+                        "data_entrega": real,
+                        "origem": label,
+                        "purchase_order_id": po_id
+                    })
+            except Exception:
+                logger.exception(f"Erro ao carregar pedidos externos da tabela {table}")
+
+        all_orders.sort(key=lambda x: str(x.get("created_at") or ""), reverse=True)
+        return all_orders
+
+    def create_order(self, pedido, current_user: dict) -> dict:
+        sup = self.repository.get_supplier_by_name(pedido.fornecedor_nome)
+        
+        if not sup or not sup.data: 
+            logger.warning(f"Fornecedor não encontrado: {pedido.fornecedor_nome}")
+            raise ValueError("Fornecedor não encontrado.")
+        
+        supplier_id = sup.data[0]["supplier_id"]
+
+        sku = self.repository.get_sku_by_codigo(pedido.sku_codigo)
+
+        if not sku.data: sku = self.repository.search_sku_by_nome(pedido.sku_codigo)
+        if not sku.data: 
+            logger.warning(f"Produto não encontrado: {pedido.sku_codigo}")
+            raise ValueError("Produto não encontrado.")
+        
+        sku_id = sku.data[0]["id"]
+        sku_name = sku.data[0]["nome_produto"]
+
+        branch_id = None
+        nome_filial = getattr(pedido, 'branch_name', None) or getattr(pedido, 'filial', None) or ""
+        nome_filial_clean = str(nome_filial).upper().strip()
+
+        # CONSERTO: Só busca/atribui filial se não for um nome proibido
+        if nome_filial_clean and nome_filial_clean not in self.FORBIDDEN_BRANCH_NAMES:
+            res_branches = self.repository.get_all_branches()
+            if res_branches and res_branches.data:
+                for b in res_branches.data:
+                    if str(b.get("name", "")).upper().strip() == nome_filial_clean:
+                        branch_id = b.get("branch_id") or b.get("id")
+                        break
+
+        try:
+            order_res = self.repository.insert_order({
+                "supplier_id": supplier_id,
+                "user_id": current_user.get("user_id"),
+                "user_name": current_user.get("name") or current_user.get("email"),
+                "status": "DRAFT",
+                "expected_delivery_date": str(pedido.previsao_entrega) if pedido.previsao_entrega else None,
+                "target_branch_id": branch_id # Será None (NULL) se for proibido ou vazio
+            })
+            new_order = order_res.data[0]
+
+            self.repository.insert_order_items({
+                "order_id": new_order["order_id"],
+                "sku_id": sku_id,
+                "quantity_ordered": pedido.quantidade,
+                "unit_cost": pedido.valor_unitario
+            })
+
+            self.audit_service.log(
+                action=AuditAction.ORDER_CREATE,
+                performed_by=current_user.get("user_id"),
+                entity="ORDER",
+                entity_id=new_order["order_id"],
+                extra={
+                    "supplier": pedido.fornecedor_nome,
+                    "sku": sku_name,
+                    "quantity": pedido.quantidade
+                }
+            )
+
+            return {
+                "id": new_order["order_id"],
+                "order_id": new_order["order_id"],
+                "status": new_order["status"],
+                "supplier_name": pedido.fornecedor_nome,
+                "item_name": sku_name,
+                "quantity": pedido.quantidade,
+                "total_value": pedido.quantidade * pedido.valor_unitario,
+                "branch_name": nome_filial if branch_id else None,
+                "created_at": new_order.get("created_at")
+            }
+        except Exception as e:
+            logger.error(f"Erro ao inserir pedido individual: {e}")
+            raise
+
+    def create_batch_orders(self, payload_items: List[Any], current_user: dict) -> int:
+        logger.info(f"Iniciando criação de pedidos em lote - usuário: {current_user.get('user_id')} - itens: {len(payload_items)}")
+        
+        all_suppliers = self.repository.get_all_suppliers()
+        supplier_map = {s["name"].upper().strip(): s["supplier_id"] for s in all_suppliers.data if isinstance(s, dict)}
+
+        branches_response = self.repository.get_all_branches()
+        branch_map = {}
+        if branches_response and branches_response.data:
+            for b in branches_response.data:
+                b_id = b.get('branch_id') or b.get('id') or b.get('filial_id')
+                if b.get('name') and b_id:
+                    branch_map[str(b['name']).upper().strip()] = b_id
+
+        items_with_supplier = []
+        for item_obj in payload_items:
+            item = item_obj.model_dump() if hasattr(item_obj, "model_dump") else dict(item_obj)
+            
+            sup_name = item.get("supplier_name") or "Fornecedor Genérico"
+            sup_key = sup_name.upper().strip()
+            if sup_key not in supplier_map:
+                new_sup = self.repository.insert_supplier({"name": sup_name, "is_active": True, "external_id": str(uuid4())[:8]})
+                supplier_map[sup_key] = new_sup.data[0]["supplier_id"]
+
+            raw_branch = item.get("branch_name") or item.get("filial") or ""
+            branch_key = str(raw_branch).upper().strip()
+            
+            # CONSERTO: Se a filial for vazia ou proibida, target_branch_id vira None e NÃO cria nova branch
+            if not branch_key or branch_key in self.FORBIDDEN_BRANCH_NAMES:
+                item["target_branch_id"] = None
+            else:
+                if branch_key not in branch_map:
+                    new_branch = self.repository.insert_branch({"name": raw_branch, "is_active": True})
+                    branch_map[branch_key] = new_branch.data[0].get("branch_id") or new_branch.data[0].get("id")
+                item["target_branch_id"] = branch_map.get(branch_key)
+
+            item["supplier_id"] = supplier_map[sup_key]
+            items_with_supplier.append(item)
+
+        items_with_supplier.sort(key=lambda x: (x["supplier_id"], str(x.get("target_branch_id"))))
+        count = 0
+        for (supplier_id, target_branch_id), group in groupby(items_with_supplier, key=lambda x: (x["supplier_id"], x.get("target_branch_id"))):
+            group_items = list(group)
+            res_order = self.repository.insert_order({
+                "supplier_id": supplier_id,
+                "user_id": current_user.get("user_id"),
+                "user_name": current_user.get("name") or current_user.get("nome") or current_user.get("email"),
+                "status": "PENDING",
+                "expected_delivery_date": group_items[0].get('expected_delivery_date'),
+                "target_branch_id": target_branch_id
+            })
+            if res_order.data:
+                new_id = res_order.data[0]["order_id"]
+                count += 1
+                payloads = [{"order_id": new_id, "sku_id": i["sku_id"], "quantity_ordered": i["quantity"], "unit_cost": i["unit_cost"]} for i in group_items]
+                self.repository.insert_order_items(payloads)
+        
+        #logger.info(f"Pedidos em lote concluídos - usuário: {current_user.get('user_id')} - criados: {count}")
+        
+        self.audit_service.log(
+            action=AuditAction.ORDER_CREATE,
+            performed_by=current_user.get("user_id"),
+            entity="ORDER_BATCH",
+            entity_id=current_user.get("user_id"),
+            extra={"orders_created": count}
+        )
+        
+        return count
+
+    def update_order(self, order_id: str, payload: Any):
+        try:
+            update_dict = payload.model_dump(exclude_unset=True) if hasattr(payload, "model_dump") else dict(payload)
+            origem = str(update_dict.pop("origem", "MANUAL")).upper()
+            table = "orders_timken" if origem == "TIMKEN" else ("orders_nsk" if origem == "NSK" else "purchase_orders")
+            
+            clean_order_id = str(order_id)
+            if origem == "MANUAL" and len(clean_order_id) > 36:
+                clean_order_id = clean_order_id[:36]
+            
+            delivery_value = update_dict.get("data_entrega")
+            
+            if origem == "TIMKEN" and "data_entrega" in update_dict:
+                update_dict["delivery_date"] = update_dict.pop("data_entrega")
+                delivery_value = update_dict.get("delivery_date")
+
+            if delivery_value and str(delivery_value).strip() not in ["", "None", "null", "NaN"]:
+                update_dict["status"] = "Finalizado"
+                
+            result = self.repository.update_order(clean_order_id, update_dict, table)
+
+            if "status" in update_dict:
+                self.audit_service.log(
+                    action=AuditAction.ORDER_STATUS_CHANGE,
+                    performed_by=None,
+                    entity="ORDER",
+                    entity_id=clean_order_id,
+                    extra={"new_status": update_dict["status"]}
+                )
+
+            return result
+
+        except Exception as e:
+            logger.error(f"Erro ao atualizar pedido {order_id}: {e}")
+            raise

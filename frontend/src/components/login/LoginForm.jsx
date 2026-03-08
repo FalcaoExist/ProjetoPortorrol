@@ -9,7 +9,7 @@ export default function LoginForm({
   password,
   onPasswordChange,
   loading,
-  errors, // 1. Receba o objeto de erros completo
+  errors,
 }) {
   const [showPassword, setShowPassword] = useState(false);
 
@@ -19,7 +19,7 @@ export default function LoginForm({
 
   return (
     <form
-      noValidate // Desabilita a validação HTML padrão
+      noValidate
       onSubmit={onSubmit}
       className="flex flex-col items-center justify-center w-full"
     >
@@ -36,7 +36,6 @@ export default function LoginForm({
           type="email"
           name="email"
           id="email"
-          // 2. Adiciona classe de erro condicionalmente
           className={`h-10 md:h-12 border-2 rounded-lg px-4 py-2 text-sm md:text-base font-poppins focus:outline-none focus:border-primary transition-colors ${
             errors?.email ? "border-red-500" : "border-gray-300"
           }`}
@@ -46,7 +45,6 @@ export default function LoginForm({
           required
           autoComplete="email"
         />
-        {/* 3. Exibe a mensagem de erro específica para o email */}
         {errors?.email && (
           <p className="mt-1 text-sm text-red-600 font-poppins text-center">
             {errors.email}
@@ -66,7 +64,6 @@ export default function LoginForm({
             type={showPassword ? "text" : "password"}
             name="password"
             id="password"
-            // 2. Adiciona classe de erro condicionalmente
             className={`h-10 md:h-12 border-2 rounded-lg px-4 pr-10 py-2 w-full text-sm md:text-base font-poppins focus:outline-none focus:border-primary transition-colors ${
               errors?.password ? "border-red-500" : "border-gray-300"
             }`}
@@ -80,7 +77,7 @@ export default function LoginForm({
             type="button"
             onClick={togglePasswordVisibility}
             className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-primary transition-colors"
-            tabIndex={-1} // evita focar no botão ao pressionar Tab
+            tabIndex={-1}
           >
             {showPassword ? (
               <BsEyeSlash size={20} />
@@ -90,7 +87,6 @@ export default function LoginForm({
           </button>
         </div>
         
-        {/* 3. Exibe a mensagem de erro específica para a senha */}
         {errors?.password && (
           <p className="mt-1 text-sm text-red-600 font-poppins text-center">
             {errors.password}

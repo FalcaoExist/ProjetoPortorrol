@@ -1,11 +1,11 @@
 import httpClient from "./validators/api/httpClient";
+import { logger } from "../utils/logger";
 
 export async function checkEmailApi(email) {
   try {
     const response = await httpClient.get(`/check-email?email=${encodeURIComponent(email)}`);
     return response;
   } catch (err) {
-    // console.error("Erro ao verificar e-mail:", err);
     return { exists: false };
   }
 }
@@ -24,16 +24,13 @@ export async function createBuyerApi(formData) {
       supplier: formData.supplier || [] 
     };
 
-    // CORRETO: Agora bate direto em /users
     const response = await httpClient.post("/users", payload);
     
     return { success: true, data: response };
 
   } catch (err) {
-    console.error("Erro ao criar comprador:", err);
-    
-    // Tratamento de erros
-    // Tenta pegar a mensagem de erro detalhada do backend
+    logger.error("Erro ao criar comprador:", err);
+
     const errorMsg = err.data?.detail || err.message || "";
 
     if (err.status === 400 && (errorMsg.includes("já cadastrado") || errorMsg.includes("exists"))) {

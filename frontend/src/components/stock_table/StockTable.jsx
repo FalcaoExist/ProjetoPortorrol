@@ -1,10 +1,14 @@
 // frontend/src/components/estoque_table/EstoqueTable.jsx
-import React, { useMemo } from "react";
+import React, { useMemo, useCallback } from "react";
 import { Box } from "@mui/material";
 import { BaseDataGrid } from "../common/BaseDataGrid";
+import { getStockRowId } from "../../utils/rowIds";
 
 // Função para determinar o status e a cor de fundo com base nos dias de cobertura
 const getStatus = (diasDeCobertura) => {
+    if (diasDeCobertura === null || diasDeCobertura === undefined) {
+        return { text: "Sem demanda", bgColor: "bg-gray-100", textColor: "text-gray-500" };
+    }
     if (diasDeCobertura <= 30) {
         return { text: "Ruptura iminente", bgColor: "bg-red-200", textColor: "text-red-800" };
     }
@@ -69,6 +73,15 @@ export default function StockTable({
             align: "left",
         },
         {
+            field: "unidades_pendentes",
+            headerName: "Unidades pendentes",
+            type: "number",
+            minWidth: 150,
+            flex: 0.9,
+            headerAlign: "left",
+            align: "left",
+        },
+        {
             field: "fornecedor",
             headerName: "Fornecedor",
             minWidth: 150,
@@ -118,6 +131,32 @@ export default function StockTable({
         },
     ], []);
 
+    // Lógica para o seletor não bugar
+    const handleSelectionChange = useCallback((nextSelectionModel) => {
+        if (!onRowSelectionModelChange) return;
+
+        // Compatível com versões que retornam array de IDs
+        if (Array.isArray(nextSelectionModel)) {
+            onRowSelectionModelChange({ type: "include", ids: new Set(nextSelectionModel) });
+            return;
+        }
+
+        const ids = nextSelectionModel?.ids instanceof Set
+            ? nextSelectionModel.ids
+            : new Set(nextSelectionModel?.ids || []);
+
+        if (nextSelectionModel?.type === "exclude") {
+            // Quando o DataGrid usa "exclude" (ex.: seletor global), convertemos
+            // para "include" para manter o hook de estoque consistente.
+            const allVisibleIds = new Set(rows.map((row) => row.id));
+            ids.forEach((id) => allVisibleIds.delete(id));
+            onRowSelectionModelChange({ type: "include", ids: allVisibleIds });
+            return;
+        }
+
+        onRowSelectionModelChange({ type: "include", ids });
+    }, [onRowSelectionModelChange, rows]);
+
     return (
         <Box sx={{ width: '100%' }}>
             <BaseDataGrid
@@ -129,21 +168,11 @@ export default function StockTable({
                 // Lógica de Seleção
                 checkboxSelection={isRequisitionMode}
                 rowSelectionModel={rowSelectionModel}
-                onRowSelectionModelChange={onRowSelectionModelChange}
+                onRowSelectionModelChange={handleSelectionChange}
                 
-                // --- CORREÇÃO IMPORTANTE ---
-                // Permite seleção múltipla via código (useStock) mesmo sem checkboxes visíveis
-                // Isso resolve o erro "rowSelectionModel can only contain 1 item"
                 disableMultipleRowSelection={false}
 
-                // ID Composto para evitar erro de duplicidade (key prop)
-                getRowId={(row) => {
-                    if (row.filial) {
-                        return `${row.id}-${row.filial}`;
-                    }
-                    // Fallback seguro
-                    return `${row.id}-${Math.random().toString(36).substr(2, 9)}`;
-                }}
+                getRowId={getStockRowId}
             />
         </Box>
     );

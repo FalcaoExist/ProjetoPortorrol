@@ -1,43 +1,82 @@
 import httpClient from './validators/api/httpClient';
-import { exportStockCSV } from "./csvExporter";
+import { exportStockXLSX } from "./xlsxExporter";
+import { logger } from "../utils/logger";
 
-const mapStockToFrontend = (item) => {
-    let rawSupplier = item.primary_supplier || item.supplier_name || item.fornecedor || item.supplier;
+export const BRANCH_OPTIONS = ["Porto Alegre", "Joinville", "São Paulo"];
+export const STOCK_STATUS_OPTIONS = ["Ok", "Subdimensionado", "Ruptura iminente", "Excesso", "Sem demanda"];
+
+export const getStockCoverageStatus = (daysCoverage) => {
+    if (daysCoverage === null || daysCoverage === undefined) return "Sem demanda";
+    if (daysCoverage <= 30) return "Ruptura iminente";
+    if (daysCoverage <= 60) return "Subdimensionado";
+    if (daysCoverage <= 100) return "Ok";
+    return "Excesso";
+};
+
+const normalizeFilial = (value) => {
+    const text = String(value || "").trim();
+    if (!text) return "";
+    return BRANCH_OPTIONS.includes(text) ? text : "";
+};
+
+
+const mapStockToFrontend = (item, index) => {
+    let rawSupplier = item.primary_supplier || item.supplier_name || item.fornecedor || item.supplier || item.suppliers?.name;
     let supplierStr = String(rawSupplier || "").trim();
 
     if (supplierStr.includes("Padrão") || supplierStr.includes("Default") || supplierStr === "null" || supplierStr === "undefined") {
         supplierStr = "";
     }
 
+    const baseId = item.id || item.sku_id || "gen";
+    const uniqueReactId = `${baseId}-${index}-${Math.random().toString(36).substr(2, 5)}`;
+
     return {
-        id: item.sku_id || item.id,
-        codigo: item.sku_code || item.codigo || "S/C",
-        item: item.name || item.item || "Item sem nome",
+        id: uniqueReactId,
+        real_sku_id: item.sku_id || item.id,
+        codigo: item.sku_code || item.codigo || item.tb_skus?.codigo || "S/C",
+        item: item.name || item.item || item.tb_skus?.nome_produto || "Item sem nome",
         categoria: item.category || item.categoria || "Geral",
-        unidades: item.stock_quantity || item.unidades || 0,
+        unidades: item.stock_quantity || item.unidades || item.estoque || item.estoque_soma || 0,
         fornecedor: supplierStr, 
-        filial: item.branch_name || item.filial || "Matriz",
-        dias_cobertura: item.coverage_days || item.dias_cobertura || 0,
-        valor: item.unit_price || item.valor || 0,
+        filial: normalizeFilial(item.filial || item.branch_name || item.branch || item.filial_nome),
+        dias_cobertura: item.dias_cobertura, 
+        valor: item.unit_price || item.valor || item.preco || item.preco_custo || 0,
+        porto_alegre: item.porto_alegre || item.estoque_poa || 0,
+        joinville: item.joinville || item.estoque_jv || 0,  
+        sao_paulo: item.sao_paulo || item.estoque_sp || 0,
+        rop: Math.ceil(item.rop || 0),
+        qtd_sugerida: Math.ceil(item.qtd_sugerida || 0),
+        unidades_pendentes: Math.ceil(item.unidades_pendentes || item.pedidos_pendentes || 0),
+        quantidade_sugerida_compra_projetada: Math.ceil(item.quantidade_sugerida_compra_projetada || 0),
+        leadtime: item.leadtime || 0,
         _raw: item
     };
 };
 
-export const getStockData = async (filters = {}) => {
+export const getStockData = async (filial, fornecedor, status) => {
     try {
+        const args = typeof filial === 'object' ? filial : { filial, fornecedor, status };
+        const usePendingUnitsZeroRoute = Number(args.unidadesPendentes) === 0;
+
         const params = new URLSearchParams();
-        if (filters.filial) params.append('filial', filters.filial);
-        if (filters.fornecedor) params.append('fornecedor', filters.fornecedor);
+        if (args.filial && args.filial !== "Todos") params.append('filial', args.filial);
+        if (args.fornecedor && args.fornecedor !== "Todos") params.append('fornecedor', args.fornecedor);
+        if (!usePendingUnitsZeroRoute && args.status && args.status !== "Todos") params.append('status', args.status);
 
         const queryString = params.toString();
-        const endpoint = queryString ? `/stock?${queryString}` : '/stock';
+        const baseEndpoint = usePendingUnitsZeroRoute
+            ? '/stock/skus/no-pending-units'
+            : '/stock';
+        const endpoint = queryString ? `${baseEndpoint}?${queryString}` : baseEndpoint;
         
         const response = await httpClient.get(endpoint);
-        const data = Array.isArray(response) ? response : (response.data || []);
-        
-        return data.map(mapStockToFrontend);
+        const dataList = Array.isArray(response) ? response : (response.data || []);
+
+        return dataList.map((item, index) => mapStockToFrontend(item, index));
+
     } catch (error) {
-        console.error("Erro ao carregar estoque:", error);
+        logger.error("Erro ao carregar estoque:", error);
         return [];
     }
 };
@@ -53,50 +92,59 @@ export const getSuppliers = async () => {
             data = Array.isArray(resStock) ? resStock : (resStock.data || []);
         }
 
+        if (data.length > 0 && typeof data[0] === 'string') {
+            return data;
+        }
+
         const allSuppliers = data.map(item => {
-            const val = item.name || item.supplier_name || item.primary_supplier || item.fornecedor;
+            const val = item.name || item.supplier_name || item.primary_supplier || item.fornecedor || item.suppliers?.name;
             return String(val || "").trim();
         });
         
-        const uniqueSuppliers = [...new Set(allSuppliers)]
+        return [...new Set(allSuppliers)]
             .filter(s => s && s !== "null" && s !== "undefined" && !s.includes("Padrão"))
             .sort();
             
-        return uniqueSuppliers;
     } catch (error) {
-        console.error("Erro ao buscar fornecedores:", error);
+        logger.error("Erro ao buscar fornecedores:", error);
         return [];
     }
 };
 
 export const createOrderBatch = async (items) => {
-    const payload = {
-        items: items.map(i => {
-            const valorLimpo = String(i.valor).replace(',', '.');
-            
-            return {
-                sku_id: i.id,
-                quantity: Number(i.quantidade),
-                unit_cost: Number(valorLimpo),
-                expected_delivery_date: i.previsao_entrega || null,
-                
-                supplier_name: i.fornecedor || "Fornecedor Padrão" 
-            };
-        })
-    };
-    return await httpClient.post('/orders/batch', payload);
+    const safeItems = Array.isArray(items) ? items : [];
+    const payload = { items: safeItems };
+
+    try {
+        const response = await httpClient.post('/orders/batch', payload);
+        return response.data || response;
+    } catch (error) {
+        throw error;
+    }
 };
 
 export const importStockFromFile = async (file) => {
-    return new Promise(resolve => setTimeout(() => resolve({ success: true, message: "Mock Import" }), 1000));
+    const formData = new FormData();
+    formData.append("file", file);
+    
+    const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+
+    const response = await fetch(`${API_URL}/stock/import`, {
+        method: "POST",
+        body: formData,
+        credentials: "include",
+    });
+
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+        throw new Error(data.detail || data.message || "Erro na requisição de importação");
+    }
+
+    return data;
 };
 
 export const exportStockData = async (data) => {
-    if (!data || data.length === 0) {
-        throw new Error("Nenhum dado fornecido para exportação.");
-    }
-
-    exportStockCSV(data);
-
-    return Promise.resolve({ message: "Dados do estoque exportados e download iniciado." });
+    if (!data || data.length === 0) throw new Error("Nenhum dado fornecido para exportação.");
+    exportStockXLSX(data);
+    return Promise.resolve({ message: "Dados do estoque exportados em Excel e download iniciado." });
 };

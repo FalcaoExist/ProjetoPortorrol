@@ -3,14 +3,10 @@ import { useGridApiContext } from "@mui/x-data-grid";
 import { Popover } from "@mui/material";
 import { FiChevronDown, FiCheck } from "react-icons/fi";
 
-// ---------------------------------------------------------------------------
-// COMPONENTE: SupplierEditCell
-// ---------------------------------------------------------------------------
 export default function SupplierEditCell({ id, value, field, options }) {
   const apiRef = useGridApiContext();
   const [anchorEl, setAnchorEl] = useState(null);
 
-  // Garante que o valor seja sempre um array para evitar erros
   const selectedValues = Array.isArray(value) ? value : [];
 
   const handleClick = (event) => {
@@ -21,21 +17,14 @@ export default function SupplierEditCell({ id, value, field, options }) {
     setAnchorEl(null);
   };
 
-  // Lógica de toggle para adicionar/remover item
   const toggleOption = (option) => {
-    // 1. Descobre quais itens o usuário QUER ter selecionados (sem se preocupar com ordem ainda)
     const isSelected = selectedValues.includes(option);
     const nextSelection = isSelected
-      ? selectedValues.filter((v) => v !== option) // Remove
-      : [...selectedValues, option]; // Adiciona temporariamente
+      ? selectedValues.filter((v) => v !== option)
+      : [...selectedValues, option];
 
-    // 2. [CORREÇÃO DEFINITIVA DE ORDEM]
-    // Em vez de ordenar o array bagunçado, nós percorremos a lista ORIGINAL de 'options' (que já está na ordem certa)
-    // e pegamos apenas o que está na seleção do usuário.
-    // Isso garante que o resultado final SEMPRE siga a ordem do menu.
     const sortedNewValues = options.filter(opt => nextSelection.includes(opt));
 
-    // Atualiza a grid com o valor já ordenado
     apiRef.current.setEditCellValue({ id, field, value: sortedNewValues });
   };
 
@@ -43,7 +32,6 @@ export default function SupplierEditCell({ id, value, field, options }) {
 
   return (
     <div className="w-full h-full relative">
-      {/* Campo Visual (Input fake) */}
       <div 
         onClick={handleClick}
         className="w-full h-full border border-gray-300 rounded-md px-2 py-1 text-sm font-poppins bg-white cursor-pointer flex items-center overflow-hidden hover:border-gray-400 transition-colors"
@@ -54,7 +42,6 @@ export default function SupplierEditCell({ id, value, field, options }) {
         <FiChevronDown className="ml-auto text-gray-400 min-w-[14px]" size={14} />
       </div>
       
-      {/* Menu Flutuante */}
       <Popover
         open={open}
         anchorEl={anchorEl}
@@ -66,11 +53,11 @@ export default function SupplierEditCell({ id, value, field, options }) {
         }}
       >
         <div className="p-1 bg-white rounded-md shadow-lg border border-gray-100 flex flex-col max-h-60 overflow-y-auto">
-           {options.map((opt) => {
+           {options.map((opt, idx) => {
              const isSelected = selectedValues.includes(opt);
              return (
                <div 
-                 key={opt} 
+                 key={`${opt}-${idx}`} 
                  onClick={() => toggleOption(opt)}
                  className={`
                     px-3 py-2 cursor-pointer flex items-center gap-3 text-sm font-poppins rounded-md transition-colors select-none

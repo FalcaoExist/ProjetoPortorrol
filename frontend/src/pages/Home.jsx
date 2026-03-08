@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useMemo, useRef } from "react";
 import LeadtimeSavingCard from "../components/charts/LeadtimeSavingCard";
 import Navbar from "../components/nav_bar/NavBar";
 import Header from "../components/header/Header";
@@ -15,34 +15,76 @@ import OverstokChart from "../components/charts/OverstokChart";
 import SkuAutocomplete from "../components/common/SKUAutocomplete";
 import useDashboardData from "../hooks/useDashboardData";
 import { exportDashboardCSV } from "../services/csvExporter";
+import xlsxExporter from "../services/xlsxExporter";
+import ExportDropdown from "../components/common/ExportDropdown";
+import { useOrders } from "../hooks/useOrders";
+import { useNavigate } from "react-router-dom";
 
+const formatDate = (dateString) => {
+  if (!dateString) return "--/--/----";
+  const d = new Date(dateString);
+  d.setMinutes(d.getMinutes() + d.getTimezoneOffset());
+  return d.toLocaleDateString('pt-BR');
+};
+
+const normalizeText = (value) => {
+  if (!value) return "";
+  return String(value)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+};
 
 export default function Home() {
+  const AUTO_SKU_INTERVAL_MS = 7000;
+  const USER_IDLE_RESUME_MS = 300000;
+
   const { user } = useAuth();
+  const navigate = useNavigate();
+
   const {
-    branch,
-    setBranch,
-    supplier,
-    setSupplier,
-    sku,
-    setSku,
+    branch, setBranch,
+    supplier, setSupplier,
+    sku, setSku,
     branchOptions,
     supplierOptions,
-    months,
+    months, 
     data,
     dataCritic,
+    loading,
     stockOverview,
-    kpis, // <--- Pegando o KPI calculado
+    kpis, 
     STATUS_INDICATORS,
     skuOptions,
-    orders,
-    budget,
+    orders, 
     leadtimeInfo,
-    onSkuSearch
+    onSkuSearch,
+    budgetInfo,          
+    totalSuggestedValue  
   } = useDashboardData();
 
-  // Exporta via serviço externo (single responsibility)
-  const handleExport = () =>
+  const { ordersData, loading: ordersLoading } = useOrders();
+  const lastSkuInteractionAtRef = useRef(0);
+
+  const filteredOrdersData = useMemo(() => {
+    const selectedSupplier = normalizeText(supplier);
+    const shouldFilterBySupplier = selectedSupplier !== "" && selectedSupplier !== "todos";
+
+    if (!shouldFilterBySupplier) {
+      return ordersData || [];
+    }
+
+    return (ordersData || []).filter((order) => {
+      const orderSupplier = normalizeText(order?.fornecedor);
+      return orderSupplier.includes(selectedSupplier);
+    });
+  }, [ordersData, supplier]);
+
+  const atrasadosCount = filteredOrdersData.filter(o => o.status === "Atrasado").length;
+  const aprovadosCount = filteredOrdersData.filter(o => o.status === "Aprovado").length;
+  
+  const handleExportCSV = () => {
     exportDashboardCSV({
       branch,
       supplier,
@@ -50,11 +92,67 @@ export default function Home() {
       months,
       data,
       dataCritic,
-      statusIndicators: STATUS_INDICATORS,
+      statusIndicators: stockOverview?.data || {},
       orders,
-      budget,
+      budget: budgetInfo?.valor, 
       leadtimeInfo,
     });
+  };
+
+  const handleExportExcel = () => {
+    xlsxExporter.exportDashboardXLSX({
+      branch,
+      supplier,
+      sku,
+      months,
+      data,
+      dataCritic,
+      statusIndicators: stockOverview?.data || {},
+      orders,
+      budget: budgetInfo?.valor,
+      leadtimeInfo,
+    });
+  };
+
+  useEffect(() => {
+    if (!Array.isArray(skuOptions) || skuOptions.length === 0) return;
+
+    const intervalId = setInterval(() => {
+      const userIsActive = Date.now() - lastSkuInteractionAtRef.current < USER_IDLE_RESUME_MS;
+      if (userIsActive) return;
+
+      setSku((currentSku) => {
+        if (!currentSku?.value) {
+          return skuOptions[0];
+        }
+
+        const currentIndex = skuOptions.findIndex((option) => option?.value === currentSku.value);
+        const nextIndex = currentIndex >= 0
+          ? (currentIndex + 1) % skuOptions.length
+          : 0;
+
+        return skuOptions[nextIndex];
+      });
+    }, AUTO_SKU_INTERVAL_MS);
+
+    return () => clearInterval(intervalId);
+  }, [skuOptions, setSku]);
+
+  const handleSkuChange = (newVal) => {
+    lastSkuInteractionAtRef.current = Date.now();
+    setSku(newVal);
+  };
+
+  const handleSkuUserInteraction = () => {
+    lastSkuInteractionAtRef.current = Date.now();
+  };
+
+   const handleOrderClick = (status) => {
+    const params = new URLSearchParams();
+    params.set("status", status);
+    if (supplier) params.set("fornecedor", supplier);
+    navigate(`/orders?${params.toString()}`);
+  };
 
   return (
     <div className="grid min-h-screen grid-cols-[16rem_minmax(0,1fr)]">
@@ -65,13 +163,6 @@ export default function Home() {
 
           <section className="pl-20 md:px-12 mt-3">
             <div className="flex gap-5 my-5">
-                <Filter 
-                  label={"Filial"} 
-                  options={branchOptions} 
-                  value={branch} 
-                  onChange={setBranch} 
-                  className="text-lg"
-                />
                 <Filter
                   label={"Fornecedor"}
                   options={supplierOptions}
@@ -83,11 +174,20 @@ export default function Home() {
             
             <div className="border border-1 rounded-lg w-full min-h-96">
               <h2 className="ml-16 p-3 pb-0 text-[#464255] font-poppins font-bold text-lg">SKUs mais Críticos</h2>
-              <CriticosChart branch={branch} supplier={supplier} data={dataCritic} />
+              <CriticosChart
+                branch={branch}
+                supplier={supplier}
+                data={dataCritic}
+                loading={loading}
+                emptyMessage="Não foram encontrados SKUs críticos para esse fornecedor."
+              />
               <div className="">
                <StockRangeGraph 
                     data={stockOverview ? stockOverview.data : STATUS_INDICATORS} 
-                    totalItems={stockOverview ? stockOverview.total : 0}
+                totalItems={stockOverview ? stockOverview.total : 0}
+                branch={branch}
+                supplier={supplier}
+                loading={loading}
                 />
               </div>
             </div>
@@ -96,29 +196,25 @@ export default function Home() {
               <div className="flex-1 min-w-0">
                 <p className="text-start font-semibold text-primary text-2xl py-5">Pedidos</p>
                 <div className="flex gap-2 h-[128px]">
-                  <Orders text={"Atrasados"} img={lateOrdersImg} number={8} />
-                  <Orders text={"Aprovados"} img={aprovedorders} number={8} />
+                  <Orders text={"Atrasados"} img={lateOrdersImg} number={atrasadosCount} loading={ordersLoading} onClick={() => handleOrderClick("Atrasado")}/>
+                  <Orders text={"Aprovados"}  img={aprovedorders} number={aprovadosCount} loading={ordersLoading} onClick={() => handleOrderClick("Aprovado")}/>
                 </div>
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-start font-semibold text-primary text-2xl py-5">Gastos</p>
                 <div className="h-[128px] flex items-center">
                   <BudgetProgressCard
-                    value={31452.32}
-                    budget={88000}
-                    startDate="01/10/2025"
-                    endDate="01/11/2025"
+                    value={budgetInfo ? Number(budgetInfo.valor_individual) : 0} 
+                    budget={budgetInfo ? Number(budgetInfo.valor_total) : 0}     
+                    startDate={formatDate(budgetInfo?.start)}
+                    endDate={formatDate(budgetInfo?.end)}
                   />
                 </div>
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-start font-bold text-primary text-2xl py-5">&nbsp;</p>
                 <div className="h-[128px] flex items-center">
-                  {/* [AQUI] Passando o dado real calculado */}
-                  <LeadtimeSavingCard 
-                    leadtime={kpis ? kpis.coverageDays : 0} 
-                    saving={0} 
-                  />
+                  <LeadtimeSavingCard supplier={supplier} />
                 </div>
               </div>
             </div>
@@ -127,24 +223,20 @@ export default function Home() {
               <div className="flex items-center gap-3 ml-6 mt-4 w-full pr-6">
                 <SkuAutocomplete 
                     value={sku} 
-                    onChange={(newVal) => setSku(newVal)} 
+                  onChange={handleSkuChange} 
                     options={skuOptions} 
-                    onInputChange={(event, newInputValue) => onSkuSearch(newInputValue)}
                     placeholder="Procurar SKU" 
                 />
               </div>
-              <MonthlyQuantityChart data={months} sku={sku?.value} />
+              <MonthlyQuantityChart
+                data={months}
+                sku={sku?.value}
+                onUserInteraction={handleSkuUserInteraction}
+              />
             </div>
 
             <div className="border border-1 rounded-lg w-full min-h-72 mb-10">
               <div className="flex items-center gap-3 ml-6 mt-4">
-                <Filter 
-                  label={"Filial"} 
-                  options={branchOptions} 
-                  value={branch} 
-                  onChange={setBranch}
-                  className="text-lg" 
-                />
                 <Filter 
                   label={"Fornecedor"} 
                   options={supplierOptions} 
@@ -154,11 +246,22 @@ export default function Home() {
                 />
               </div>
               <h2 className="ml-16 p-3 pb-0 text-[#464255] font-poppins font-bold text-lg">SKUs em excesso</h2>
-              <OverstokChart branch={branch} supplier={supplier} data={data} />
+              <OverstokChart
+                branch={branch}
+                supplier={supplier}
+                data={data}
+                loading={loading}
+                emptyMessage="Não foram encontrados SKUs em excesso para esse fornecedor."
+              />
             </div>
 
             <div className="flex justify-end mb-24">
-              <button onClick={handleExport} className="bg-[#EAEAEA] text-gray-500 px-16 py-2 shadow-md rounded-lg border hover:bg-white">EXPORTAR</button>
+             <ExportDropdown
+                options={[ 
+                  { label: "CSV", onClick: handleExportCSV },
+                  { label: "Excel", onClick: handleExportExcel },
+                ]}
+              />
             </div>
           </section>
         </div>

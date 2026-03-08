@@ -23,8 +23,8 @@ export default function SelectFilter({ label, name, value, onChange, options }){
         className="border border-gray-300 rounded-xl p-2 focus:outline-none focus:ring-2 focus:ring-gray-400"
       >
         <option value="">Todos</option>
-        {options.map((option) => (
-          <option key={option} value={option}>
+        {options.map((option, idx) => (
+          <option key={`${option}-${idx}`} value={option}>
             {option}
           </option>
         ))}

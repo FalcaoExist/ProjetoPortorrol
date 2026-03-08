@@ -1,11 +1,12 @@
 
 import React from 'react';
 
-export const statusOptions = ["Aprovado", "Atrasado"];
+export const statusOptions = ["Aprovado", "Atrasado", "Finalizado"];
 
 export const getStatusStyles = (status) => {
     if (status === "Aprovado") return { bgColor: "bg-green-200", textColor: "text-green-800" };
     if (status === "Atrasado") return { bgColor: "bg-red-200", textColor: "text-red-800" };
+    if (status === "Finalizado") return { bgColor: "bg-orange-200", textColor: "text-orange-800" };
     return { bgColor: "bg-gray-200", textColor: "text-gray-800" };
 };
 
@@ -27,12 +28,17 @@ export const getMainOrdersColumns = (handleOpenModal) => [
         minWidth: 180, 
         flex: 1,
         type: 'date',
-        valueGetter: (params) => {
-            if (!params.value) return null;
-            const date = new Date(params.value);
+        valueGetter: (value) => {
+            if (!value) return null;
+            const date = new Date(value);
             if (isNaN(date.getTime())) return null; 
+
             const timeZoneOffset = date.getTimezoneOffset() * 60000;
             return new Date(date.valueOf() + timeZoneOffset);
+        },
+        valueFormatter: (value) => {
+            if (!value) return "-";
+            return value.toLocaleDateString("pt-BR");
         }
     },
     {
@@ -41,6 +47,20 @@ export const getMainOrdersColumns = (handleOpenModal) => [
         minWidth: 150,
         flex: 1,
         renderCell: (params) => <StatusCell value={params.value} />,
+    },
+    {
+        field: "fornecedores",
+        headerName: "Fornecedores",
+        minWidth: 200,
+        flex: 1.5,
+        renderCell: (params) => {
+            const suppliers = [...new Set(params.row.items.map(item => item.fornecedor))].join(', ');
+            return (
+                <div title={suppliers} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {suppliers}
+                </div>
+            );
+        },
     },
     {
         field: 'actions',
@@ -72,4 +92,6 @@ export const modalStyle = {
     boxShadow: 24,
     p: 4,
     borderRadius: '8px',
+    maxHeight: '80vh',
+    overflowY: 'auto',
 };

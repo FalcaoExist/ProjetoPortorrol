@@ -2,18 +2,12 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Instala dependências de compilação
-RUN apt-get update && apt-get install -y \
-    build-essential \
-    python3-dev \
-    gcc \
-    libffi-dev \
-    libpq-dev \
-    && rm -rf /var/lib/apt/lists/*
+ENV PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_DEFAULT_TIMEOUT=300
 
 COPY requirements.txt . 
-RUN pip install --no-cache-dir -r requirements.txt
-RUN pip install "python-jose[cryptography]"
+RUN pip install --prefer-binary --only-binary=:all: --retries 10 --timeout 300 -r requirements.txt
 COPY . .
 
 EXPOSE 8000

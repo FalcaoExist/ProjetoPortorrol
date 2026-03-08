@@ -1,46 +1,37 @@
-import { useState,  useRef, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/authContext";
-import { useStock } from "../hooks/useStock";
-import { importStockFromFile, exportStockData } from "../services/stockService";
+import { useStockPageLogic } from "../hooks/useStockPageLogic";
+import { exportStockData } from "../services/stockService";
+import { exportStockCSV } from "../services/csvExporter";
+import { logger } from "../utils/logger";
 
-// Opções estáticas (Status e Filial não mudam, então definimos aqui para não precisar de mock)
-const statusOptions = ["Ok", "Subdimensionado", "Ruptura iminente", "Excesso"];
-const filialOptions = ["Porto Alegre", "Joinville", "São Paulo"];
 
 import Header from "../components/header/Header";
 import Navbar from "../components/nav_bar/NavBar";
 import SearchBar from "../components/common/SearchBar";
 import SelectFilter from "../components/common/SelectFilter";
-import StockTable from "../components/stock_table/StockTable";
+import StockTable from "../components/stock_table/StockTable"; 
 import NewOrderTable from "../components/new_order_table/NewOrderTable";
 import ConfirmationModal from "../components/common/ConfirmationModal";
+import ExportDropdown from "../components/common/ExportDropdown";
+
 
 export default function Stock() {
     const { user } = useAuth();
-    const navigate = useNavigate();
 
-    useEffect(() => {
-        try {
-            const params = new URLSearchParams(window.location.search);
-            const sku = params.get('sku');
-            const status = params.get('status');
-            const supplier = params.get('supplier');
-            const branch = params.get('branch');
-
-            if (sku) setSearchQuery(decodeURIComponent(sku));
-            if (status) setStatusFilter(decodeURIComponent(status));
-            if (supplier) setFornecedor(decodeURIComponent(supplier));
-            if (branch) setFilial(decodeURIComponent(branch));
-        } catch (err) {
-            // noop
-        }
-    }, []);
-
-    const fileInputRef = useRef(null);
-    const [isConfirmOrderModalOpen, setIsConfirmOrderModalOpen] = useState(false);
-    const [isImportConfirmModalOpen, setIsImportConfirmModalOpen] = useState(false);
-    const [selectedFile, setSelectedFile] = useState(null);
+    const {
+        statusOptions,
+        fileInputRef,
+        stock,
+        selectedFile,
+        isImportConfirmModalOpen,
+        setIsImportConfirmModalOpen,
+        isConfirmOrderModalOpen,
+        setIsConfirmOrderModalOpen,
+        handleImportClick,
+        handleFileChange,
+        handleConfirmImport,
+        handleConfirmCreateOrder,
+    } = useStockPageLogic();
 
     const {
         isNewOrderVisible,
@@ -54,8 +45,6 @@ export default function Stock() {
         setStatusFilter,
         fornecedor,
         setFornecedor,
-        filial,
-        setFilial,
         isDeleteModalOpen,
         setIsDeleteModalOpen,
         handleShowNewOrder,
@@ -63,51 +52,10 @@ export default function Stock() {
         handleNewOrderRowUpdate,
         handleDeleteClick,
         confirmDelete,
-        handleCreateOrder,
-        // Novos dados vindos do Hook (Banco de Dados)
         supplierOptions, 
         loading 
-    } = useStock(); 
+    } = stock; 
 
-    const handleImportClick = () => {
-        if (fileInputRef.current) {
-            fileInputRef.current.click();
-        }
-    };
-
-    const handleFileChange = (event) => {
-        const file = event.target.files[0];
-        if (file) {
-            setSelectedFile(file);
-            setIsImportConfirmModalOpen(true);
-        }
-        event.target.value = '';
-    };
-
-    const handleConfirmImport = async () => {
-        if (selectedFile) {
-            try {
-                const result = await importStockFromFile(selectedFile);
-                alert(result.message || "Importação realizada com sucesso!"); 
-            } catch (error) {
-                console.error("Erro ao importar arquivo:", error);
-                alert(`Erro ao importar: ${error.message}`);
-            } finally {
-                setSelectedFile(null);
-                setIsImportConfirmModalOpen(false);
-            }
-        }
-    };
-
-    const handleExportClick = async () => {
-        try {
-            const result = await exportStockData(filteredRows);
-            // alert(result.message);
-        } catch (error) {
-            console.error("Erro ao exportar dados:", error);
-            alert(`Erro ao exportar: ${error.message}`);
-        }
-    };
 
     return (
         <div className="grid min-h-screen grid-cols-[16rem_minmax(0,1fr)]">
@@ -132,7 +80,6 @@ export default function Stock() {
                                 onChange={(e) => setStatusFilter(e.target.value)}
                                 options={statusOptions}
                             />
-                            {/* AQUI: Agora usa a lista real do banco, não o mock */}
                             <SelectFilter
                                 label="Fornecedor"
                                 name="fornecedor"
@@ -140,16 +87,8 @@ export default function Stock() {
                                 onChange={(e) => setFornecedor(e.target.value)}
                                 options={supplierOptions} 
                             />
-                            <SelectFilter
-                                label="Filial"
-                                name="filial"
-                                value={filial}
-                                onChange={(e) => setFilial(e.target.value)}
-                                options={filialOptions}
-                            />
                         </div>
 
-                        {/* AQUI: Adicionei 'key' e 'loading' para estabilidade, sem mudar o visual */}
                         <StockTable 
                             key={isNewOrderVisible ? "selection-mode" : "view-mode"}
                             rows={filteredRows}
@@ -183,13 +122,30 @@ export default function Stock() {
                                 >
                                     IMPORTAR
                                 </button>
-                                <button
-                                    onClick={handleExportClick}
-                                    className="px-4 py-2 font-normal text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
-                                >
-                                    EXPORTAR
-                                </button>
-
+                                <ExportDropdown
+                                    options={[
+                                        {
+                                            label: "CSV",
+                                            onClick: () => {
+                                                try {
+                                                    exportStockCSV(filteredRows);
+                                                } catch (error) {
+                                                    logger.error("Erro ao exportar CSV:", error);
+                                                }
+                                            }
+                                        },
+                                        {
+                                            label: "Excel",
+                                            onClick: async () => {
+                                                try {
+                                                    await exportStockData(filteredRows);
+                                                } catch (err) {
+                                                    logger.error('Erro exportando XLSX via serviço:', err);
+                                                }
+                                            }
+                                        },
+                                    ]}
+                                />
                                 <input 
                                     type="file"
                                     ref={fileInputRef}
@@ -234,9 +190,7 @@ export default function Stock() {
             <ConfirmationModal
                 isOpen={isConfirmOrderModalOpen}
                 onClose={() => setIsConfirmOrderModalOpen(false)}
-                onConfirm={() => {
-                    handleCreateOrder(navigate);
-                }}
+                onConfirm={handleConfirmCreateOrder}
                 title="Confirmar Novo Pedido"
                 message="Você gostaria de fazer um novo pedido?"
                 confirmButtonText="Sim"

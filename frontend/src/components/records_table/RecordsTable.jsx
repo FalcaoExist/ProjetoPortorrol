@@ -19,7 +19,7 @@ function truncateText(text, maxLength = MAX_DESCRIPTION_LENGTH) {
   return text.slice(0, maxLength) + "…";
 }
 
-export default function RecordsTable({ records = [] }) {
+export default function RecordsTable({ records = [], loading = false }) {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [selectedLog, setSelectedLog] = useState(null);
   const openDetails = (row) => {
@@ -31,7 +31,7 @@ export default function RecordsTable({ records = [] }) {
     setSelectedLog(null);
   };
 
-  const isCompactLayout = useMediaQuery("(max-width:1279px)");
+  const isCompactLayout = useMediaQuery("(max-width:1579px)");
   const { anchorEl, activeColumnId, openPopover, closePopover } = useColumnPopover();
 
   const { formattedRows, allActionOptions: computedActionOptions, filters, handleFilterChange } = useRecords(records);
@@ -44,8 +44,8 @@ export default function RecordsTable({ records = [] }) {
         headerName: "Usuário",
         minWidth: isCompactLayout ? 160 : 200,
         flex: 1,
-        headerAlign: "center",
-        align: "center",
+        headerAlign: "left",
+        align: "left",
       },
       {
         field: "timestamp",
@@ -54,8 +54,8 @@ export default function RecordsTable({ records = [] }) {
         minWidth: isCompactLayout ? 180 : 220,
         flex: 1,
         valueFormatter: (value) => (value ? new Date(value).toLocaleString("pt-BR") : ""),
-        headerAlign: "center",
-        align: "center",
+        headerAlign: "left",
+        align: "left",
         renderHeader: () => (
           <CustomFilterHeader
             columnId="timestamp"
@@ -71,12 +71,12 @@ export default function RecordsTable({ records = [] }) {
         ),
       },
       {
-        field: "actionLabel",
+        field: "action_label",
         headerName: "Ação",
         minWidth: isCompactLayout ? 120 : 150,
         flex: 0.7,
-        headerAlign: "center",
-        align: "center",
+        headerAlign: "left",
+        align: "left",
         renderHeader: () => (
           <CustomFilterHeader
             columnId="action"
@@ -98,8 +98,8 @@ export default function RecordsTable({ records = [] }) {
         headerName: "Severidade",
         minWidth: 130,
         flex: 0.6,
-        headerAlign: "center",
-        align: "center",
+        headerAlign: "left",
+        align: "left",
         sortable: false,
         renderHeader: () => (
           <CustomFilterHeader
@@ -130,8 +130,8 @@ export default function RecordsTable({ records = [] }) {
         headerName: "Descrição",
         minWidth: isCompactLayout ? 200 : 300,
         flex: 1.5,
-        headerAlign: "center",
-        align: "center",
+        headerAlign: "left",
+        align: "left",
         sortable: false,
         renderCell: (params) => {
           const fullText = params.value;
@@ -167,6 +167,8 @@ export default function RecordsTable({ records = [] }) {
       <BaseDataGrid
         rows={formattedRows}
         columns={columns}
+        loading={loading}
+        sx={{ height: isCompactLayout ? 500 : 650 }}
       />
 
       <Dialog
@@ -189,9 +191,9 @@ export default function RecordsTable({ records = [] }) {
                 {new Date(selectedLog.timestamp).toLocaleString("pt-BR")}
               </Typography>
 
-              <Stack direction="row" spacing={2} alignItems="center">
+              <Stack direction="row" spacing={2} alignItems="left">
                 <Typography>
-                  <strong>Ação:</strong> {selectedLog.actionLabel}
+                  <strong>Ação:</strong> {selectedLog.action_label}
                 </Typography>
 
                 <Chip

@@ -1,55 +1,156 @@
-import httpClient from "./validators/api/httpClient";
+import httpClient from './validators/api/httpClient';
+import { logger } from "../utils/logger";
+
+const mapCriticalItem = (item = {}) => ({
+  name: item.codigo,
+  qtd: item.dias_cobertura,
+  dias: item.dias_cobertura,
+  demanda_real: item.demanda_mensal_media,
+  ...item,
+});
 
 const dashboardService = {
-  // Adicionado argumento 'supplier'
-  async getSkus(status = null, filial = null, supplier = null) {
-    const params = new URLSearchParams();
-    if (status) params.append("status", status);
-    if (filial) params.append("filial", filial);
-    if (supplier) params.append("fornecedor", supplier); // Envia para o back
-
+  searchSkus: async (term) => {
     try {
-      const endpoint = params.toString() ? `/dashboard/skus?${params.toString()}` : "/dashboard/skus";
-      const data = await httpClient.get(endpoint);
-      return data || [];
+      const response = await httpClient.get('/dashboard/search', {
+        params: { term }
+      });
+      return response.data || response || [];
     } catch (error) {
-      console.error("Erro dashboard skus:", error);
+      logger.error("Erro ao buscar SKUs no backend:", error);
       return [];
     }
   },
 
-  async getFiliais() {
+  getSkus: async (status, filial, fornecedor) => {
     try {
-      return await httpClient.get("/dashboard/filiais");
+      let url = '/dashboard/skus';
+      const params = new URLSearchParams();
+      if (status) params.append('status', status);
+      if (filial && filial !== "Todas") params.append('filial', filial);
+      if (fornecedor && fornecedor !== "Todos") params.append('fornecedor', fornecedor);
+
+      if (params.toString()) {
+        url += `?${params.toString()}`;
+      }
+
+      const response = await httpClient.get(url);
+      return response.data || response;
     } catch (error) {
+      logger.error("Erro ao buscar SKUs:", error);
+      throw error;
+    }
+  },
+  getCriticalItems: async (limit = 20, supplier = null, noPendingOnly = false) => {
+    try {
+      let url = '/dashboard/critics';
+      const params = new URLSearchParams();
+      params.append('limit', limit);
+      
+      if (supplier && supplier !== "Todos") {
+        params.append('supplier', supplier);
+      }
+
+      if (noPendingOnly) {
+        params.append('no_pending_only', 'true');
+      }
+
+      url += `?${params.toString()}`;
+      
+      const response = await httpClient.get(url);
+      return response.data || response;
+    } catch (error) {
+      logger.error("Erro ao buscar itens críticos:", error);
       return [];
     }
   },
 
-  async searchSkus(query) {
-    if (!query) return [];
+  getFormattedCriticalItems: async (limit = 20, supplier = null, noPendingOnly = false) => {
     try {
-      return await httpClient.get(`/dashboard/search?q=${encodeURIComponent(query)}`);
+      const response = await dashboardService.getCriticalItems(limit, supplier, noPendingOnly);
+      const safeList = Array.isArray(response) ? response : [];
+      return safeList.map(mapCriticalItem);
     } catch (error) {
+      logger.error("Erro ao normalizar itens críticos:", error);
       return [];
     }
   },
 
-async getHistory(skuId) {
-    // REMOVIDO O BLOQUEIO: if (!skuId) return [];
+  getExcessItems: async (limit = 20, supplier = null) => {
     try {
-      // Se tiver ID, manda. Se não, chama a rota limpa para pegar o geral.
-      const endpoint = skuId 
-        ? `/dashboard/history?sku_id=${skuId}` 
-        : `/dashboard/history`;
-        
-      const data = await httpClient.get(endpoint);
-      return data || [];
+      let url = '/dashboard/excess';
+      const params = new URLSearchParams();
+      params.append('limit', limit);
+      
+      if (supplier && supplier !== "Todos") {
+        params.append('supplier', supplier);
+      }
+
+      url += `?${params.toString()}`;
+      
+      const response = await httpClient.get(url);
+      return response.data || response;
     } catch (error) {
-      console.error("Erro ao buscar histórico:", error);
+      logger.error("Erro ao buscar itens em excesso:", error);
       return [];
     }
   },
+
+  getFiliais: async () => {
+    try {
+      const response = await httpClient.get('/dashboard/filiais');
+      return response.data || response;
+    } catch (error) {
+      logger.error("Erro ao buscar filiais:", error);
+      throw error;
+    }
+  },
+  getSupplierStatus: async (filial, fornecedor) => {
+    try {
+      let url = '/dashboard/suppliers/status';
+      const params = new URLSearchParams();
+      const targetSupplier = (fornecedor && fornecedor !== "Todos") ? fornecedor : "TOTAL_GERAL";
+      params.append('supplier_name', targetSupplier);
+
+      if (params.toString()) {
+        url += `?${params.toString()}`;
+      }
+      
+      const response = await httpClient.get(url);
+      return response.data || response;
+    } catch (error) {
+      logger.error("Erro ao buscar status do fornecedor:", error);
+      return [];
+    }
+  },
+  getHistory: async (skuId = null) => {
+    try {
+      let url = '/dashboard/history';
+      if (skuId) {
+         url += `?sku_id=${skuId}`;
+      }
+      const response = await httpClient.get(url);
+      return response.data || response;
+    } catch (error) {
+      logger.error("Erro ao buscar histórico:", error);
+      throw error;
+    }
+  },
+
+  getSupplierBudget: async (supplierName = null) => {
+    try {
+      const url = supplierName && supplierName !== "Todos" 
+        ? `/dashboard/budget?supplier=${encodeURIComponent(supplierName)}` 
+        : '/dashboard/budget';
+      const response = await httpClient.get(url);
+      return response.data || response;
+    } catch (error) {
+      logger.error("Erro ao buscar budget do fornecedor:", error);
+      return { valor: 0, start: null, end: null };
+    }
+  }
+
 };
+
 
 export default dashboardService;

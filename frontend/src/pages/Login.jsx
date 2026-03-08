@@ -7,6 +7,7 @@ import LoginForm from "../components/login/LoginForm"
 import useLogin from "../hooks/useLogin.jsx";
 
 import { useAuth } from "../context/authContext"; 
+import { logger } from "../utils/logger";
 
 export default function Login() {
     const navigate = useNavigate();
@@ -25,16 +26,12 @@ export default function Login() {
 
             if (result.success) {
                 // Redirecionamento baseado no cargo (Role Based Redirection)
-                if (result.role === "gestor") {
-                    navigate("/list_users");      // Gestor -> Gerenciar Compradores
-                } else {
-                    navigate("/list_suppliers");  // Comprador -> Lista de Fornecedores
-                }
+                navigate("/home")
             } else {
                 setLoginError(result.message);
             }
         } catch (error) {
-            console.error("Erro inesperado no login:", error);
+            logger.error("Erro inesperado no login:", error);
             setLoginError("Erro inesperado. Tente novamente.");
         } finally {
             setLocalLoading(false);

@@ -1,6 +1,7 @@
 import { useState, useCallback } from "react";
 import { useAuth } from "../context/authContext"; 
 import { validateLogin } from "../services/validators/loginValidator.js"; 
+import { logger } from "../utils/logger";
 
 export default function useLogin() {
   const [email, setEmail] = useState("");
@@ -47,7 +48,7 @@ export default function useLogin() {
 
       } catch (err) {
         setErrors({ form: "Ocorreu um erro inesperado." });
-        console.error(err);
+        logger.error(err);
       } finally {
         setLoading(false);
       }

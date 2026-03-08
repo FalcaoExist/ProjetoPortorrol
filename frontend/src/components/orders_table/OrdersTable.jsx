@@ -1,24 +1,7 @@
 import React, { useMemo } from "react";
 import { BaseDataGrid } from "../common/BaseDataGrid";
-
-const getStatusStyles = (status) => {
-    if (status === "Aprovado") {
-        return { bgColor: "bg-green-200", textColor: "text-green-800" };
-    }
-    if (status === "Atrasado") {
-        return { bgColor: "bg-red-200", textColor: "text-red-800" };
-    }
-    return { bgColor: "bg-gray-200", textColor: "text-gray-800" };
-};
-
-const StatusCell = ({ value }) => {
-    const styles = getStatusStyles(value);
-    return (
-        <div className={`inline-block px-2 py-1 text-center rounded-full text-xs font-semibold ${styles.bgColor} ${styles.textColor}`}>
-            {value}
-        </div>
-    );
-};
+import { logger } from "../../utils/logger";
+import { StatusCell } from "../../pages/ordersConfig";
 
 const EditDateCell = (props) => {
     const { id, value, field, api } = props;
@@ -46,7 +29,7 @@ const EditDateCell = (props) => {
     );
 };
 
-export default function OrdersTable({ rows = [], updateData }) {
+export default function OrdersTable({ rows = [], updateData, onViewDetails }) {
     const processRowUpdate = (newRow) => {
         const dateString = newRow.data_entrega ? newRow.data_entrega.toISOString().split('T')[0] : null;
         updateData(newRow.id, "data_entrega", dateString);
@@ -60,10 +43,11 @@ export default function OrdersTable({ rows = [], updateData }) {
         return new Date(date.valueOf() + timeZoneOffset);
     };
 
-    const rowsWithDateObjects = useMemo(() => rows.map(row => ({
+const rowsWithDateObjects = useMemo(() => rows.map(row => ({
         ...row,
         previsao_entrega: createUTCDate(row.previsao_entrega),
-        data_entrega: createUTCDate(row.data_entrega)
+        data_entrega: createUTCDate(row.data_entrega),
+        data_pedido: createUTCDate(row.data_pedido || row.created_at)
     })), [rows]);
 
 
@@ -113,9 +97,8 @@ export default function OrdersTable({ rows = [], updateData }) {
             rows={rowsWithDateObjects}
             columns={columns}
             processRowUpdate={processRowUpdate}
-            onProcessRowUpdateError={(error) => console.error(error)}
+            onProcessRowUpdateError={(error) => logger.error(error)}
             experimentalFeatures={{ newEditingApi: true }}
-            autoHeight
         />
     );
 }

@@ -3,13 +3,14 @@ import Header from "../components/header/Header";
 import Navbar from "../components/nav_bar/NavBar";
 import { BaseDataGrid } from "../components/common/BaseDataGrid";
 import { useOrders } from "../hooks/useOrders";
+import { useOrdersPageLogic } from "../hooks/useOrdersPageLogic";
 import { getMainOrdersColumns } from "./ordersConfig.jsx";
 import { exportRowsCSV } from "../services/csvExporter";
-import OrderDetailsModal from "../components/OrderDetailsModal.jsx";
-import OrdersFilter from "../components/OrdersFilter.jsx";
-import { useRef, useState, useEffect } from "react";
+import { exportRowsXLSX } from "../services/xlsxExporter";
+import OrderDetailsModal from "../components/order_details_modal/OrderDetailsModal.jsx";
+import OrdersFilter from "../components/orders_filter/OrdersFilter.jsx";
 import ConfirmationModal from "../components/common/ConfirmationModal";
-import { importOrdersFromExcel } from "../services/ordersImporter";
+import ExportDropdown from "../components/common/ExportDropdown";
 
 export default function Orders() {
     const { user, showReminder, dismissReminder } = useAuth();
@@ -22,52 +23,37 @@ export default function Orders() {
         setOrderDate,
         responsavelFilter,
         setResponsavelFilter,
+        fornecedorFilter,
+        setFornecedorFilter,
+        supplierOptions,
         modalOpen,
         selectedOrderItems,
         handleOpenModal,
         handleCloseModal,
         groupedAndFilteredOrders,
         handleUpdateData,
+        loading,
+        fetchOrders,
     } = useOrders();
 
-    useEffect(() => {
-        if (showReminder) {
-            dismissReminder();
-        }
-    }, [showReminder, dismissReminder]);
-
     const mainOrdersColumns = getMainOrdersColumns(handleOpenModal);
-    const fileInputRef = useRef(null);
-    const [isImportConfirmModalOpen, setIsImportConfirmModalOpen] = useState(false);
-    const [selectedFile, setSelectedFile] = useState(null);
-
-
-    const handleImportClick = () => {
-        fileInputRef.current.click();
-    };
-
-    const handleFileChange = (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            setSelectedFile(file);
-            setIsImportConfirmModalOpen(true);
-        }
-        e.target.value = '';
-    };
-
-    const handleConfirmImport = async () => {
-        if (selectedFile) {
-            try {
-                const processed = await importOrdersFromExcel(selectedFile);
-                console.log('Imported (processed) rows:', processed);
-                // TODO: Process the imported data and add it to the orders table
-            } catch (err) {
-                alert('Erro ao importar arquivo: ' + err.message);
-            }
-            setSelectedFile(null);
-            setIsImportConfirmModalOpen(false);
-        }
-    };
+    const {
+        fileInputRef,
+        selectedFile,
+        isImportConfirmModalOpen,
+        exportRows,
+        handleImportClick,
+        handleFileChange,
+        handleConfirmImport,
+        closeImportModal,
+    } = useOrdersPageLogic({
+        setStatusFilter,
+        setFornecedorFilter,
+        groupedAndFilteredOrders,
+        showReminder,
+        dismissReminder,
+        onImportSuccess: fetchOrders,
+    });
 
     return (
         <div className="grid min-h-screen grid-cols-[16rem_minmax(0,1fr)]">
@@ -88,13 +74,21 @@ export default function Orders() {
                                 onOrderDateChange={(e) => setOrderDate(e.target.value)}
                                 responsavelFilter={responsavelFilter}
                                 onResponsavelChange={(e) => setResponsavelFilter(e.target.value)}
+                                 fornecedorFilter={fornecedorFilter}
+                                onFornecedorChange={(e) => setFornecedorFilter(e.target.value)}
+                                supplierOptions={supplierOptions}
                             />
                         </div>
 
                         <BaseDataGrid 
                             rows={groupedAndFilteredOrders}
                             columns={mainOrdersColumns}
-                            autoHeight
+                            loading={loading}
+                            initialState={{
+                                sorting: {
+                                    sortModel: [{ field: "data_pedido", sort: "desc" }],
+                                },
+                            }}
                         />
 
                         <div className="flex justify-end mt-4 space-x-2">
@@ -111,37 +105,21 @@ export default function Orders() {
                             >
                                 IMPORTAR PEDIDOS
                             </button>
-                            <button
-                                onClick={() => {
-                                    // Monta linhas CSV: cabeçalho em pt-BR
-                                    const rows = [];
-                                    rows.push(["Número do Pedido", "Data do Pedido", "Status", "Item", "Fornecedor", "Quantidade", "Valor", "Filial", "Previsão Entrega", "Data Entrega"]);
-                                    groupedAndFilteredOrders.forEach(order => {
-                                        // para cada item, incluir número, data e status do pedido (sem campos vazios)
-                                        order.items.forEach(it => {
-                                            rows.push([
-                                                order.numero_pedido,
-                                                order.data_pedido,
-                                                order.status,
-                                                it.item,
-                                                it.fornecedor,
-                                                it.quantidade,
-                                                it.valor,
-                                                it.filial,
-                                                it.previsao_entrega,
-                                                it.data_entrega || "",
-                                            ]);
-                                        });
-                                        // linha em branco separadora
-                                        rows.push([]);
-                                    });
-
-                                    exportRowsCSV(rows, "PEDIDOS");
-                                }}
-                                className="px-4 py-2 font-normal text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
-                            >
-                                EXPORTAR
-                            </button>
+                           <ExportDropdown
+                                options={[{
+                                    label: "CSV",
+                                    onClick: () => {
+                                        exportRowsCSV(exportRows, "PEDIDOS");
+                                    }
+                                },
+                                {
+                                    label: "Excel",
+                                    onClick: () => {
+                                        exportRowsXLSX(exportRows, "PEDIDOS");
+                                    }
+                                },
+                                ]}
+                            />
                         </div>
                     </section>
                 </div>
@@ -156,10 +134,7 @@ export default function Orders() {
 
             <ConfirmationModal
                 isOpen={isImportConfirmModalOpen}
-                onClose={() => {
-                    setSelectedFile(null);
-                    setIsImportConfirmModalOpen(false);
-                }}
+                onClose={closeImportModal}
                 onConfirm={handleConfirmImport}
                 title="Confirmar Importação"
                 message={`Você tem certeza que deseja importar o arquivo ${selectedFile?.name}?`}

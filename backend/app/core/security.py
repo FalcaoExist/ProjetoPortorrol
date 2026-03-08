@@ -2,14 +2,15 @@
 import os
 from datetime import datetime, timedelta
 from typing import Optional
-
 from dotenv import load_dotenv
 from jose import jwt
 
 load_dotenv()
 
 # Configurações (Mesmas do dependencies.py)
-SECRET_KEY = os.getenv("SECRET_KEY", "uma_chave_super_secreta_e_segura_123")
+SECRET_KEY = os.getenv("SECRET_KEY")
+if not SECRET_KEY:
+    raise ValueError("SECRET_KEY deve ser definida nas variáveis de ambiente.")
 ALGORITHM = os.getenv("ALGORITHM", "HS256")
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):

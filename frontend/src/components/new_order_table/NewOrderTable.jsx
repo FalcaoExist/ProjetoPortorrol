@@ -1,9 +1,12 @@
 import React, { useMemo } from 'react';
 import { BaseDataGrid } from '../common/BaseDataGrid';
+import { logger } from "../../utils/logger";
 import { IconButton } from '@mui/material';
 import { FaTrash } from 'react-icons/fa';
 
 const filialOptions = ["Porto Alegre", "Joinville", "São Paulo"];
+
+const normalizeFilial = (value) => (filialOptions.includes(value) ? value : "");
 
 export default function NewOrderTable({ 
     rows = [], 
@@ -47,7 +50,6 @@ export default function NewOrderTable({
             flex: 1,
             align: 'left',
             headerAlign: 'left',
-            editable: true,
             type: "singleSelect",
             valueOptions: supplierOptions,
         },
@@ -69,6 +71,13 @@ export default function NewOrderTable({
             editable: true,
             type: "singleSelect",
             valueOptions: filialOptions,
+            valueGetter: (_, row) => normalizeFilial(row?.filial),
+            preProcessEditCellProps: (params) => {
+                const value = params.props.value;
+                const isEmpty = value === null || value === undefined || String(value).trim() === "";
+                const isValid = isEmpty || filialOptions.includes(value);
+                return { ...params.props, error: !isValid };
+            },
             align: "left",
             headerAlign: "left",
             renderCell: (params) => params.value ?? "",
@@ -154,7 +163,7 @@ export default function NewOrderTable({
                     rows={rows}
                     columns={columns}
                     processRowUpdate={processRowUpdate}
-                    onProcessRowUpdateError={(error) => console.error(error)}
+                    onProcessRowUpdateError={(error) => logger.error(error)}
                     experimentalFeatures={{ newEditingApi: true }}
                 />
             </div>

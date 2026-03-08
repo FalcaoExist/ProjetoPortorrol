@@ -1,20 +1,32 @@
+from fastapi import HTTPException
+import logging
+import unicodedata
 from datetime import datetime, timedelta
-
 from app.api.schemas import StatusProduto
 from app.repositories.dashboard_repository import DashboardRepository
+from app.audit.audit_actions import AuditAction
+from app.services.audit_service import AuditService
 
+logger = logging.getLogger(__name__)
 
 class DashboardService:
-    def __init__(self):
-        self.repo = DashboardRepository()
 
-    # --- MÉTODOS AUXILIARES (SEGURANÇA) ---
+    def __init__(self, audit_service: AuditService):
+        self.repo = DashboardRepository()
+        self.audit_service = audit_service
+
+    def _normalize_text(self, text: str) -> str:
+        if not text:
+            return ""
+        return unicodedata.normalize('NFKD', str(text)).encode('ASCII', 'ignore').decode('utf-8').lower().strip()
+
     def _safe_float(self, val, default=0.0):
         try:
             if val is None:
                 return default
             return float(val)
-        except Exception:
+        except (TypeError, ValueError):
+            logger.debug("Falha ao converter valor para float: %s", val)
             return default
 
     def _safe_int(self, val, default=0):
@@ -22,19 +34,12 @@ class DashboardService:
             if val is None:
                 return default
             return int(float(val))
-        except Exception:
+        except (TypeError, ValueError):
+            logger.debug("Falha ao converter valor para int: %s", val)
             return default
 
-    # --- LÓGICA DE STATUS (Baseada em DIAS DE COBERTURA) ---
     def _calculate_status(self, coverage_days: float) -> StatusProduto:
-        """
-        Define o status baseado nos Dias de Cobertura (Estoque / Demanda * 30):
-        > 120 dias       -> EXCESSO
-        60 a 120 dias    -> OK
-        30 a 59.9 dias   -> SUBDIMENSIONADO
-        < 30 dias        -> RUPTURA
-        """
-        if coverage_days > 120.0:
+        if coverage_days > 100.0:
             return StatusProduto.EXCESSO
         elif coverage_days >= 60.0:
             return StatusProduto.OK
@@ -43,129 +48,206 @@ class DashboardService:
         else:
             return StatusProduto.RUPTURA
 
-    def _format_output(self, raw_data: list):
+    def _format_output(self, raw_data: list, branch_name: str = "Geral"):
         processed_data = []
-        if not raw_data:
-            return []
 
-        for item in raw_data:
+        for item in raw_data or []:
             if not item:
                 continue
 
-            raw_analysis = item.get("tb_analise_compra", [])
-            analysis_data = {}
-
-            if isinstance(raw_analysis, list):
-                if len(raw_analysis) > 0:
-                    analysis_data = raw_analysis[0]
-            elif isinstance(raw_analysis, dict):
-                analysis_data = raw_analysis
-
-            stock = self._safe_int(analysis_data.get("estoque_soma"))
-            demand = self._safe_float(analysis_data.get("demanda_soma"))
-
-            coverage_days = 0.0
-            if demand > 0:
-                coverage_days = (stock / demand) * 30
-            elif stock > 0:
-                coverage_days = 999.0
-            else:
+            coverage_days = self._safe_float(item.get("dias_cobertura"))
+            if coverage_days < 0:
                 coverage_days = 0.0
 
-            status = self._calculate_status(coverage_days)
+            fornecedor_nome = item.get("fornecedor") or ""
 
-            sku_obj = {
-                "sku_id": item.get("id"),
+            processed_data.append({
+                "sku_id": item.get("sku_id"),
                 "codigo": item.get("codigo") or "N/A",
                 "nome_produto": item.get("nome_produto") or "",
-                "marca": item.get("marca") or "",
+                "marca": item.get("marca") or fornecedor_nome,
                 "classificacao": item.get("classificacao") or "Geral",
                 "atendimento": round(coverage_days, 1),
-                "status": status,
-                "sugestao_compra": self._safe_int(analysis_data.get("sugestao_compra")),
-                "estoque_soma": stock,
-                "demanda_soma": demand,
-                "filial_nome": str(analysis_data.get("filial_id") or "")
-            }
-            processed_data.append(sku_obj)
+                "status": self._calculate_status(coverage_days),
+                "sugestao_compra": self._safe_int(item.get("sugestao_compra")),
+                "valor": self._safe_float(item.get("valor")),
+                "estoque_soma": self._safe_int(item.get("estoque_atual")),
+                "demanda_soma": self._safe_float(item.get("demanda_mensal_media")),
+                "filial_nome": branch_name if branch_name and branch_name != "Todas" else "Geral",
+                "fornecedor_nome": fornecedor_nome,
+                "estoque_sp": self._safe_int(item.get("estoque_sp")),
+                "estoque_jv": self._safe_int(item.get("estoque_jv")),
+                "estoque_poa": self._safe_int(item.get("estoque_poa"))
+            })
 
         return processed_data
 
-    # --- MÉTODOS PRINCIPAIS ---
-
     def get_filtered_skus(self, status_filter: str = None, branch: str = None, supplier: str = None):
-        raw_data = self.repo.get_all_skus_with_analysis()
-        all_products = self._format_output(raw_data)
-
-        result = all_products
-
-        if status_filter:
-            result = [p for p in result if p["status"].value == status_filter.upper()]
-
-        if branch and branch.strip() and branch != "Todas":
-            b_term = branch.lower().strip()
-            result = [p for p in result if b_term in p["filial_nome"].lower()]
-
-        if supplier and supplier.strip() and supplier != "Todos":
-            s_term = supplier.lower().strip()
-            result = [p for p in result if s_term in p["marca"].lower() or s_term in p["nome_produto"].lower()]
-
-        return result
+        try:
+            raw_data = self.repo.get_filtered_skus(status=status_filter, branch=branch, supplier=supplier)
+            return self._format_output(raw_data, branch)
+        except Exception:
+            logger.exception("Erro ao buscar SKUs filtrados para dashboard")
+            raise
 
     def search_products(self, term: str):
         if not term:
             return []
-        raw_data = self.repo.search_by_term(term)
-        return self._format_output(raw_data)
+
+        try:
+            raw_data = self.repo.get_filtered_skus(search=term, limit=15)
+            return self._format_output(raw_data)
+        except Exception:
+            logger.exception("Erro ao buscar produtos pelo termo: %s", term)
+            raise
 
     def get_sku_history(self, sku_id: int = None):
-        if sku_id:
-            data = self.repo.get_history_by_sku(sku_id)
-            field = 'quantidade'
-        else:
-            data = self.repo.get_aggregate_history()
-            field = 'total_quantidade'
+        try:
+            if sku_id:
+                data = self.repo.get_history_by_sku(sku_id)
+                field = 'quantidade'
+            else:
+                rows = self.repo.get_aggregate_history()
+                if not rows:
+                    return []
+
+                aggregated = {}
+
+                for row in rows:
+                    seq, qty = row.get("periodo_sequencia"), row.get("quantidade")
+
+                    if seq is not None and qty is not None:
+                        try:
+                            aggregated[int(seq)] = aggregated.get(int(seq), 0) + float(qty)
+                        except:
+                            continue
+
+                data = [{"periodo_sequencia": seq, "total_quantidade": total} for seq, total in aggregated.items()]
+                data.sort(key=lambda x: x["periodo_sequencia"])
+                data = data[-24:]
+                field = 'total_quantidade'
+
+        except Exception:
+            logger.exception("Erro ao buscar histórico de SKU")
+            raise
 
         if not data:
             return []
-        
+
         def get_date_label(seq):
             try:
-                seq_int = int(seq)
-                today = datetime.now()
-                months_back = 24 - seq_int
-                target = today - timedelta(days=months_back * 30)
+                target = datetime.now() - timedelta(days=(24 - int(seq)) * 30)
                 return target.strftime("%m/%y")
-            except:
+            except (TypeError, ValueError):
+                logger.debug("Erro ao calcular label de data para sequencia: %s", seq)
                 return f"P{seq}"
 
         return [
             {
-                "month": get_date_label(item.get('periodo_sequencia')), 
+                "month": get_date_label(item.get('periodo_sequencia')),
                 "value": self._safe_int(item.get(field))
-            } 
+            }
             for item in data
         ]
 
     def get_branches(self):
-        raw_branches = self.repo.get_active_branches()
-        if not raw_branches:
-            return []
-        return [{"id": str(b["branch_id"]), "nome": b["name"]} for b in raw_branches]
+        try:
+            raw = self.repo.get_active_branches()
+            if not raw:
+                return []
 
-    def update_lead_time(self, value):
-        return self.repo.update_configuration("lead_time_padrao", value)
+            return [{"id": str(b["branch_id"]), "nome": b["name"]} for b in raw]
 
-    def update_budget(self, value):
-        return self.repo.update_configuration("orcamento_mensal", value)
-    
-def get_date_label(seq):
-    try:
-        seq_int = int(seq)
-        hoje = datetime.now()
-        # Se seq=24 (último), meses_atras=0. Se seq=1 (primeiro), meses_atras=23.
-        meses_atras = 24 - seq_int 
-        data_alvo = hoje - timedelta(days=meses_atras * 30)
-        return data_alvo.strftime("%m/%y") 
-    except:
-        return f"P{seq}"
+        except Exception:
+            logger.exception("Erro ao buscar filiais ativas")
+            raise
+
+    def update_lead_time(self, value, user_id: str = None):
+        try:
+            result = self.repo.update_configuration("lead_time_padrao", value)
+
+            self.audit_service.log(
+                action=AuditAction.STOCK_UPDATE,
+                performed_by=user_id,
+                entity="CONFIGURATION",
+                entity_id="lead_time_padrao",
+                extra={"new_value": value},
+            )
+
+            return result
+
+        except Exception:
+            logger.exception("Erro ao atualizar lead_time_padrao")
+            raise
+
+    def update_budget(self, value, user_id: str = None):
+        try:
+            result = self.repo.update_configuration("orcamento_mensal", value)
+
+            self.audit_service.log(
+                action=AuditAction.STOCK_UPDATE,
+                performed_by=user_id,
+                entity="CONFIGURATION",
+                entity_id="orcamento_mensal",
+                extra={"new_value": value},
+            )
+
+            return result
+
+        except Exception:
+            logger.exception("Erro ao atualizar orcamento_mensal")
+            raise
+
+    def get_configuration(self, key: str):
+        return self.repo.get_configuration(key)
+
+    def get_budget_context(self, supplier_name: str = None):
+
+        total = self.repo.get_total_active_budget()
+        individual = total
+        start = end = None
+
+        if supplier_name and supplier_name != "Todos":
+            data = self.repo.get_supplier_budget(supplier_name)
+
+            if data:
+                individual = self._safe_float(data.get('budget'))
+                start = data.get('start')
+                end = data.get('end')
+
+        return {
+            "valor_total": total,
+            "valor_individual": individual,
+            "start": start,
+            "end": end
+        }
+
+    def get_supplier_status(self) -> list:
+        try:
+            return self.repo.get_supplier_status()
+        except Exception as e:
+            logger.exception(f"Erro ao buscar status dos fornecedores: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Erro ao buscar status dos fornecedores: {str(e)}")
+
+    def get_supplier_status_by_name(self, supplier_name: str) -> list:
+        try:
+            suppliers = self.repo.get_supplier_status()
+            result = next((supplier for supplier in suppliers if supplier.get("fornecedor") == supplier_name), None)
+            return [result] if result else []
+        except Exception as e:
+            logger.exception(f"Erro ao buscar status do fornecedor por nome: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Erro ao buscar status do fornecedor por nome: {str(e)}")
+
+    def get_critical_items(self, limit: int = 20, supplier: str = None, no_pending_only: bool = False):
+        try:
+            return self.repo.get_critical_skus(limit, supplier, no_pending_only)
+        except Exception as e:
+            logger.exception(f"Erro ao buscar SKUs criticos: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Erro ao buscar SKUs criticos: {str(e)}")
+
+    def get_excess_items(self, limit: int = 20, supplier: str = None):
+        try:
+            return self.repo.get_excess_skus(limit, supplier)
+        except Exception as e:
+            logger.exception(f"Erro ao buscar SKUs em excesso: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Erro ao buscar SKUs em excesso: {str(e)}")

@@ -5,22 +5,11 @@
  */
 
 export const traduzirErroUpload = (error) => {
-
-    // 1. Sem conexão
-
     if (!error.response) {
-
         return " Sem conexão com o servidor.";
-
     }
 
-
-
     const { status, data } = error.response;
-
-    
-
-    // Tenta pegar o texto do erro, seja string ou objeto
 
     let detalheTecnico = "";
 
@@ -29,10 +18,6 @@ export const traduzirErroUpload = (error) => {
         detalheTecnico = typeof data.detail === "string" ? data.detail : JSON.stringify(data.detail);
 
     }
-
-
-
-    // --- ZONA DE TRADUÇÃO (Adicione aqui frases comuns do Python) ---
 
     if (detalheTecnico.includes("No columns to parse")) {
 
@@ -58,17 +43,7 @@ export const traduzirErroUpload = (error) => {
 
     }
 
-
-
-    // --- TRATAMENTO POR CÓDIGO DE STATUS ---
-
-
-
-    // Erro 422: Validação (Lógica do nosso backend)
-
     if (status === 422) {
-
-        // Se for a nossa lista de erros customizada
 
         if (data.detail && data.detail.erros) {
 
@@ -76,31 +51,18 @@ export const traduzirErroUpload = (error) => {
 
         }
 
-        // Se for 422 genérico, não mostre o inglês. Invente um texto.
-
         return " O arquivo não está no formato correto exigido pelo sistema.";
 
     }
-
-
-
-    // Erro 400: Requisição ruim
 
     if (status === 400) {
 
         return " O arquivo enviado é inválido ou está corrompido.";
 
     }
-
-
-
-    // Erro 500: Servidor
-
-  // Erro 500: Servidor
     if (status >= 500) {
         return " Erro interno no servidor. Tente novamente mais tarde.";
     }
 
-    // --- FALLBACK FINAL (A BLINDAGEM) ---
     return ` Erro desconhecido (${status}). Verifique se o arquivo está correto.`;
 };
